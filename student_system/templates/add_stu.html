@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增学生</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-brand">学生信息管理系统</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">首页</a>
+            <a href="/manage" class="nav-link">数据管理</a>
+            {% if session.get('user_role') == 'admin' %}
+            <a href="/add" class="nav-link">新增学生</a>
+            {% endif %}
+            <a href="/query" class="nav-link">高级查询</a>
+            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
+        </div>
+        {% if session.get('username') %}
+        <div class="nav-user">欢迎，{{ session.get('username') }}
+            {% if session.get('user_role') == 'admin' %}
+            <span class="role-badge role-badge-admin">管理员</span>
+            {% else %}
+            <span class="role-badge role-badge-user">普通用户</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </nav>
+
+    <main class="main-content">
+        {% if session.get('user_role') == 'admin' %}
+        <div class="form-container">
+            <h2>新增学生</h2>
+            <form id="add_stu_form" class="stu-form">
+                <div class="form-group">
+                    <label for="student_no">学号</label>
+                    <input type="text" id="student_no" name="student_no" required placeholder="请输入学号">
+                </div>
+                <div class="form-group">
+                    <label for="student_name">姓名</label>
+                    <input type="text" id="student_name" name="student_name" required placeholder="请输入姓名">
+                </div>
+                <div class="form-group">
+                    <label for="gender">性别</label>
+                    <select id="gender" name="gender" required>
+                        <option value="">请选择</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="age">年龄</label>
+                    <input type="number" id="age" name="age" min="1" max="150" placeholder="请输入年龄">
+                </div>
+                <div class="form-group">
+                    <label for="major">专业</label>
+                    <input type="text" id="major" name="major" placeholder="请输入专业">
+                </div>
+                <div class="form-group">
+                    <label for="grade">年级</label>
+                    <input type="text" id="grade" name="grade" placeholder="请输入年级">
+                </div>
+                <div class="form-group">
+                    <label for="class_name">班级</label>
+                    <input type="text" id="class_name" name="class_name" placeholder="请输入班级">
+                </div>
+                <div class="form-group form-group-actions">
+                    <button type="submit" class="btn btn-primary">提交</button>
+                    <button type="reset" class="btn btn-secondary">重置</button>
+                </div>
+            </form>
+            <div id="msg_box" class="msg-box" style="display:none;"></div>
+        </div>
+        {% else %}
+        <div class="form-container">
+            <div class="permission-denied">
+                <h2>权限不足</h2>
+                <p>仅管理员可新增学生，您当前为普通用户角色。</p>
+                <a href="/" class="btn btn-primary">返回首页</a>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        var add_stu_form = document.getElementById('add_stu_form');
+        var msg_box = document.getElementById('msg_box');
+
+        function show_msg(text, is_success) {
+            msg_box.textContent = text;
+            msg_box.className = 'msg-box ' + (is_success ? 'msg-success' : 'msg-error');
+            msg_box.style.display = 'block';
+        }
+
+        function hide_msg() {
+            msg_box.style.display = 'none';
+        }
+
+        add_stu_form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            hide_msg();
+
+            var form_data = new FormData(add_stu_form);
+            var params = new URLSearchParams();
+            form_data.forEach(function(value, key) {
+                params.append(key, value);
+            });
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/add', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                show_msg('新增成功！', true);
+                                var go_next = confirm('学生信息已成功添加，是否继续新增？');
+                                if (go_next) {
+                                    add_stu_form.reset();
+                                } else {
+                                    window.location.href = '/manage';
+                                }
+                            } else {
+                                show_msg(res.message || '新增失败', false);
+                            }
+                        } catch (err) {
+                            show_msg('服务器响应异常', false);
+                        }
+                    } else {
+                        show_msg('请求失败，状态码：' + xhr.status, false);
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
+        });
+    </script>
+</body>
+</html>

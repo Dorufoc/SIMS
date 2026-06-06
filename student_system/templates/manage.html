@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据管理</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-brand">学生信息管理系统</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">首页</a>
+            <a href="/manage" class="nav-link">数据管理</a>
+            {% if session.get('user_role') == 'admin' %}
+            <a href="/add" class="nav-link">新增学生</a>
+            {% endif %}
+            <a href="/query" class="nav-link">高级查询</a>
+            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
+        </div>
+        {% if session.get('username') %}
+        <div class="nav-user">欢迎，{{ session.get('username') }}
+            {% if session.get('user_role') == 'admin' %}
+            <span class="role-badge role-badge-admin">管理员</span>
+            {% else %}
+            <span class="role-badge role-badge-user">普通用户</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </nav>
+
+    <main class="main-content">
+        <!-- 导入导出操作区 -->
+        <section class="import-export-area">
+            <h2>导入导出操作</h2>
+            <div class="import-export-actions">
+                {% if session.get('user_role') == 'admin' %}
+                <a href="/csv/template" class="btn btn-secondary" download>下载导入模板</a>
+
+                <div class="import-section">
+                    <input type="file" id="csv_file_input" accept=".csv" class="file-input">
+                    <button type="button" id="btn_preview_import" class="btn btn-primary">批量导入</button>
+                </div>
+                {% endif %}
+
+                <a href="/csv/export" class="btn btn-secondary" download>导出全部数据</a>
+                <a href="/csv/export_filtered" class="btn btn-secondary" download>导出筛选数据</a>
+            </div>
+
+            <!-- CSV导入预览区 -->
+            <div id="csv_preview_area" class="csv-preview-area" style="display:none;">
+                <h3>导入预览</h3>
+                <div id="csv_preview_errors" class="msg-box msg-error" style="display:none;"></div>
+                <div class="table-wrapper">
+                    <table id="csv_preview_table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>性别</th>
+                                <th>年龄</th>
+                                <th>专业</th>
+                                <th>年级</th>
+                                <th>班级</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csv_preview_tbody"></tbody>
+                    </table>
+                </div>
+                <div class="preview-actions">
+                    <button type="button" id="btn_confirm_import" class="btn btn-primary">确认导入</button>
+                    <button type="button" id="btn_cancel_import" class="btn btn-secondary">取消</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 学生数据表格 -->
+        <section class="data-section">
+            <h2>学生数据</h2>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>学号</th>
+                            <th>姓名</th>
+                            <th>性别</th>
+                            <th>年龄</th>
+                            <th>专业</th>
+                            <th>年级</th>
+                            <th>班级</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stu in data %}
+                        <tr>
+                            <td>{{ loop.index + (page - 1) * 10 }}</td>
+                            <td>{{ stu.student_no }}</td>
+                            <td>{{ stu.student_name }}</td>
+                            <td>{{ stu.gender or '' }}</td>
+                            <td>{{ stu.age or '' }}</td>
+                            <td>{{ stu.major or '' }}</td>
+                            <td>{{ stu.grade or '' }}</td>
+                            <td>{{ stu.class_name or '' }}</td>
+                            <td class="action-cell">
+                                {% if session.get('user_role') == 'admin' %}
+                                <a href="/edit/{{ stu.id }}" class="btn btn-sm btn-primary">编辑</a>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="delete_student({{ stu.id }}, '{{ stu.student_name }}')">删除</button>
+                                {% else %}
+                                <span class="action-readonly">只读</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-row">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页导航 -->
+            {% if total_pages > 0 %}
+            <nav class="page-nav">
+                {% if page > 1 %}
+                <a href="/manage?page={{ page - 1 }}" class="page-link">上一页</a>
+                {% else %}
+                <span class="page-link page-link-disabled">上一页</span>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <span class="page-link page-link-active">{{ p }}</span>
+                    {% else %}
+                    <a href="/manage?page={{ p }}" class="page-link">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <a href="/manage?page={{ page + 1 }}" class="page-link">下一页</a>
+                {% else %}
+                <span class="page-link page-link-disabled">下一页</span>
+                {% endif %}
+            </nav>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- 编辑模态框 -->
+    <div id="edit_modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑学生信息</h3>
+                <button type="button" class="modal-close" onclick="close_edit_modal()">&times;</button>
+            </div>
+            <form id="edit_stu_form">
+                <input type="hidden" id="edit_id" name="id">
+                <div class="form-group">
+                    <label for="edit_student_no">学号</label>
+                    <input type="text" id="edit_student_no" name="student_no" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_student_name">姓名</label>
+                    <input type="text" id="edit_student_name" name="student_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_gender">性别</label>
+                    <select id="edit_gender" name="gender" required>
+                        <option value="">请选择</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_age">年龄</label>
+                    <input type="number" id="edit_age" name="age" min="1" max="150">
+                </div>
+                <div class="form-group">
+                    <label for="edit_major">专业</label>
+                    <input type="text" id="edit_major" name="major">
+                </div>
+                <div class="form-group">
+                    <label for="edit_grade">年级</label>
+                    <input type="text" id="edit_grade" name="grade">
+                </div>
+                <div class="form-group">
+                    <label for="edit_class_name">班级</label>
+                    <input type="text" id="edit_class_name" name="class_name">
+                </div>
+                <div class="form-group form-group-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn btn-secondary" onclick="close_edit_modal()">取消</button>
+                </div>
+            </form>
+            <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        /* ========== CSV导入预览相关 ========== */
+        var csv_file_input = document.getElementById('csv_file_input');
+        var btn_preview_import = document.getElementById('btn_preview_import');
+        var csv_preview_area = document.getElementById('csv_preview_area');
+        var csv_preview_tbody = document.getElementById('csv_preview_tbody');
+        var csv_preview_errors = document.getElementById('csv_preview_errors');
+        var btn_confirm_import = document.getElementById('btn_confirm_import');
+        var btn_cancel_import = document.getElementById('btn_cancel_import');
+
+        var pending_csv_file = null;
+
+        btn_preview_import.addEventListener('click', function() {
+            if (!csv_file_input.files || csv_file_input.files.length === 0) {
+                alert('请先选择CSV文件');
+                return;
+            }
+            pending_csv_file = csv_file_input.files[0];
+            var form_data = new FormData();
+            form_data.append('file', pending_csv_file);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/csv/preview', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            render_csv_preview(res);
+                        } catch (err) {
+                            alert('预览数据解析失败');
+                        }
+                    } else {
+                        alert('预览请求失败，状态码：' + xhr.status);
+                    }
+                }
+            };
+            xhr.send(form_data);
+            show_loading();
+        });
+
+        function render_csv_preview(res) {
+            csv_preview_tbody.innerHTML = '';
+
+            if (res.errors && res.errors.length > 0) {
+                csv_preview_errors.textContent = res.errors.join('；');
+                csv_preview_errors.style.display = 'block';
+            } else {
+                csv_preview_errors.style.display = 'none';
+            }
+
+            if (res.valid_data && res.valid_data.length > 0) {
+                res.valid_data.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    row.forEach(function(cell) {
+                        var td = document.createElement('td');
+                        td.textContent = (cell !== null && cell !== undefined) ? cell : '';
+                        tr.appendChild(td);
+                    });
+                    csv_preview_tbody.appendChild(tr);
+                });
+                btn_confirm_import.style.display = '';
+            } else {
+                var tr = document.createElement('tr');
+                var td = document.createElement('td');
+                td.colSpan = 7;
+                td.textContent = '无有效数据';
+                td.className = 'empty-row';
+                tr.appendChild(td);
+                csv_preview_tbody.appendChild(tr);
+                btn_confirm_import.style.display = 'none';
+            }
+
+            csv_preview_area.style.display = 'block';
+        }
+
+        btn_confirm_import.addEventListener('click', function() {
+            if (!pending_csv_file) {
+                alert('未选择文件');
+                return;
+            }
+            var form_data = new FormData();
+            form_data.append('file', pending_csv_file);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/csv/import', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                alert('导入成功，共导入 ' + (res.count || 0) + ' 条数据');
+                                window.location.reload();
+                            } else {
+                                alert('导入失败：' + (res.message || '未知错误'));
+                            }
+                        } catch (err) {
+                            alert('导入响应解析失败');
+                        }
+                    } else {
+                        alert('导入请求失败，状态码：' + xhr.status);
+                    }
+                }
+            };
+            xhr.send(form_data);
+            show_loading();
+        });
+
+        btn_cancel_import.addEventListener('click', function() {
+            csv_preview_area.style.display = 'none';
+            csv_preview_tbody.innerHTML = '';
+            csv_preview_errors.style.display = 'none';
+            pending_csv_file = null;
+            csv_file_input.value = '';
+        });
+
+        /* ========== 删除操作 ========== */
+        function delete_student(stu_id, stu_name) {
+            var confirmed = confirm('确定要删除学生"' + stu_name + '"的信息吗？此操作不可恢复。');
+            if (!confirmed) return;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/delete/' + stu_id, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                alert('删除成功');
+                                window.location.reload();
+                            } else {
+                                alert('删除失败：' + (res.message || '未知错误'));
+                            }
+                        } catch (err) {
+                            alert('删除响应解析失败');
+                        }
+                    } else {
+                        alert('删除请求失败，状态码：' + xhr.status);
+                    }
+                }
+            };
+            xhr.send();
+            show_loading();
+        }
+
+        /* ========== 编辑模态框 ========== */
+        var edit_modal = document.getElementById('edit_modal');
+        var edit_stu_form = document.getElementById('edit_stu_form');
+        var edit_msg_box = document.getElementById('edit_msg_box');
+
+        function open_edit_modal(stu_id, stu_no, stu_name, gender, age, major, grade, class_name) {
+            document.getElementById('edit_id').value = stu_id;
+            document.getElementById('edit_student_no').value = stu_no;
+            document.getElementById('edit_student_name').value = stu_name;
+            document.getElementById('edit_gender').value = gender || '';
+            document.getElementById('edit_age').value = age || '';
+            document.getElementById('edit_major').value = major || '';
+            document.getElementById('edit_grade').value = grade || '';
+            document.getElementById('edit_class_name').value = class_name || '';
+            edit_msg_box.style.display = 'none';
+            edit_modal.style.display = 'flex';
+        }
+
+        function close_edit_modal() {
+            edit_modal.style.display = 'none';
+            edit_stu_form.reset();
+        }
+
+        edit_stu_form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            edit_msg_box.style.display = 'none';
+
+            var form_data = new FormData(edit_stu_form);
+            var params = new URLSearchParams();
+            form_data.forEach(function(value, key) {
+                params.append(key, value);
+            });
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/edit/' + document.getElementById('edit_id').value, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                close_edit_modal();
+                                window.location.reload();
+                            } else {
+                                edit_msg_box.textContent = res.message || '编辑失败';
+                                edit_msg_box.className = 'msg-box msg-error';
+                                edit_msg_box.style.display = 'block';
+                            }
+                        } catch (err) {
+                            edit_msg_box.textContent = '服务器响应异常';
+                            edit_msg_box.className = 'msg-box msg-error';
+                            edit_msg_box.style.display = 'block';
+                        }
+                    } else {
+                        edit_msg_box.textContent = '请求失败，状态码：' + xhr.status;
+                        edit_msg_box.className = 'msg-box msg-error';
+                        edit_msg_box.style.display = 'block';
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
+        });
+        edit_modal.addEventListener('click', function(e) {
+            if (e.target === edit_modal) {
+                close_edit_modal();
+            }
+        });
+    </script>
+</body>
+</html>

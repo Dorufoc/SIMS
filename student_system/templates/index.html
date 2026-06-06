@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-brand">学生信息管理系统</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">首页</a>
+            <a href="/manage" class="nav-link">数据管理</a>
+            {% if session.get('user_role') == 'admin' %}
+            <a href="/add" class="nav-link">新增学生</a>
+            {% endif %}
+            <a href="/query" class="nav-link">高级查询</a>
+            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
+        </div>
+        {% if session.get('username') %}
+        <div class="nav-user">欢迎，{{ session.get('username') }}
+            {% if session.get('user_role') == 'admin' %}
+            <span class="role-badge role-badge-admin">管理员</span>
+            {% else %}
+            <span class="role-badge role-badge-user">普通用户</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </nav>
+
+    <main class="main-content">
+        <section class="welcome-section">
+            <h1>欢迎使用学生信息管理系统</h1>
+            <p>本系统提供学生信息的增删改查、批量导入导出等管理功能，请选择下方功能开始使用。</p>
+        </section>
+
+        <section class="feature-cards">
+            <div class="feature-card">
+                <h2>数据管理</h2>
+                <p>查看、编辑、删除学生信息，支持批量导入导出CSV文件。</p>
+                <a href="/manage" class="feature-card-link">进入管理</a>
+            </div>
+            {% if session.get('user_role') == 'admin' %}
+            <div class="feature-card">
+                <h2>新增学生</h2>
+                <p>逐条录入学生信息，填写学号、姓名、性别等基本资料。</p>
+                <a href="/add" class="feature-card-link">新增学生</a>
+            </div>
+            {% else %}
+            <div class="feature-card feature-card-disabled">
+                <h2>新增学生</h2>
+                <p>逐条录入学生信息，填写学号、姓名、性别等基本资料。</p>
+                <span class="feature-card-link feature-card-link-disabled">仅管理员</span>
+            </div>
+            {% endif %}
+            <div class="feature-card">
+                <h2>高级查询</h2>
+                <p>按学号、姓名、专业、年级等多条件组合查询学生信息。</p>
+                <a href="/query" class="feature-card-link">开始查询</a>
+            </div>
+        </section>
+    </main>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生信息管理系统 - 登录</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            background: url('/static/img/bg.png') no-repeat center center;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>学生信息管理系统</h1>
+        <div class="error-msg" id="error-msg"></div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">账号</label>
+                <input type="text" id="username" name="username" placeholder="请输入账号" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary">登 录</button>
+        </form>
+        <div class="login-footer">
+            还没有账号？<a href="/register">立即注册</a>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        var login_form = document.getElementById('login-form');
+        var error_msg = document.getElementById('error-msg');
+
+        function show_error(msg) {
+            error_msg.textContent = msg;
+            error_msg.style.display = 'block';
+        }
+
+        function hide_error() {
+            error_msg.style.display = 'none';
+        }
+
+        login_form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            hide_error();
+
+            var username = document.getElementById('username').value.trim();
+            var password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                show_error('请输入账号和密码');
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/login', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            window.location.href = '/';
+                        } else {
+                            show_error(res.msg);
+                        }
+                    } else {
+                        show_error('请求失败，请稍后重试');
+                    }
+                }
+            };
+
+            xhr.send('username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password));
+            show_loading();
+        });
+    </script>
+</body>
+</html>

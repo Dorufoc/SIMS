@@ -1,0 +1,566 @@
+/* ========== 配色方案（中飞院标准色） ========== */
+/* 中飞院红: #cc3336 (主色) */
+/* 中飞院蓝: #5e6f8e (辅助色) */
+/* 中飞院金: #db9a00 (辅助色) */
+/* 中飞院墨: #3f5145 (辅助色) */
+/* 红色色阶: #cc3336 100% / #d65356 80% / #e07376 60% / #ea9396 40% / #f4b3b6 20% */
+
+/* ========== 加载遮罩 ========== */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.35);
+    justify-content: center;
+    align-items: center;
+}
+.loading-overlay.active { display: flex; }
+.loading-spinner {
+    width: 48px; height: 48px;
+    border: 5px solid #fff;
+    border-top-color: #cc3336;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== 通用重置 ========== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", SimSun, sans-serif; background: #fff; color: #333; font-size: 14px; }
+a { color: #cc3336; text-decoration: none; }
+a:hover { text-decoration: underline; }
+table { border-collapse: collapse; }
+input, select, button { font-family: inherit; font-size: 14px; }
+
+/* ========== 导航栏 ========== */
+.nav-bar {
+    background: #cc3336;
+    color: #fff;
+    height: 40px;
+    line-height: 40px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.nav-bar .nav-brand { font-size: 15px; font-weight: bold; }
+.nav-bar .nav-links { display: flex; gap: 14px; }
+.nav-bar .nav-links a { color: #fff; font-size: 13px; }
+.nav-bar .nav-links a:hover { text-decoration: underline; }
+.nav-bar .nav-user { font-size: 13px; }
+
+/* ========== 主内容区 ========== */
+.main-content { padding: 16px; max-width: 1100px; margin: 0 auto; }
+
+/* ========== 标题 ========== */
+h1 { font-size: 20px; margin: 10px 0; color: #cc3336; }
+h2 { font-size: 16px; margin: 10px 0; color: #cc3336; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+h3 { font-size: 14px; margin: 8px 0; }
+
+/* ========== 卡片 ========== */
+.card { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; background: #fafafa; }
+
+/* ========== 表单样式 ========== */
+.form-group { margin-bottom: 10px; }
+.form-group label { display: inline-block; width: 70px; text-align: right; margin-right: 6px; }
+.form-control { padding: 4px 8px; border: 1px solid #999; outline: none; }
+.form-control:focus { border-color: #cc3336; }
+select.form-control { padding: 3px 4px; }
+
+/* ========== 按钮样式 ========== */
+.btn { padding: 5px 14px; border: 1px solid #999; background: #eee; cursor: pointer; font-size: 13px; }
+.btn:hover { background: #ddd; }
+.btn-primary { background: #cc3336; color: #fff; border-color: #cc3336; }
+.btn-primary:hover { background: #b82d30; }
+.btn-success { background: #3f5145; color: #fff; border-color: #3f5145; }
+.btn-danger { background: #cc3336; color: #fff; border-color: #cc3336; }
+.btn-warning { background: #db9a00; color: #fff; border-color: #db9a00; }
+.btn-sm { padding: 2px 8px; font-size: 12px; }
+
+/* ========== 表格样式 ========== */
+.data-table { width: 100%; border: 1px solid #999; }
+.data-table th, .data-table td { border: 1px solid #999; padding: 5px 8px; text-align: left; }
+.data-table th { background: #cc3336; color: #fff; font-weight: normal; }
+.data-table tbody tr:nth-child(even) { background: #f2f2f2; }
+
+/* ========== 分页样式 ========== */
+.page-nav { text-align: center; margin-top: 12px; }
+.page-nav a, .page-nav span { display: inline-block; padding: 3px 10px; margin: 0 2px; border: 1px solid #999; font-size: 13px; }
+.page-nav a:hover { background: #cc3336; color: #fff; text-decoration: none; }
+.page-nav .current { background: #cc3336; color: #fff; border-color: #cc3336; }
+.page-nav .disabled { color: #999; cursor: default; }
+
+/* ========== 导入导出区 ========== */
+.import-export-area { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; background: #fafafa; }
+.import-export-area .btn-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ========== 登录/注册页面 ========== */
+.login-container, .register-container {
+    width: 360px; margin: 80px auto; border: 1px solid #999; padding: 24px; background: #fff;
+}
+.login-container h1, .register-container h1 {
+    text-align: center; font-size: 18px; margin-bottom: 20px; color: #cc3336; border: none; padding: 0;
+}
+.login-container .form-group label, .register-container .form-group label {
+    display: block; text-align: left; width: auto; margin-bottom: 4px; font-size: 13px;
+}
+.login-container .form-group input, .register-container .form-group input {
+    width: 100%; height: 32px; padding: 0 8px; border: 1px solid #999;
+}
+.login-container .btn-primary, .register-container .btn-primary {
+    width: 100%; height: 34px; font-size: 15px; cursor: pointer;
+}
+.login-footer, .register-footer { text-align: center; margin-top: 14px; font-size: 13px; color: #888; }
+.error-msg { color: #cc3336; font-size: 13px; text-align: center; margin-bottom: 10px; display: none; }
+
+/* ========== 模态框 ========== */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2000; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal-content { background: #fff; border: 1px solid #999; width: 90%; max-width: 460px; padding: 20px; }
+.modal-content .modal-close { float: right; cursor: pointer; border: none; background: none; font-size: 18px; color: #666; }
+.modal-content h3 { margin: 0 0 14px; color: #cc3336; }
+
+/* 查询页面样式已迁移至下方新增区域 */
+
+/* ========== 消息提示 ========== */
+.msg-success { padding: 8px 12px; background: #e8f5e8; border: 1px solid #3f5145; color: #3f5145; margin-bottom: 10px; }
+.msg-error { padding: 8px 12px; background: #fdeaea; border: 1px solid #cc3336; color: #cc3336; margin-bottom: 10px; }
+
+/* ========== 预览表格 ========== */
+.preview-table { width: 100%; border: 1px solid #999; }
+.preview-table th, .preview-table td { border: 1px solid #999; padding: 4px 8px; }
+.preview-table th { background: #f2f2f2; font-weight: normal; }
+.preview-table .row-error { background: #fdeaea; color: #cc3336; }
+.preview-table .row-valid { background: #e8f5e8; color: #3f5145; }
+
+/* ========== 角色标签 ========== */
+.role-badge { display: inline-block; padding: 1px 6px; font-size: 11px; margin-left: 4px; }
+.role-badge-admin { background: #cc3336; color: #fff; }
+.role-badge-user { background: #5e6f8e; color: #fff; }
+
+/* ========== 禁用卡片 ========== */
+.feature-card-disabled { opacity: 0.5; pointer-events: none; }
+.feature-card-link-disabled { background: #ccc; color: #666; cursor: not-allowed; padding: 4px 12px; display: inline-block; font-size: 13px; }
+
+/* ========== 权限不足提示 ========== */
+.permission-denied { text-align: center; padding: 40px 20px; }
+.permission-denied h2 { color: #cc3336; border: none; }
+.permission-denied p { color: #666; margin: 10px 0; }
+
+/* ========== 只读操作标识 ========== */
+.action-readonly { color: #999; font-size: 12px; }
+
+/* ========== 首页功能卡片 ========== */
+.feature-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.feature-card { border: 1px solid #ccc; padding: 16px; width: 220px; background: #fafafa; }
+.feature-card h2 { font-size: 15px; border: none; padding: 0; margin: 6px 0; }
+.feature-card p { font-size: 13px; color: #666; margin: 6px 0 10px; }
+.feature-card-link { display: inline-block; padding: 4px 12px; background: #cc3336; color: #fff; font-size: 13px; }
+.feature-card-link:hover { background: #b82d30; text-decoration: none; }
+
+/* ========== 确认弹窗 ========== */
+.confirm-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 3000; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+.confirm-dialog { background: #fff; border: 1px solid #999; padding: 20px; max-width: 400px; text-align: center; }
+.confirm-message { margin-bottom: 16px; }
+.confirm-actions { display: flex; gap: 10px; justify-content: center; }
+
+/* ========== 表单容器 ========== */
+.form-container { max-width: 500px; }
+.form-container .form-group label { display: block; text-align: left; width: auto; margin-bottom: 4px; }
+.form-container .form-control { width: 100%; }
+.form-group-actions { margin-top: 14px; }
+
+/* ========== CSV预览区 ========== */
+.csv-preview-area { margin-top: 12px; border: 1px solid #ccc; padding: 12px; background: #fafafa; }
+.preview-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+/* ========== 查询结果区 ========== */
+.result-section { border: 1px solid #ccc; padding: 12px; background: #fafafa; }
+.result-table-wrapper { overflow-x: auto; }
+.result-table { width: 100%; border: 1px solid #999; }
+.result-table th, .result-table td { border: 1px solid #999; padding: 5px 8px; }
+.result-table th { background: #cc3336; color: #fff; font-weight: normal; }
+.result-actions { margin-top: 10px; }
+.btn-export { padding: 5px 14px; border: 1px solid #999; background: #eee; cursor: pointer; font-size: 13px; }
+.btn-export:hover { background: #ddd; }
+
+/* ========== 空行提示 ========== */
+.empty-row { text-align: center; color: #999; padding: 20px !important; }
+.no-data { text-align: center; color: #999; padding: 10px; }
+
+/* ========== 导航栏用户信息 ========== */
+.nav-user-info { color: #fff; font-size: 13px; }
+
+/* ========== 文件输入 ========== */
+.file-input { margin-right: 6px; font-size: 13px; }
+
+/* ========== 消息框 ========== */
+.msg-box { padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+
+/* ========== Tab导航 ========== */
+.tab-bar {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 16px;
+}
+.tab-item {
+    padding: 8px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: #666;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-family: inherit;
+}
+.tab-item:hover {
+    color: #cc3336;
+}
+.tab-item.tab-active {
+    color: #cc3336;
+    border-bottom-color: #cc3336;
+    font-weight: bold;
+}
+
+/* ========== 查询面板通用 ========== */
+.query-panel {
+    display: none;
+}
+.query-panel.panel-active {
+    display: block;
+}
+
+/* ========== 条件查询面板 ========== */
+.condition-builder {
+    border: 1px solid #ddd;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fafafa;
+}
+.condition-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.condition-row .form-control {
+    width: auto;
+    min-width: 100px;
+}
+.condition-field {
+    min-width: 100px;
+}
+.condition-operator {
+    min-width: 120px;
+}
+.condition-value-area {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.condition-value {
+    min-width: 120px;
+}
+.condition-value-from,
+.condition-value-to {
+    min-width: 80px;
+}
+.condition-hint {
+    font-size: 12px;
+    color: #999;
+    margin-left: 4px;
+}
+.condition-logic {
+    min-width: 70px;
+}
+.condition-not-label {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+.btn-add-condition {
+    margin-top: 4px;
+}
+.btn-remove-condition {
+    color: #cc3336;
+    border-color: #cc3336;
+    background: #fff;
+}
+.btn-remove-condition:hover {
+    background: #cc3336;
+    color: #fff;
+}
+.quick-filter-area {
+    border: 1px solid #ddd;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fafafa;
+}
+.quick-filter-area h3 {
+    font-size: 14px;
+    color: #5e6f8e;
+    margin-bottom: 8px;
+    border: none;
+    padding: 0;
+}
+.quick-filter-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.quick-filter-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    border: 1px solid #5e6f8e;
+    background: #fff;
+    color: #5e6f8e;
+    cursor: pointer;
+}
+.quick-filter-btn:hover {
+    background: #5e6f8e;
+    color: #fff;
+}
+.condition-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+/* ========== 统计分析面板 ========== */
+.stat-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.stat-card {
+    border: 1px solid #ddd;
+    padding: 16px;
+    width: 200px;
+    cursor: pointer;
+    background: #fafafa;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+    border-color: #cc3336;
+    box-shadow: 0 2px 6px rgba(204,51,54,0.15);
+}
+.stat-card.stat-card-active {
+    border-color: #cc3336;
+    background: #fff5f5;
+}
+.stat-card h3 {
+    font-size: 15px;
+    color: #cc3336;
+    margin: 0 0 6px;
+    border: none;
+    padding: 0;
+}
+.stat-card p {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+}
+.stat-card .stat-keywords {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #5e6f8e;
+}
+
+/* ========== 排序浏览面板 ========== */
+.sortable-table {
+    width: 100%;
+    border: 1px solid #999;
+}
+.sortable-table th,
+.sortable-table td {
+    border: 1px solid #999;
+    padding: 5px 8px;
+    text-align: left;
+}
+.sortable-table th {
+    background: #cc3336;
+    color: #fff;
+    font-weight: normal;
+}
+.sortable-table tbody tr:nth-child(even) {
+    background: #f2f2f2;
+}
+.sort-header {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.sort-header:hover {
+    background: #b82d30;
+}
+.sort-arrow {
+    margin-left: 4px;
+    font-size: 12px;
+}
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+.page-btn {
+    padding: 4px 12px;
+    border: 1px solid #999;
+    background: #eee;
+    cursor: pointer;
+    font-size: 13px;
+}
+.page-btn:hover {
+    background: #cc3336;
+    color: #fff;
+    border-color: #cc3336;
+}
+.page-btn:disabled {
+    color: #999;
+    cursor: default;
+    background: #eee;
+}
+.page-btn:disabled:hover {
+    background: #eee;
+    color: #999;
+    border-color: #999;
+}
+.page-info {
+    font-size: 13px;
+    color: #666;
+}
+
+/* ========== SQL实训面板 ========== */
+.accordion {
+    margin-bottom: 16px;
+}
+.accordion-item {
+    border: 1px solid #ddd;
+    margin-bottom: 8px;
+}
+.accordion-title {
+    padding: 10px 14px;
+    background: #5e6f8e;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.accordion-title:hover {
+    background: #4d5d7e;
+}
+.accordion-title .accordion-arrow {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+.accordion-item.accordion-open .accordion-arrow {
+    transform: rotate(90deg);
+}
+.accordion-content {
+    display: none;
+    padding: 12px;
+    background: #fafafa;
+}
+.accordion-item.accordion-open .accordion-content {
+    display: block;
+}
+.keyword-card {
+    border: 1px solid #ddd;
+    margin-bottom: 8px;
+    background: #fff;
+}
+.keyword-header {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.keyword-header:hover {
+    background: #f5f5f5;
+}
+.keyword-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+.keyword-summary {
+    font-size: 12px;
+    color: #666;
+}
+.keyword-detail {
+    display: none;
+    padding: 12px;
+    border-top: 1px solid #ddd;
+    background: #fafafa;
+}
+.keyword-card.keyword-open .keyword-detail {
+    display: block;
+}
+.keyword-desc {
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+.keyword-danger .keyword-name {
+    color: #cc3336;
+}
+.keyword-danger-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 11px;
+    background: #cc3336;
+    color: #fff;
+    margin-left: 6px;
+}
+.btn-keyword-execute {
+    margin-top: 8px;
+}
+.btn-keyword-execute:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ========== SQL展示区 ========== */
+.sql-display-box {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 8px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none;
+}
+.sql-display-box.sql-visible {
+    display: block;
+}
+.sql-keyword-highlight {
+    color: #5e6f8e;
+    font-weight: bold;
+}
+
+/* ========== 空结果提示 ========== */
+.empty-result {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-size: 14px;
+    display: none;
+}
+.empty-result.empty-visible {
+    display: block;
+}

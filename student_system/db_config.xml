@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <database>
+        <host>700b5e2ab48a.ofalias.net</host>
+        <port>58935</port>
+        <user>root</user>
+        <password></password>
+        <name>student_manage</name>
+    </database>
+    <flask>
+        <secret_key>a7f3e9b2c8d4f1a6e5b3c7d9f2a8e4b1c6d3f7a9e2b5c8d1f4a7e3b6c9d2f5</secret_key>
+    </flask>
+</config>

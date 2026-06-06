@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级查询</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="nav-bar">
+        <span class="nav-brand">学生信息管理系统</span>
+        <div class="nav-links">
+            <a href="/">首页</a>
+            <a href="/manage">数据管理</a>
+            {% if session.get('user_role') == 'admin' %}
+            <a href="/add">新增学生</a>
+            {% endif %}
+            <a href="/query" class="active">高级查询</a>
+            <a href="/logout">退出登录</a>
+        </div>
+        {% if session.get('user_name') %}
+        <div class="nav-user-info">
+            {{ session.get('user_name') }}
+            {% if session.get('user_role') == 'admin' %}
+            <span class="role-badge role-badge-admin">管理员</span>
+            {% else %}
+            <span class="role-badge role-badge-user">普通用户</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <h1 class="page-title">高级查询</h1>
+
+        <!-- Tab 导航栏 -->
+        <div class="tab-bar">
+            <button class="tab-item tab-active" data-tab="condition">条件查询</button>
+            <button class="tab-item" data-tab="stat">统计分析</button>
+            <button class="tab-item" data-tab="sort">排序浏览</button>
+            <button class="tab-item" data-tab="training">SQL实训</button>
+        </div>
+
+        <!-- 条件查询面板 -->
+        <div class="query-panel panel-active" id="panel-condition">
+            <!-- 条件构建区 -->
+            <div class="condition-builder" id="condition-builder">
+                <!-- 条件行由JS动态创建 -->
+            </div>
+            <button class="btn btn-add-condition" id="btn-add-condition">添加条件</button>
+
+            <!-- 快捷筛选区 -->
+            <div class="quick-filter-area">
+                <h3>快捷筛选</h3>
+                <div class="quick-filter-btns">
+                    <button class="quick-filter-btn" data-preset="cs_2022">计算机专业2022级</button>
+                    <button class="quick-filter-btn" data-preset="cs_or_se">计算机或软件工程</button>
+                    <button class="quick-filter-btn" data-preset="not_cs">非计算机专业</button>
+                    <button class="quick-filter-btn" data-preset="age_18_22">18~22岁学生</button>
+                    <button class="quick-filter-btn" data-preset="name_zhang">姓名含'张'</button>
+                    <button class="quick-filter-btn" data-preset="no_class">未填写班级</button>
+                    <button class="quick-filter-btn" data-preset="major_in">指定专业枚举</button>
+                </div>
+            </div>
+
+            <!-- 操作按钮区 -->
+            <div class="condition-actions">
+                <button class="btn btn-primary" id="btn-condition-query">查询</button>
+                <button class="btn" id="btn-condition-reset">重置</button>
+                <button class="btn btn-export" id="btn-condition-export">导出结果</button>
+            </div>
+
+            <!-- SQL展示区 -->
+            <div class="sql-display-box" id="condition-sql"></div>
+
+            <!-- 结果表格区 -->
+            <div class="result-table-wrapper" id="condition-result" style="display:none;">
+                <table class="result-table" id="condition-table">
+                    <thead id="condition-thead"></thead>
+                    <tbody id="condition-tbody"></tbody>
+                </table>
+                <div class="empty-result" id="condition-empty">暂无匹配数据</div>
+            </div>
+        </div>
+
+        <!-- 统计分析面板 -->
+        <div class="query-panel" id="panel-stat">
+            <!-- 统计场景卡片选择区 -->
+            <div class="stat-cards">
+                <div class="stat-card" data-scene="major_count">
+                    <h3>专业人数分布</h3>
+                    <p>按专业分组统计各专业学生人数</p>
+                    <div class="stat-keywords">GROUP BY + COUNT</div>
+                </div>
+                <div class="stat-card" data-scene="major_filter">
+                    <h3>热门专业筛选</h3>
+                    <p>筛选人数大于1的专业</p>
+                    <div class="stat-keywords">GROUP BY + HAVING</div>
+                </div>
+                <div class="stat-card" data-scene="total_count">
+                    <h3>总人数统计</h3>
+                    <p>统计学生总数和有年龄数据人数</p>
+                    <div class="stat-keywords">COUNT</div>
+                </div>
+                <div class="stat-card" data-scene="age_stats">
+                    <h3>年龄综合统计</h3>
+                    <p>各专业平均/最大/最小年龄及年龄总和</p>
+                    <div class="stat-keywords">AVG/MAX/MIN/SUM</div>
+                </div>
+                <div class="stat-card" data-scene="distinct_major">
+                    <h3>不重复专业列表</h3>
+                    <p>查询所有不重复的专业名称</p>
+                    <div class="stat-keywords">DISTINCT</div>
+                </div>
+            </div>
+
+            <!-- SQL展示区 -->
+            <div class="sql-display-box" id="stat-sql"></div>
+
+            <!-- 结果表格区 -->
+            <div class="result-table-wrapper" id="stat-result" style="display:none;">
+                <table class="result-table" id="stat-table">
+                    <thead id="stat-thead"></thead>
+                    <tbody id="stat-tbody"></tbody>
+                </table>
+                <div class="empty-result" id="stat-empty">暂无匹配数据</div>
+            </div>
+
+            <!-- 导出按钮 -->
+            <button class="btn btn-export" id="btn-stat-export" style="display:none;">导出统计结果</button>
+        </div>
+
+        <!-- 排序浏览面板 -->
+        <div class="query-panel" id="panel-sort">
+            <!-- 数据表格 -->
+            <div class="result-table-wrapper">
+                <table class="sortable-table" id="sort-table">
+                    <thead>
+                        <tr>
+                            <th class="sort-header" data-field="student_no">学号<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="student_name">姓名<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="gender">性别<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="age">年龄<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="major">专业<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="grade">年级<span class="sort-arrow"></span></th>
+                            <th class="sort-header" data-field="class_name">班级<span class="sort-arrow"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="sort-tbody"></tbody>
+                </table>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination" id="sort-pagination">
+                <button class="page-btn" id="page-prev">上一页</button>
+                <span class="page-info" id="page-info">第 1 页</span>
+                <button class="page-btn" id="page-next">下一页</button>
+            </div>
+
+            <!-- SQL展示区 -->
+            <div class="sql-display-box" id="sort-sql"></div>
+
+            <!-- 空结果提示 -->
+            <div class="empty-result" id="sort-empty">暂无匹配数据</div>
+        </div>
+
+        <!-- SQL实训面板 -->
+        <div class="query-panel" id="panel-training">
+            <div class="accordion">
+                <!-- DDL 数据库定义 -->
+                <div class="accordion-item">
+                    <div class="accordion-title">DDL 数据库定义<span class="accordion-arrow">▶</span></div>
+                    <div class="accordion-content">
+                        <div class="keyword-card" data-keyword="CREATE_DATABASE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">CREATE DATABASE</span>
+                                <span class="keyword-summary">创建数据库</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card keyword-danger" data-keyword="DROP_DATABASE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">DROP DATABASE</span>
+                                <span class="keyword-summary">删除数据库</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="CREATE_TABLE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">CREATE TABLE</span>
+                                <span class="keyword-summary">创建数据表</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card keyword-danger" data-keyword="DROP_TABLE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">DROP TABLE</span>
+                                <span class="keyword-summary">删除数据表</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="ALTER_TABLE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">ALTER TABLE</span>
+                                <span class="keyword-summary">修改表结构</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="COMMENT">
+                            <div class="keyword-header">
+                                <span class="keyword-name">COMMENT</span>
+                                <span class="keyword-summary">注释说明</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="ENGINE_CHARSET">
+                            <div class="keyword-header">
+                                <span class="keyword-name">ENGINE/CHARSET</span>
+                                <span class="keyword-summary">引擎与字符集</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DML 数据操作 -->
+                <div class="accordion-item">
+                    <div class="accordion-title">DML 数据操作<span class="accordion-arrow">▶</span></div>
+                    <div class="accordion-content">
+                        <div class="keyword-card" data-keyword="INSERT">
+                            <div class="keyword-header">
+                                <span class="keyword-name">INSERT</span>
+                                <span class="keyword-summary">插入单条数据</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="INSERT_MULTI">
+                            <div class="keyword-header">
+                                <span class="keyword-name">INSERT 多值</span>
+                                <span class="keyword-summary">批量插入数据</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="UPDATE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">UPDATE</span>
+                                <span class="keyword-summary">更新数据</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="DELETE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">DELETE</span>
+                                <span class="keyword-summary">删除数据</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="SELECT">
+                            <div class="keyword-header">
+                                <span class="keyword-name">SELECT</span>
+                                <span class="keyword-summary">查询数据</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="FROM">
+                            <div class="keyword-header">
+                                <span class="keyword-name">FROM</span>
+                                <span class="keyword-summary">指定数据源</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="WHERE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">WHERE</span>
+                                <span class="keyword-summary">条件过滤</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 事务与约束 -->
+                <div class="accordion-item">
+                    <div class="accordion-title">事务与约束<span class="accordion-arrow">▶</span></div>
+                    <div class="accordion-content">
+                        <div class="keyword-card" data-keyword="PRIMARY_KEY">
+                            <div class="keyword-header">
+                                <span class="keyword-name">PRIMARY KEY</span>
+                                <span class="keyword-summary">主键约束</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="AUTO_INCREMENT">
+                            <div class="keyword-header">
+                                <span class="keyword-name">AUTO_INCREMENT</span>
+                                <span class="keyword-summary">自动递增</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="UNIQUE">
+                            <div class="keyword-header">
+                                <span class="keyword-name">UNIQUE</span>
+                                <span class="keyword-summary">唯一约束</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="NOT_NULL">
+                            <div class="keyword-header">
+                                <span class="keyword-name">NOT NULL</span>
+                                <span class="keyword-summary">非空约束</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="DEFAULT">
+                            <div class="keyword-header">
+                                <span class="keyword-name">DEFAULT</span>
+                                <span class="keyword-summary">默认值</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                        <div class="keyword-card" data-keyword="BEGIN_COMMIT_ROLLBACK">
+                            <div class="keyword-header">
+                                <span class="keyword-name">BEGIN/COMMIT/ROLLBACK</span>
+                                <span class="keyword-summary">事务控制</span>
+                            </div>
+                            <div class="keyword-detail"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 二次确认弹窗 -->
+    <div class="confirm-overlay" id="confirm-overlay" style="display:none;">
+        <div class="confirm-dialog">
+            <p class="confirm-message" id="confirm-message"></p>
+            <div class="confirm-actions">
+                <button class="btn btn-danger" id="btn-confirm-yes">确认执行</button>
+                <button class="btn btn-cancel" id="btn-confirm-no">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

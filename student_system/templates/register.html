@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生信息管理系统 - 注册</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            background: url('/static/img/bg.png') no-repeat center center;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <h1>学生信息管理系统</h1>
+        <div class="error-msg" id="error-msg"></div>
+        <form id="register-form">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label for="real_name">真实姓名</label>
+                <input type="text" id="real_name" name="real_name" placeholder="请输入真实姓名">
+            </div>
+            <button type="submit" class="btn-primary">注 册</button>
+        </form>
+        <div class="register-footer">
+            已有账号？<a href="/login">立即登录</a>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        var register_form = document.getElementById('register-form');
+        var error_msg = document.getElementById('error-msg');
+
+        function show_error(msg) {
+            error_msg.textContent = msg;
+            error_msg.style.display = 'block';
+        }
+
+        function hide_error() {
+            error_msg.style.display = 'none';
+        }
+
+        register_form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            hide_error();
+
+            var username = document.getElementById('username').value.trim();
+            var password = document.getElementById('password').value.trim();
+            var real_name = document.getElementById('real_name').value.trim();
+
+            if (!username) {
+                alert('用户名不能为空');
+                return;
+            }
+            if (!password) {
+                alert('密码不能为空');
+                return;
+            }
+            if (!real_name) {
+                alert('真实姓名不能为空');
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/register', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            window.location.href = '/login';
+                        } else {
+                            show_error(res.msg);
+                        }
+                    } else {
+                        show_error('请求失败，请稍后重试');
+                    }
+                }
+            };
+
+            xhr.send('username=' + encodeURIComponent(username)
+                + '&password=' + encodeURIComponent(password)
+                + '&real_name=' + encodeURIComponent(real_name));
+            show_loading();
+        });
+    </script>
+</body>
+</html>
