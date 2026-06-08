@@ -1,0 +1,17 @@
+<!-- 统一顶栏组件 -->
+<!-- 使用前需设置 active_page 变量，可选值: 'dashboard', 'manage', 'query' -->
+<header class="top-header">
+    <div class="header-brand">
+        <span>学生信息管理系统</span>
+    </div>
+    
+    <div class="header-user">
+        {% if session.get('user_name') %}
+        <span class="user-role">{{ session.get('user_role') }}</span>
+        <span>{{ session.get('user_name') }}</span>
+        <a href="/logout" class="logout-btn">退出</a>
+        {% else %}
+        <a href="/login" class="logout-btn">登录</a>
+        {% endif %}
+    </div>
+</header>

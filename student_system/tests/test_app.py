@@ -1,6 +1,6 @@
 """
 app 模块路由集成测试
-测试用户认证、学生CRUD、CSV导入导出、角色权限等功能
+测试用户认证、学生CRUD、CSV导入导出等功能
 """
 
 import sys
@@ -29,10 +29,31 @@ DB_AVAILABLE = _check_db_available()
 # 测试数据标识
 TEST_USER = 'TEST_USER_001'
 TEST_PASSWORD = 'test123'
-TEST_ADMIN = 'TEST_ADMIN_001'
-TEST_ADMIN_PASSWORD = 'admin123'
 TEST_STUDENT_NO = 'TEST_S001'
-TEST_STUDENT_NO_2 = 'TEST_S002'
+TEST_CLASS_ID = None
+
+
+def _ensure_test_class():
+    """确保测试班级存在，返回class_id"""
+    global TEST_CLASS_ID
+    if TEST_CLASS_ID:
+        return TEST_CLASS_ID
+    try:
+        rows = db_utils.query("SELECT class_id FROM classes LIMIT 1")
+        if rows:
+            TEST_CLASS_ID = rows[0]['class_id']
+            return TEST_CLASS_ID
+        # 如果classes表为空，创建测试数据
+        db_utils.execute("INSERT INTO departments(dept_name) VALUES('测试学院')")
+        db_utils.execute("INSERT INTO majors(major_name, dept_id) VALUES('测试专业', 1)")
+        db_utils.execute("INSERT INTO classes(class_name, major_id, grade) VALUES('测试班级', 1, '2024')")
+        rows = db_utils.query("SELECT class_id FROM classes WHERE class_name='测试班级'")
+        if rows:
+            TEST_CLASS_ID = rows[0]['class_id']
+            return TEST_CLASS_ID
+    except Exception:
+        pass
+    return 1  # 如果获取失败，默认使用1
 
 
 @unittest.skipUnless(DB_AVAILABLE, '数据库不可用，跳过测试')
@@ -44,15 +65,8 @@ class TestAuth(unittest.TestCase):
         """注册测试用户"""
         try:
             db_utils.execute(
-                'INSERT INTO user_info(username,password,real_name,role) VALUES(%s,%s,%s,%s)',
-                (TEST_USER, TEST_PASSWORD, '测试用户', 'user')
-            )
-        except Exception:
-            pass
-        try:
-            db_utils.execute(
-                'INSERT INTO user_info(username,password,real_name,role) VALUES(%s,%s,%s,%s)',
-                (TEST_ADMIN, TEST_ADMIN_PASSWORD, '测试管理员', 'admin')
+                'INSERT INTO user_info(username,password,real_name) VALUES(%s,%s,%s)',
+                (TEST_USER, TEST_PASSWORD, '测试用户')
             )
         except Exception:
             pass
@@ -122,7 +136,6 @@ class TestAuth(unittest.TestCase):
         with self.client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['user_name'] = TEST_USER
-            sess['user_role'] = 'user'
         resp = self.client.get('/logout')
         # 退出后应重定向到登录页
         self.assertEqual(resp.status_code, 302)
@@ -143,20 +156,20 @@ class TestStudentCRUD(unittest.TestCase):
         self.app = flask_app.app
         self.app.testing = True
         self.client = self.app.test_client()
-        # 以管理员身份登录
+        # 以已登录用户身份登录
         with self.client.session_transaction() as sess:
             sess['user_id'] = 1
-            sess['user_name'] = TEST_ADMIN
-            sess['user_role'] = 'admin'
+            sess['user_name'] = TEST_USER
         # 清理可能残留的测试数据
         try:
-            db_utils.execute("DELETE FROM student_info WHERE student_no LIKE 'TEST_%'")
+            db_utils.execute("DELETE FROM students WHERE student_no LIKE 'TEST_%'")
         except Exception:
             pass
+        self.test_class_id = _ensure_test_class()
 
     def tearDown(self):
         try:
-            db_utils.execute("DELETE FROM student_info WHERE student_no LIKE 'TEST_%'")
+            db_utils.execute("DELETE FROM students WHERE student_no LIKE 'TEST_%'")
         except Exception:
             pass
 
@@ -167,9 +180,7 @@ class TestStudentCRUD(unittest.TestCase):
             'student_name': '测试学生',
             'gender': '男',
             'age': '20',
-            'major': '计算机',
-            'grade': '2024',
-            'class_name': '计科1班',
+            'class_id': str(self.test_class_id),
         })
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
@@ -179,9 +190,9 @@ class TestStudentCRUD(unittest.TestCase):
         """学号重复"""
         # 先插入一条
         db_utils.execute(
-            'INSERT INTO student_info(student_no,student_name,gender,age,major,grade,class_name)'
-            ' VALUES(%s,%s,%s,%s,%s,%s,%s)',
-            (TEST_STUDENT_NO, '已有学生', '男', 20, '计算机', '2024', '计科1班')
+            'INSERT INTO students(student_no,student_name,gender,age,class_id)'
+            ' VALUES(%s,%s,%s,%s,%s)',
+            (TEST_STUDENT_NO, '已有学生', '男', 20, self.test_class_id)
         )
         # 再用相同学号新增
         resp = self.client.post('/add', data={
@@ -189,9 +200,7 @@ class TestStudentCRUD(unittest.TestCase):
             'student_name': '重复学生',
             'gender': '女',
             'age': '21',
-            'major': '软件工程',
-            'grade': '2024',
-            'class_name': '软工1班',
+            'class_id': str(self.test_class_id),
         })
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
@@ -206,24 +215,22 @@ class TestStudentCRUD(unittest.TestCase):
         """编辑学生"""
         # 先插入测试数据
         db_utils.execute(
-            'INSERT INTO student_info(student_no,student_name,gender,age,major,grade,class_name)'
-            ' VALUES(%s,%s,%s,%s,%s,%s,%s)',
-            (TEST_STUDENT_NO, '编辑前', '男', 20, '计算机', '2024', '计科1班')
+            'INSERT INTO students(student_no,student_name,gender,age,class_id)'
+            ' VALUES(%s,%s,%s,%s,%s)',
+            (TEST_STUDENT_NO, '编辑前', '男', 20, self.test_class_id)
         )
         rows = db_utils.query(
-            'SELECT id FROM student_info WHERE student_no = %s',
+            'SELECT student_id FROM students WHERE student_no = %s',
             (TEST_STUDENT_NO,)
         )
-        student_id = rows[0]['id']
+        student_id = rows[0]['student_id']
 
         # 编辑
         resp = self.client.post(f'/edit/{student_id}', data={
             'student_name': '编辑后',
             'gender': '女',
             'age': '21',
-            'major': '软件工程',
-            'grade': '2024',
-            'class_name': '软工1班',
+            'class_id': str(self.test_class_id),
         })
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
@@ -231,7 +238,7 @@ class TestStudentCRUD(unittest.TestCase):
 
         # 验证修改结果
         rows = db_utils.query(
-            'SELECT student_name FROM student_info WHERE id = %s',
+            'SELECT student_name FROM students WHERE student_id = %s',
             (student_id,)
         )
         self.assertEqual(rows[0]['student_name'], '编辑后')
@@ -240,15 +247,15 @@ class TestStudentCRUD(unittest.TestCase):
         """删除学生"""
         # 先插入测试数据
         db_utils.execute(
-            'INSERT INTO student_info(student_no,student_name,gender,age,major,grade,class_name)'
-            ' VALUES(%s,%s,%s,%s,%s,%s,%s)',
-            (TEST_STUDENT_NO, '待删除', '男', 20, '计算机', '2024', '计科1班')
+            'INSERT INTO students(student_no,student_name,gender,age,class_id)'
+            ' VALUES(%s,%s,%s,%s,%s)',
+            (TEST_STUDENT_NO, '待删除', '男', 20, self.test_class_id)
         )
         rows = db_utils.query(
-            'SELECT id FROM student_info WHERE student_no = %s',
+            'SELECT student_id FROM students WHERE student_no = %s',
             (TEST_STUDENT_NO,)
         )
-        student_id = rows[0]['id']
+        student_id = rows[0]['student_id']
 
         # 删除
         resp = self.client.post(f'/delete/{student_id}')
@@ -258,7 +265,7 @@ class TestStudentCRUD(unittest.TestCase):
 
         # 验证已删除
         rows = db_utils.query(
-            'SELECT * FROM student_info WHERE id = %s',
+            'SELECT * FROM students WHERE student_id = %s',
             (student_id,)
         )
         self.assertEqual(len(rows), 0)
@@ -274,8 +281,7 @@ class TestCSV(unittest.TestCase):
         self.client = self.app.test_client()
         with self.client.session_transaction() as sess:
             sess['user_id'] = 1
-            sess['user_name'] = TEST_ADMIN
-            sess['user_role'] = 'admin'
+            sess['user_name'] = TEST_USER
 
     def test_csv_template_download(self):
         """下载模板"""
@@ -288,68 +294,6 @@ class TestCSV(unittest.TestCase):
         resp = self.client.get('/csv/export')
         self.assertEqual(resp.status_code, 200)
         self.assertIn('text/csv', resp.content_type)
-
-
-@unittest.skipUnless(DB_AVAILABLE, '数据库不可用，跳过测试')
-class TestRolePermission(unittest.TestCase):
-    """角色权限路由测试类"""
-
-    def setUp(self):
-        self.app = flask_app.app
-        self.app.testing = True
-        self.client = self.app.test_client()
-        # 清理可能残留的测试数据
-        try:
-            db_utils.execute("DELETE FROM student_info WHERE student_no LIKE 'TEST_%'")
-        except Exception:
-            pass
-
-    def tearDown(self):
-        try:
-            db_utils.execute("DELETE FROM student_info WHERE student_no LIKE 'TEST_%'")
-        except Exception:
-            pass
-
-    def test_admin_can_add(self):
-        """管理员可以新增"""
-        with self.client.session_transaction() as sess:
-            sess['user_id'] = 1
-            sess['user_name'] = TEST_ADMIN
-            sess['user_role'] = 'admin'
-
-        resp = self.client.post('/add', data={
-            'student_no': TEST_STUDENT_NO,
-            'student_name': '管理员新增',
-            'gender': '男',
-            'age': '20',
-            'major': '计算机',
-            'grade': '2024',
-            'class_name': '计科1班',
-        })
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(data['code'], 0)
-
-    def test_user_cannot_add(self):
-        """只读用户不能新增（返回权限不足）"""
-        with self.client.session_transaction() as sess:
-            sess['user_id'] = 2
-            sess['user_name'] = TEST_USER
-            sess['user_role'] = 'user'
-
-        resp = self.client.post('/add', data={
-            'student_no': TEST_STUDENT_NO_2,
-            'student_name': '普通用户新增',
-            'gender': '女',
-            'age': '21',
-            'major': '软件工程',
-            'grade': '2024',
-            'class_name': '软工1班',
-        })
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(data['code'], 2)
-        self.assertIn('权限不足', data['msg'])
 
 
 if __name__ == '__main__':

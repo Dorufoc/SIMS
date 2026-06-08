@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'permission' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <!-- 页面头部 -->
+                    <div class="permission-page-header">
+                        <h1>权限管理</h1>
+                        <a href="/user_management" class="btn btn-secondary"> 返回用户列表</a>
+                    </div>
+
+                    <!-- 用户信息卡片 -->
+                    <div class="permission-user-info">
+                        <div class="user-avatar" id="user-avatar">
+                            {{ target_user.username[0]|upper if target_user else 'U' }}
+                        </div>
+                        <div class="user-details">
+                            <h3 id="user-name">{{ target_user.username if target_user else '加载中...' }}</h3>
+                            <p>
+                                角色: <span id="user-role">{{ target_user.role if target_user else '-' }}</span> |
+                                用户ID: <span id="user-id">{{ target_user.user_id if target_user else '-' }}</span> |
+                                关联ID: <span id="user-ref">{{ target_user.ref_id if target_user and target_user.ref_id else '无' }}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 权限配置表格 -->
+                    <div class="permission-table-container">
+                        <div class="table-header">
+                            <h3>数据表权限配置</h3>
+                            <div class="table-actions">
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllPermissions()">全选</button>
+                                <button class="btn btn-sm btn-danger" onclick="clearAllPermissions()">清空</button>
+                            </div>
+                        </div>
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>数据表</th>
+                                    <th>读权限</th>
+                                    <th>写权限</th>
+                                    <th>管理权限</th>
+                                    <th>权限码</th>
+                                </tr>
+                            </thead>
+                            <tbody id="permission-tbody">
+                                <!-- 权限行将通过JS动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="permission-page-actions">
+                        <a href="/user_management" class="btn btn-secondary">取消</a>
+                        <button class="btn btn-primary" onclick="savePermissions()">保存权限</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="message-box" class="msg-box" style="display:none;"></div>
+
+    <script>
+        // 全局变量
+        let allTables = [];
+        let currentPermissions = {};
+        let userId = {{ target_user.user_id if target_user else 'null' }};
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!userId) {
+                showMessage('用户ID无效', 'error');
+                return;
+            }
+            loadTablesAndPermissions();
+        });
+
+        // 加载表列表和权限数据
+        function loadTablesAndPermissions() {
+            Promise.all([
+                fetch('/api/tables').then(res => res.json()),
+                fetch(`/api/users/${userId}/permissions`).then(res => res.json())
+            ])
+            .then(([tablesData, permsData]) => {
+                if (tablesData.code === 0) {
+                    allTables = tablesData.data;
+                }
+                if (permsData.code === 0) {
+                    // 构建权限映射
+                    permsData.data.forEach(p => {
+                        currentPermissions[p.table_name] = p.permission_code;
+                    });
+                }
+                renderPermissionTable();
+            })
+            .catch(err => {
+                console.error('加载权限数据失败:', err);
+                showMessage('加载权限数据失败', 'error');
+            });
+        }
+
+        // 渲染权限表格
+        function renderPermissionTable() {
+            const tbody = document.getElementById('permission-tbody');
+            if (!allTables.length) {
+                tbody.innerHTML = '<tr><td colspan="5">暂无数据表</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allTables.map(table => {
+                const permCode = currentPermissions[table.name] || '000';
+                const permNum = parseInt(permCode.substring(0, 1));
+                const canRead = (permNum & 4) === 4;
+                const canWrite = (permNum & 2) === 2;
+                const canAdmin = (permNum & 1) === 1;
+
+                return `
+                    <tr data-table="${table.name}">
+                        <td>
+                            <strong>${table.label}</strong>
+                            <br><small>${table.name}</small>
+                        </td>
+                        <td>
+                            <label class="perm-check">
+                                <input type="checkbox" class="perm-read" ${canRead ? 'checked' : ''}
+                                       onchange="updatePermissionCode('${table.name}')">
+                                <span>读取</span>
+                            </label>
+                        </td>
+                        <td>
+                            <label class="perm-check">
+                                <input type="checkbox" class="perm-write" ${canWrite ? 'checked' : ''}
+                                       onchange="updatePermissionCode('${table.name}')">
+                                <span>写入</span>
+                            </label>
+                        </td>
+                        <td>
+                            <label class="perm-check">
+                                <input type="checkbox" class="perm-admin" ${canAdmin ? 'checked' : ''}
+                                       onchange="updatePermissionCode('${table.name}')">
+                                <span>管理</span>
+                            </label>
+                        </td>
+                        <td>
+                            <code class="perm-code" id="code-${table.name}">${permCode}</code>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 更新权限码显示
+        function updatePermissionCode(tableName) {
+            const row = document.querySelector(`tr[data-table="${tableName}"]`);
+            if (!row) return;
+
+            const canRead = row.querySelector('.perm-read').checked;
+            const canWrite = row.querySelector('.perm-write').checked;
+            const canAdmin = row.querySelector('.perm-admin').checked;
+
+            let perm = 0;
+            if (canRead) perm |= 4;
+            if (canWrite) perm |= 2;
+            if (canAdmin) perm |= 1;
+
+            const permCode = perm + '00';
+            document.getElementById(`code-${tableName}`).textContent = permCode;
+        }
+
+        // 全选权限
+        function selectAllPermissions() {
+            allTables.forEach(table => {
+                const row = document.querySelector(`tr[data-table="${table.name}"]`);
+                if (row) {
+                    row.querySelector('.perm-read').checked = true;
+                    row.querySelector('.perm-write').checked = true;
+                    row.querySelector('.perm-admin').checked = true;
+                    updatePermissionCode(table.name);
+                }
+            });
+            showMessage('已全选所有权限', 'success');
+        }
+
+        // 清空权限
+        function clearAllPermissions() {
+            if (!confirm('确定要清空所有权限吗？')) return;
+
+            allTables.forEach(table => {
+                const row = document.querySelector(`tr[data-table="${table.name}"]`);
+                if (row) {
+                    row.querySelector('.perm-read').checked = false;
+                    row.querySelector('.perm-write').checked = false;
+                    row.querySelector('.perm-admin').checked = false;
+                    updatePermissionCode(table.name);
+                }
+            });
+            showMessage('已清空所有权限', 'success');
+        }
+
+        // 保存权限
+        function savePermissions() {
+            const permissions = allTables.map(table => {
+                const row = document.querySelector(`tr[data-table="${table.name}"]`);
+                let perm = 0;
+                if (row) {
+                    if (row.querySelector('.perm-read').checked) perm |= 4;
+                    if (row.querySelector('.perm-write').checked) perm |= 2;
+                    if (row.querySelector('.perm-admin').checked) perm |= 1;
+                }
+                return {
+                    table_name: table.name,
+                    permission_code: perm + '00'
+                };
+            });
+
+            fetch(`/api/users/${userId}/permissions`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ permissions })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 0) {
+                    showMessage('权限保存成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/user_management';
+                    }, 1000);
+                } else {
+                    showMessage(data.msg || '保存失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('保存权限失败:', err);
+                showMessage('保存权限失败', 'error');
+            });
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.className = `msg-box msg-${type}`;
+            box.style.display = 'block';
+
+            setTimeout(() => {
+                box.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

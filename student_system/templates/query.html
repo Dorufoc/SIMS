@@ -7,112 +7,205 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <!-- 导航栏 -->
-    <nav class="nav-bar">
-        <span class="nav-brand">学生信息管理系统</span>
-        <div class="nav-links">
-            <a href="/">首页</a>
-            <a href="/manage">数据管理</a>
-            {% if session.get('user_role') == 'admin' %}
-            <a href="/add">新增学生</a>
-            {% endif %}
-            <a href="/query" class="active">高级查询</a>
-            <a href="/logout">退出登录</a>
-        </div>
-        {% if session.get('user_name') %}
-        <div class="nav-user-info">
-            {{ session.get('user_name') }}
-            {% if session.get('user_role') == 'admin' %}
-            <span class="role-badge role-badge-admin">管理员</span>
-            {% else %}
-            <span class="role-badge role-badge-user">普通用户</span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </nav>
+    {% set active_page = 'query' %}
+    {% include '_header.html' %}
 
-    <!-- 主内容区 -->
-    <main class="main-content">
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
         <h1 class="page-title">高级查询</h1>
 
         <!-- Tab 导航栏 -->
         <div class="tab-bar">
-            <button class="tab-item tab-active" data-tab="condition">条件查询</button>
-            <button class="tab-item" data-tab="stat">统计分析</button>
-            <button class="tab-item" data-tab="sort">排序浏览</button>
-            <button class="tab-item" data-tab="training">SQL实训</button>
+            <button class="tab-item {% if active_tab == 'filter' %}tab-active{% endif %}" data-tab="filter">筛选查询</button>
+            <button class="tab-item {% if active_tab == 'stat' %}tab-active{% endif %}" data-tab="stat">分类统计</button>
+            <button class="tab-item {% if active_tab == 'sort' %}tab-active{% endif %}" data-tab="sort">排序浏览</button>
+            <button class="tab-item {% if active_tab == 'training' %}tab-active{% endif %}" data-tab="training">快查指令</button>
         </div>
 
-        <!-- 条件查询面板 -->
-        <div class="query-panel panel-active" id="panel-condition">
-            <!-- 条件构建区 -->
-            <div class="condition-builder" id="condition-builder">
-                <!-- 条件行由JS动态创建 -->
+        <!-- 筛选查询面板（原高级筛选优化版） -->
+        <div class="query-panel {% if active_tab == 'filter' %}panel-active{% endif %}" id="panel-filter">
+            <div class="filter-panel-header">
+                <p class="filter-panel-desc">通过直观的口语化条件筛选学生信息，支持多条件组合查询</p>
             </div>
-            <button class="btn btn-add-condition" id="btn-add-condition">添加条件</button>
 
-            <!-- 快捷筛选区 -->
-            <div class="quick-filter-area">
-                <h3>快捷筛选</h3>
-                <div class="quick-filter-btns">
-                    <button class="quick-filter-btn" data-preset="cs_2022">计算机专业2022级</button>
-                    <button class="quick-filter-btn" data-preset="cs_or_se">计算机或软件工程</button>
-                    <button class="quick-filter-btn" data-preset="not_cs">非计算机专业</button>
-                    <button class="quick-filter-btn" data-preset="age_18_22">18~22岁学生</button>
-                    <button class="quick-filter-btn" data-preset="name_zhang">姓名含'张'</button>
-                    <button class="quick-filter-btn" data-preset="no_class">未填写班级</button>
-                    <button class="quick-filter-btn" data-preset="major_in">指定专业枚举</button>
+            <!-- 快捷场景按钮区 -->
+            <div class="filter-quick-scenes">
+                <span class="quick-scenes-label">快捷场景：</span>
+                <button class="scene-tag" data-scene="cs_2022">计算机学院2022级学生</button>
+                <button class="scene-tag" data-scene="age_18_22">18-22岁的学生</button>
+                <button class="scene-tag" data-scene="name_zhang">姓名包含"张"的学生</button>
+                <button class="scene-tag" data-scene="male">男生</button>
+                <button class="scene-tag" data-scene="female">女生</button>
+            </div>
+
+            <!-- 筛选项管理区 -->
+            <div class="filter-builder">
+                <div class="filter-builder-header">
+                    <h3>筛选条件</h3>
+                    <button class="btn btn-primary" id="btn-add-filter">
+                        <span class="btn-icon">+</span> 添加筛选条件
+                    </button>
+                </div>
+
+                <div class="filter-rows-container" id="filter-rows-container">
+                    <!-- 筛选项将动态添加到这里 -->
+                    <div class="filter-empty-hint" id="filter-empty-hint">
+                        <p>暂无筛选条件，点击上方"添加筛选条件"按钮开始，或使用快捷场景</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- 操作按钮区 -->
-            <div class="condition-actions">
-                <button class="btn btn-primary" id="btn-condition-query">查询</button>
-                <button class="btn" id="btn-condition-reset">重置</button>
-                <button class="btn btn-export" id="btn-condition-export">导出结果</button>
+            <!-- 快捷操作区 -->
+            <div class="filter-actions">
+                <button class="btn btn-primary" id="btn-filter-query" disabled>查询</button>
+                <button class="btn" id="btn-filter-reset">重置</button>
+                <button class="btn btn-export" id="btn-filter-export" disabled>导出结果</button>
             </div>
 
             <!-- SQL展示区 -->
-            <div class="sql-display-box" id="condition-sql"></div>
+            <div class="sql-display-box" id="filter-sql"></div>
+
+            <!-- 结果统计 -->
+            <div class="filter-result-stats" id="filter-result-stats" style="display:none;">
+                <span>共 <strong id="filter-total-count">0</strong> 条记录</span>
+            </div>
 
             <!-- 结果表格区 -->
-            <div class="result-table-wrapper" id="condition-result" style="display:none;">
-                <table class="result-table" id="condition-table">
-                    <thead id="condition-thead"></thead>
-                    <tbody id="condition-tbody"></tbody>
+            <div class="result-table-wrapper" id="filter-result" style="display:none;">
+                <table class="result-table" id="filter-table">
+                    <thead id="filter-thead"></thead>
+                    <tbody id="filter-tbody"></tbody>
                 </table>
-                <div class="empty-result" id="condition-empty">暂无匹配数据</div>
+                <div class="empty-result" id="filter-empty">暂无匹配数据</div>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination" id="filter-pagination" style="display:none;">
+                <button class="page-btn" id="filter-page-prev" disabled>上一页</button>
+                <span class="page-info" id="filter-page-info">第 1 页 / 共 1 页</span>
+                <button class="page-btn" id="filter-page-next" disabled>下一页</button>
             </div>
         </div>
 
-        <!-- 统计分析面板 -->
-        <div class="query-panel" id="panel-stat">
-            <!-- 统计场景卡片选择区 -->
-            <div class="stat-cards">
-                <div class="stat-card" data-scene="major_count">
-                    <h3>专业人数分布</h3>
-                    <p>按专业分组统计各专业学生人数</p>
-                    <div class="stat-keywords">GROUP BY + COUNT</div>
+        <!-- 分类统计面板（原统计分析增强版） -->
+        <div class="query-panel {% if active_tab == 'stat' %}panel-active{% endif %}" id="panel-stat">
+            <div class="stat-panel-header">
+                <p class="stat-panel-desc">选择统计场景，可自定义参数进行灵活的数据分析</p>
+            </div>
+
+            <!-- 快捷操作功能区 -->
+            <div class="stat-quick-actions">
+                <h3 class="quick-actions-title">快捷统计</h3>
+                <div class="quick-action-cards">
+                    <div class="quick-action-card" data-action="major_count"><h4>专业人数统计</h4>
+                        <p>统计各专业学生人数，可设置人数阈值</p>
+                        <div class="quick-action-params" style="display:none;">
+                            <label>人数阈值（至少）：</label>
+                            <input type="number" class="param-input" data-param="threshold" value="1" min="1">
+                            <button class="btn btn-primary btn-sm btn-quick-stat">确定</button>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" data-action="age_distribution"><h4>年龄分布统计</h4>
+                        <p>按年龄段分组统计人数</p>
+                        <div class="quick-action-params" style="display:none;">
+                            <label>年龄段（用逗号分隔）：</label>
+                            <input type="text" class="param-input" data-param="ages" value="18,20,22" placeholder="如：18,20,22">
+                            <button class="btn btn-primary btn-sm btn-quick-stat">确定</button>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" data-action="grade_count"><h4>年级人数统计</h4>
+                        <p>统计各年级学生人数</p>
+                        <div class="quick-action-params" style="display:none;">
+                            <button class="btn btn-primary btn-sm btn-quick-stat">立即统计</button>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" data-action="dept_count"><h4>学院人数统计</h4>
+                        <p>统计各学院学生人数</p>
+                        <div class="quick-action-params" style="display:none;">
+                            <button class="btn btn-primary btn-sm btn-quick-stat">立即统计</button>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" data-action="custom_age_range"><h4>自定义年龄范围</h4>
+                        <p>统计指定年龄范围内的学生</p>
+                        <div class="quick-action-params" style="display:none;">
+                            <label>最小年龄：</label>
+                            <input type="number" class="param-input" data-param="min_age" value="18" min="0">
+                            <label>最大年龄：</label>
+                            <input type="number" class="param-input" data-param="max_age" value="22" min="0">
+                            <button class="btn btn-primary btn-sm btn-quick-stat">确定</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card" data-scene="major_filter">
-                    <h3>热门专业筛选</h3>
-                    <p>筛选人数大于1的专业</p>
-                    <div class="stat-keywords">GROUP BY + HAVING</div>
+            </div>
+
+            <!-- 传统统计分类 -->
+            <div class="stat-categories">
+                <div class="stat-category">
+                    <h3 class="stat-category-title">分组统计</h3>
+                    <div class="stat-cards">
+                        <div class="stat-card" data-scene="major_count">
+                            <h4>专业人数分布</h4>
+                            <p>按专业分组统计各专业学生人数</p>
+                            <div class="stat-keywords">GROUP BY + COUNT</div>
+                        </div>
+                        <div class="stat-card" data-scene="grade_count">
+                            <h4>年级人数分布</h4>
+                            <p>按年级分组统计各年级学生人数</p>
+                            <div class="stat-keywords">GROUP BY + COUNT</div>
+                        </div>
+                        <div class="stat-card" data-scene="class_count">
+                            <h4>班级人数统计</h4>
+                            <p>按班级统计各班级学生人数</p>
+                            <div class="stat-keywords">GROUP BY + COUNT</div>
+                        </div>
+                        <div class="stat-card" data-scene="gender_count">
+                            <h4>性别比例统计</h4>
+                            <p>按性别分组统计男女学生人数</p>
+                            <div class="stat-keywords">GROUP BY + COUNT</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card" data-scene="total_count">
-                    <h3>总人数统计</h3>
-                    <p>统计学生总数和有年龄数据人数</p>
-                    <div class="stat-keywords">COUNT</div>
+                <div class="stat-category">
+                    <h3 class="stat-category-title">聚合计算</h3>
+                    <div class="stat-cards">
+                        <div class="stat-card" data-scene="age_stats">
+                            <h4>年龄综合统计</h4>
+                            <p>各专业平均/最大/最小年龄及总和</p>
+                            <div class="stat-keywords">AVG/MAX/MIN/SUM</div>
+                        </div>
+                        <div class="stat-card" data-scene="total_count">
+                            <h4>总人数统计</h4>
+                            <p>学生总数和有年龄数据人数</p>
+                            <div class="stat-keywords">COUNT</div>
+                        </div>
+                        <div class="stat-card" data-scene="grade_avg_age">
+                            <h4>各年级平均年龄</h4>
+                            <p>统计每个年级的学生平均年龄</p>
+                            <div class="stat-keywords">AVG + GROUP BY</div>
+                        </div>
+                        <div class="stat-card" data-scene="age_distribution">
+                            <h4>年龄分布区间</h4>
+                            <p>18岁以下、18-22岁、22岁以上人数</p>
+                            <div class="stat-keywords">CASE WHEN</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card" data-scene="age_stats">
-                    <h3>年龄综合统计</h3>
-                    <p>各专业平均/最大/最小年龄及年龄总和</p>
-                    <div class="stat-keywords">AVG/MAX/MIN/SUM</div>
-                </div>
-                <div class="stat-card" data-scene="distinct_major">
-                    <h3>不重复专业列表</h3>
-                    <p>查询所有不重复的专业名称</p>
-                    <div class="stat-keywords">DISTINCT</div>
+                <div class="stat-category">
+                    <h3 class="stat-category-title">条件筛选</h3>
+                    <div class="stat-cards">
+                        <div class="stat-card" data-scene="major_filter">
+                            <h4>热门专业筛选</h4>
+                            <p>筛选人数大于1的专业</p>
+                            <div class="stat-keywords">HAVING</div>
+                        </div>
+                        <div class="stat-card" data-scene="distinct_major">
+                            <h4>不重复专业列表</h4>
+                            <p>查询所有不重复的专业名称</p>
+                            <div class="stat-keywords">DISTINCT</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -133,19 +226,37 @@
         </div>
 
         <!-- 排序浏览面板 -->
-        <div class="query-panel" id="panel-sort">
+        <div class="query-panel {% if active_tab == 'sort' %}panel-active{% endif %}" id="panel-sort">
+            <div class="sort-panel-header">
+                <p class="sort-panel-desc">添加多个排序字段，按优先级进行数据排序（最多5个字段）</p>
+            </div>
+
+            <div class="sort-controls">
+                <div class="sort-fields-container" id="sort-fields-container">
+                    <!-- 排序字段将动态添加到这里 -->
+                </div>
+                <div class="sort-actions">
+                    <button class="btn btn-primary" id="btn-add-sort-field">
+                        <span class="btn-icon">+</span> 添加排序字段
+                    </button>
+                    <button class="btn btn-primary" id="btn-sort-apply">应用排序</button>
+                    <button class="btn" id="btn-sort-reset">重置</button>
+                </div>
+            </div>
+
             <!-- 数据表格 -->
             <div class="result-table-wrapper">
-                <table class="sortable-table" id="sort-table">
+                <table class="data-table" id="sort-table">
                     <thead>
                         <tr>
-                            <th class="sort-header" data-field="student_no">学号<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="student_name">姓名<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="gender">性别<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="age">年龄<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="major">专业<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="grade">年级<span class="sort-arrow"></span></th>
-                            <th class="sort-header" data-field="class_name">班级<span class="sort-arrow"></span></th>
+                            <th>学号</th>
+                            <th>姓名</th>
+                            <th>性别</th>
+                            <th>年龄</th>
+                            <th>班级</th>
+                            <th>年级</th>
+                            <th>专业</th>
+                            <th>学院</th>
                         </tr>
                     </thead>
                     <tbody id="sort-tbody"></tbody>
@@ -166,172 +277,283 @@
             <div class="empty-result" id="sort-empty">暂无匹配数据</div>
         </div>
 
-        <!-- SQL实训面板 -->
-        <div class="query-panel" id="panel-training">
+        <!-- 快查指令面板（原SQL实训） -->
+        <div class="query-panel {% if active_tab == 'training' %}panel-active{% endif %}" id="panel-training">
+            <!-- 使用指南区域 -->
+            <div class="training-guide">
+                <h3 class="training-guide-title"> 快查指令使用指南</h3>
+                <div class="training-guide-content">
+                    <div class="guide-section">
+                        <h4>什么是快查指令？</h4>
+                        <p>快查指令提供常用的SQL语句模板和关键词速查，帮助您快速编写和执行SQL查询。无需记忆复杂的语法，通过参考示例即可轻松完成数据查询。</p>
+                    </div>
+                    <div class="guide-section">
+                        <h4>如何使用？</h4>
+                        <ol class="guide-steps">
+                            <li>在下方SQL编辑器中输入或粘贴SQL语句</li>
+                            <li>点击"执行"按钮运行查询</li>
+                            <li>查看执行结果和生成的SQL</li>
+                            <li>可点击"导出"将结果保存为CSV文件</li>
+                        </ol>
+                    </div>
+                    <div class="guide-section">
+                        <h4>常用示例</h4>
+                        <div class="guide-examples">
+                            <div class="guide-example">
+                                <code>SELECT * FROM student_info</code>
+                                <span>查询所有学生</span>
+                            </div>
+                            <div class="guide-example">
+                                <code>SELECT * FROM student_info WHERE major = '计算机'</code>
+                                <span>条件查询</span>
+                            </div>
+                            <div class="guide-example">
+                                <code>SELECT * FROM student_info WHERE student_name LIKE '%张%'</code>
+                                <span>模糊查询</span>
+                            </div>
+                            <div class="guide-example">
+                                <code>SELECT * FROM student_info ORDER BY age DESC</code>
+                                <span>排序查询</span>
+                            </div>
+                            <div class="guide-example">
+                                <code>SELECT major, COUNT(*) FROM student_info GROUP BY major</code>
+                                <span>统计查询</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="guide-section">
+                        <h4>注意事项</h4>
+                        <ul class="guide-notes">
+                            <li>仅支持SELECT查询语句，确保数据安全</li>
+                            <li>危险操作（如DROP、DELETE）需要管理员权限</li>
+                            <li>查询结果可点击表头进行排序</li>
+                            <li>使用关键词速查区快速了解SQL语法</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 自定义SQL执行区 -->
+            <div class="quick-sql-exec">
+                <h3>SQL语句执行器</h3>
+                <div class="quick-sql-editor-wrapper">
+                    <textarea id="quick-sql-editor" class="sql-editor" spellcheck="false" placeholder="输入SQL语句并执行...">SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id LIMIT 10</textarea>
+                </div>
+                <div class="quick-sql-actions">
+                    <button class="btn btn-primary btn-sm" id="btn-quick-sql-run">执行</button>
+                    <button class="btn btn-sm" id="btn-quick-sql-clear">清空</button>
+                    <button class="btn btn-export btn-sm" id="btn-quick-sql-export">导出</button>
+                </div>
+                <div id="quick-sql-error" class="sql-error-msg" style="display:none;"></div>
+                <div class="sql-display-box" id="quick-sql-display"></div>
+                <div class="result-table-wrapper" id="quick-sql-result" style="display:none;">
+                    <table class="result-table" id="quick-sql-table">
+                        <thead id="quick-sql-thead"></thead>
+                        <tbody id="quick-sql-tbody"></tbody>
+                    </table>
+                    <div class="empty-result" id="quick-sql-empty">暂无匹配数据</div>
+                </div>
+            </div>
+
+            <!-- 分类展示区 -->
             <div class="accordion">
-                <!-- DDL 数据库定义 -->
-                <div class="accordion-item">
-                    <div class="accordion-title">DDL 数据库定义<span class="accordion-arrow">▶</span></div>
+                <!-- 查询语句 -->
+                <div class="accordion-item accordion-open">
+                    <div class="accordion-title">查询语句</div>
                     <div class="accordion-content">
-                        <div class="keyword-card" data-keyword="CREATE_DATABASE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">CREATE DATABASE</span>
-                                <span class="keyword-summary">创建数据库</span>
+                        <div class="ref-card" data-sql="SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">基础查询</span>
+                                <span class="ref-card-summary">查询所有学生信息</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card keyword-danger" data-keyword="DROP_DATABASE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">DROP DATABASE</span>
-                                <span class="keyword-summary">删除数据库</span>
+                        <div class="ref-card" data-sql="SELECT s.student_no, s.student_name, m.major_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">指定列查询</span>
+                                <span class="ref-card-summary">查询指定字段</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT s.student_no, s.student_name, m.major_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="CREATE_TABLE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">CREATE TABLE</span>
-                                <span class="keyword-summary">创建数据表</span>
+                        <div class="ref-card" data-sql="SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id WHERE m.major_name = '计算机'">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">条件查询</span>
+                                <span class="ref-card-summary">WHERE子句过滤</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id WHERE m.major_name = '计算机';</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card keyword-danger" data-keyword="DROP_TABLE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">DROP TABLE</span>
-                                <span class="keyword-summary">删除数据表</span>
+                        <div class="ref-card" data-sql="SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id ORDER BY s.age DESC">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">排序查询</span>
+                                <span class="ref-card-summary">ORDER BY排序</span>
                             </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="ALTER_TABLE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">ALTER TABLE</span>
-                                <span class="keyword-summary">修改表结构</span>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id ORDER BY s.age DESC;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
                             </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="COMMENT">
-                            <div class="keyword-header">
-                                <span class="keyword-name">COMMENT</span>
-                                <span class="keyword-summary">注释说明</span>
-                            </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="ENGINE_CHARSET">
-                            <div class="keyword-header">
-                                <span class="keyword-name">ENGINE/CHARSET</span>
-                                <span class="keyword-summary">引擎与字符集</span>
-                            </div>
-                            <div class="keyword-detail"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- DML 数据操作 -->
+                <!-- 聚合统计 -->
                 <div class="accordion-item">
-                    <div class="accordion-title">DML 数据操作<span class="accordion-arrow">▶</span></div>
+                    <div class="accordion-title">聚合统计</div>
                     <div class="accordion-content">
-                        <div class="keyword-card" data-keyword="INSERT">
-                            <div class="keyword-header">
-                                <span class="keyword-name">INSERT</span>
-                                <span class="keyword-summary">插入单条数据</span>
+                        <div class="ref-card" data-sql="SELECT COUNT(*) FROM students">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">COUNT计数</span>
+                                <span class="ref-card-summary">统计总记录数</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT COUNT(*) AS 总数 FROM students;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="INSERT_MULTI">
-                            <div class="keyword-header">
-                                <span class="keyword-name">INSERT 多值</span>
-                                <span class="keyword-summary">批量插入数据</span>
+                        <div class="ref-card" data-sql="SELECT m.major_name, COUNT(*) FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id GROUP BY m.major_name">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">分组统计</span>
+                                <span class="ref-card-summary">GROUP BY分组</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT m.major_name AS 专业, COUNT(*) AS 人数 FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id GROUP BY m.major_name;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="UPDATE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">UPDATE</span>
-                                <span class="keyword-summary">更新数据</span>
+                        <div class="ref-card" data-sql="SELECT AVG(s.age), MAX(s.age), MIN(s.age) FROM students s">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">聚合函数</span>
+                                <span class="ref-card-summary">AVG/MAX/MIN</span>
                             </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="DELETE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">DELETE</span>
-                                <span class="keyword-summary">删除数据</span>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">SELECT AVG(s.age) AS 平均年龄, MAX(s.age) AS 最大年龄, MIN(s.age) AS 最小年龄 FROM students s;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
                             </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="SELECT">
-                            <div class="keyword-header">
-                                <span class="keyword-name">SELECT</span>
-                                <span class="keyword-summary">查询数据</span>
-                            </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="FROM">
-                            <div class="keyword-header">
-                                <span class="keyword-name">FROM</span>
-                                <span class="keyword-summary">指定数据源</span>
-                            </div>
-                            <div class="keyword-detail"></div>
-                        </div>
-                        <div class="keyword-card" data-keyword="WHERE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">WHERE</span>
-                                <span class="keyword-summary">条件过滤</span>
-                            </div>
-                            <div class="keyword-detail"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 事务与约束 -->
+                <!-- 数据操作 -->
                 <div class="accordion-item">
-                    <div class="accordion-title">事务与约束<span class="accordion-arrow">▶</span></div>
+                    <div class="accordion-title">数据操作</div>
                     <div class="accordion-content">
-                        <div class="keyword-card" data-keyword="PRIMARY_KEY">
-                            <div class="keyword-header">
-                                <span class="keyword-name">PRIMARY KEY</span>
-                                <span class="keyword-summary">主键约束</span>
+                        <div class="ref-card">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">INSERT插入</span>
+                                <span class="ref-card-summary">新增记录</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">INSERT INTO students(student_no, student_name, gender, age, class_id) VALUES('2024001', '张三', '男', 20, 1);</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="AUTO_INCREMENT">
-                            <div class="keyword-header">
-                                <span class="keyword-name">AUTO_INCREMENT</span>
-                                <span class="keyword-summary">自动递增</span>
+                        <div class="ref-card">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">UPDATE更新</span>
+                                <span class="ref-card-summary">修改记录</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">UPDATE students SET class_id = 2 WHERE student_no = '2024001';</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="UNIQUE">
-                            <div class="keyword-header">
-                                <span class="keyword-name">UNIQUE</span>
-                                <span class="keyword-summary">唯一约束</span>
+                        <div class="ref-card">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">DELETE删除</span>
+                                <span class="ref-card-summary">删除记录</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">DELETE FROM students WHERE student_no = '2024001';</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="NOT_NULL">
-                            <div class="keyword-header">
-                                <span class="keyword-name">NOT NULL</span>
-                                <span class="keyword-summary">非空约束</span>
+                    </div>
+                </div>
+
+                <!-- 表结构操作 -->
+                <div class="accordion-item">
+                    <div class="accordion-title">表结构操作</div>
+                    <div class="accordion-content">
+                        <div class="ref-card">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">CREATE TABLE</span>
+                                <span class="ref-card-summary">创建数据表</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">CREATE TABLE students (
+  student_id INT AUTO_INCREMENT PRIMARY KEY,
+  student_no VARCHAR(20) NOT NULL UNIQUE,
+  student_name VARCHAR(30) NOT NULL,
+  gender VARCHAR(6),
+  age TINYINT,
+  class_id INT,
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (class_id) REFERENCES classes(class_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="DEFAULT">
-                            <div class="keyword-header">
-                                <span class="keyword-name">DEFAULT</span>
-                                <span class="keyword-summary">默认值</span>
+                        <div class="ref-card">
+                            <div class="ref-card-header">
+                                <span class="ref-card-name">ALTER TABLE</span>
+                                <span class="ref-card-summary">修改表结构</span>
                             </div>
-                            <div class="keyword-detail"></div>
+                            <div class="ref-card-detail">
+                                <pre class="ref-sql">ALTER TABLE students ADD COLUMN phone VARCHAR(20) DEFAULT NULL COMMENT '联系电话';</pre>
+                                <button class="btn btn-sm btn-sql-copy">复制</button>
+                            </div>
                         </div>
-                        <div class="keyword-card" data-keyword="BEGIN_COMMIT_ROLLBACK">
-                            <div class="keyword-header">
-                                <span class="keyword-name">BEGIN/COMMIT/ROLLBACK</span>
-                                <span class="keyword-summary">事务控制</span>
-                            </div>
-                            <div class="keyword-detail"></div>
+                    </div>
+                </div>
+
+                <!-- 关键词速查 -->
+                <div class="accordion-item">
+                    <div class="accordion-title">关键词速查</div>
+                    <div class="accordion-content">
+                        <div class="keyword-grid">
+                            <div class="kw-item" data-keyword="SELECT"><span class="kw-name">SELECT</span><span class="kw-desc">查询数据</span></div>
+                            <div class="kw-item" data-keyword="FROM"><span class="kw-name">FROM</span><span class="kw-desc">指定数据源</span></div>
+                            <div class="kw-item" data-keyword="WHERE"><span class="kw-name">WHERE</span><span class="kw-desc">条件过滤</span></div>
+                            <div class="kw-item" data-keyword="AND"><span class="kw-name">AND</span><span class="kw-desc">逻辑与</span></div>
+                            <div class="kw-item" data-keyword="OR"><span class="kw-name">OR</span><span class="kw-desc">逻辑或</span></div>
+                            <div class="kw-item" data-keyword="NOT"><span class="kw-name">NOT</span><span class="kw-desc">逻辑非</span></div>
+                            <div class="kw-item" data-keyword="ORDER BY"><span class="kw-name">ORDER BY</span><span class="kw-desc">排序</span></div>
+                            <div class="kw-item" data-keyword="GROUP BY"><span class="kw-name">GROUP BY</span><span class="kw-desc">分组</span></div>
+                            <div class="kw-item" data-keyword="HAVING"><span class="kw-name">HAVING</span><span class="kw-desc">分组后过滤</span></div>
+                            <div class="kw-item" data-keyword="LIMIT"><span class="kw-name">LIMIT</span><span class="kw-desc">限制条数</span></div>
+                            <div class="kw-item" data-keyword="LIKE"><span class="kw-name">LIKE</span><span class="kw-desc">模糊匹配</span></div>
+                            <div class="kw-item" data-keyword="BETWEEN"><span class="kw-name">BETWEEN</span><span class="kw-desc">范围查询</span></div>
+                            <div class="kw-item" data-keyword="IN"><span class="kw-name">IN</span><span class="kw-desc">枚举匹配</span></div>
+                            <div class="kw-item" data-keyword="IS NULL"><span class="kw-name">IS NULL</span><span class="kw-desc">空值判断</span></div>
+                            <div class="kw-item" data-keyword="DISTINCT"><span class="kw-name">DISTINCT</span><span class="kw-desc">去重</span></div>
+                            <div class="kw-item" data-keyword="AS"><span class="kw-name">AS</span><span class="kw-desc">别名</span></div>
+                            <div class="kw-item" data-keyword="COUNT"><span class="kw-name">COUNT</span><span class="kw-desc">计数</span></div>
+                            <div class="kw-item" data-keyword="AVG"><span class="kw-name">AVG</span><span class="kw-desc">平均值</span></div>
+                            <div class="kw-item" data-keyword="SUM"><span class="kw-name">SUM</span><span class="kw-desc">求和</span></div>
+                            <div class="kw-item" data-keyword="MAX"><span class="kw-name">MAX</span><span class="kw-desc">最大值</span></div>
+                            <div class="kw-item" data-keyword="MIN"><span class="kw-name">MIN</span><span class="kw-desc">最小值</span></div>
+                            <div class="kw-item" data-keyword="INSERT"><span class="kw-name">INSERT</span><span class="kw-desc">插入数据</span></div>
+                            <div class="kw-item" data-keyword="UPDATE"><span class="kw-name">UPDATE</span><span class="kw-desc">更新数据</span></div>
+                            <div class="kw-item" data-keyword="DELETE"><span class="kw-name">DELETE</span><span class="kw-desc">删除数据</span></div>
+                            <div class="kw-item" data-keyword="CREATE"><span class="kw-name">CREATE</span><span class="kw-desc">创建对象</span></div>
+                            <div class="kw-item" data-keyword="ALTER"><span class="kw-name">ALTER</span><span class="kw-desc">修改对象</span></div>
+                            <div class="kw-item" data-keyword="DROP"><span class="kw-name">DROP</span><span class="kw-desc">删除对象</span></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+            </div>
+        </main>
+    </div>
 
     <!-- 二次确认弹窗 -->
     <div class="confirm-overlay" id="confirm-overlay" style="display:none;">

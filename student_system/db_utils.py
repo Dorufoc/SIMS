@@ -28,23 +28,75 @@ def _ensure_db_initialized():
             port=DB_PORT,
             user=DB_USER,
             password=DB_PASSWORD,
-            charset='utf8mb4'
+            charset='utf8mb4',
+            autocommit=True
         )
         cursor = conn.cursor()
         # 检查数据库是否存在
         cursor.execute("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = %s", (DB_NAME,))
-        if cursor.fetchone() is None:
-            # 数据库不存在，执行init.sql
-            sql_path = os.path.join(os.path.dirname(__file__), 'sql', 'init.sql')
+        db_exists = cursor.fetchone() is not None
+
+        need_init = False
+        if not db_exists:
+            need_init = True
+        else:
+            # 数据库已存在，检查新架构的 students 表是否存在
+            cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'students'", (DB_NAME,))
+            if cursor.fetchone() is None:
+                need_init = True
+
+        if need_init:
+            sql_path = os.path.join(os.path.dirname(__file__), 'sql', 'init_complete.sql')
             with open(sql_path, 'r', encoding='utf-8') as f:
                 sql_content = f.read()
-            # 按;分割逐条执行（跳过空语句）
-            for stmt in sql_content.split(';'):
+            # 分割SQL语句并执行，跳过DELIMITER和触发器定义
+            statements = []
+            current_stmt = []
+            in_trigger = False
+            for line in sql_content.split('\n'):
+                line_stripped = line.strip()
+                # 跳过DELIMITER指令
+                if line_stripped.upper().startswith('DELIMITER'):
+                    continue
+                # 检测触发器开始
+                if 'CREATE TRIGGER' in line.upper():
+                    in_trigger = True
+                # 检测触发器结束
+                if in_trigger and line_stripped == 'END//':
+                    current_stmt.append('END')
+                    in_trigger = False
+                    continue
+                if in_trigger and line_stripped == 'END':
+                    current_stmt.append('END')
+                    in_trigger = False
+                    continue
+                # 普通语句处理
+                if not in_trigger:
+                    if line_stripped and not line_stripped.startswith('--'):
+                        current_stmt.append(line)
+                    if line_stripped.endswith(';'):
+                        stmt = '\n'.join(current_stmt).strip()
+                        if stmt:
+                            statements.append(stmt.rstrip(';'))
+                        current_stmt = []
+                else:
+                    if line_stripped and not line_stripped.startswith('--'):
+                        current_stmt.append(line)
+            # 执行所有语句
+            for stmt in statements:
                 stmt = stmt.strip()
-                if stmt:
-                    cursor.execute(stmt)
-            conn.commit()
+                if stmt and len(stmt) > 5:
+                    try:
+                        cursor.execute(stmt)
+                    except Exception as e:
+                        # 忽略已存在的错误
+                        if 'already exists' not in str(e).lower():
+                            print(f"SQL执行警告: {e}")
+
         _db_initialized = True
+    except Exception as e:
+        _db_initialized = False
+        raise
     finally:
         if cursor:
             cursor.close()
@@ -53,18 +105,34 @@ def _ensure_db_initialized():
 
 
 def get_conn():
-    """获取数据库连接"""
+    """获取数据库连接，失败时重置初始化状态并重试一次"""
+    global _db_initialized
     _ensure_db_initialized()
-    conn = pymysql.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    return conn
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
+    except pymysql.err.OperationalError:
+        # 数据库连接失败，重置初始化状态并重试
+        _db_initialized = False
+        _ensure_db_initialized()
+        conn = pymysql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
 
 
 def query(sql, params=None):

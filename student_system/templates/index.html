@@ -7,61 +7,250 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav class="nav-bar">
-        <div class="nav-brand">学生信息管理系统</div>
-        <div class="nav-links">
-            <a href="/" class="nav-link">首页</a>
-            <a href="/manage" class="nav-link">数据管理</a>
-            {% if session.get('user_role') == 'admin' %}
-            <a href="/add" class="nav-link">新增学生</a>
-            {% endif %}
-            <a href="/query" class="nav-link">高级查询</a>
-            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
-        </div>
-        {% if session.get('username') %}
-        <div class="nav-user">欢迎，{{ session.get('username') }}
-            {% if session.get('user_role') == 'admin' %}
-            <span class="role-badge role-badge-admin">管理员</span>
-            {% else %}
-            <span class="role-badge role-badge-user">普通用户</span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </nav>
+    {% set active_page = 'dashboard' %}
+    {% include '_header.html' %}
 
-    <main class="main-content">
-        <section class="welcome-section">
-            <h1>欢迎使用学生信息管理系统</h1>
-            <p>本系统提供学生信息的增删改查、批量导入导出等管理功能，请选择下方功能开始使用。</p>
-        </section>
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
 
-        <section class="feature-cards">
-            <div class="feature-card">
-                <h2>数据管理</h2>
-                <p>查看、编辑、删除学生信息，支持批量导入导出CSV文件。</p>
-                <a href="/manage" class="feature-card-link">进入管理</a>
-            </div>
-            {% if session.get('user_role') == 'admin' %}
-            <div class="feature-card">
-                <h2>新增学生</h2>
-                <p>逐条录入学生信息，填写学号、姓名、性别等基本资料。</p>
-                <a href="/add" class="feature-card-link">新增学生</a>
-            </div>
-            {% else %}
-            <div class="feature-card feature-card-disabled">
-                <h2>新增学生</h2>
-                <p>逐条录入学生信息，填写学号、姓名、性别等基本资料。</p>
-                <span class="feature-card-link feature-card-link-disabled">仅管理员</span>
-            </div>
-            {% endif %}
-            <div class="feature-card">
-                <h2>高级查询</h2>
-                <p>按学号、姓名、专业、年级等多条件组合查询学生信息。</p>
-                <a href="/query" class="feature-card-link">开始查询</a>
-            </div>
-        </section>
-    </main>
+        <!-- 主内容区 -->
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <!-- 仪表盘头部 -->
+                <div class="dashboard-header">
+                    <h1>仪表盘</h1>
+                    <p class="dashboard-subtitle">欢迎使用学生信息管理系统，以下是系统数据概览</p>
+                </div>
 
-    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+                <!-- 统计卡片网格 -->
+                <div class="dashboard-grid">
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">学生总数</div>
+                            <div class="stat-value" id="stat-students">-</div>
+                            <div class="stat-change">系统中注册的学生人数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">教师总数</div>
+                            <div class="stat-value" id="stat-teachers">-</div>
+                            <div class="stat-change">系统中注册的教师人数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">院系数量</div>
+                            <div class="stat-value" id="stat-departments">-</div>
+                            <div class="stat-change">学校下属院系数量</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">专业数量</div>
+                            <div class="stat-value" id="stat-majors">-</div>
+                            <div class="stat-change">开设的专业总数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">班级数量</div>
+                            <div class="stat-value" id="stat-classes">-</div>
+                            <div class="stat-change">系统中的班级总数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card-dashboard"><div class="stat-info">
+                            <div class="stat-label">课程数量</div>
+                            <div class="stat-value" id="stat-courses">-</div>
+                            <div class="stat-change">开设的课程总数</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图表区域 -->
+                <div class="dashboard-charts">
+                    <div class="chart-card">
+                        <h3>院系学生分布</h3>
+                        <div class="chart-simple" id="dept-chart">
+                            <canvas id="deptChartCanvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>性别比例</h3>
+                        <div class="chart-simple" id="gender-chart">
+                            <canvas id="genderChartCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        // 页面加载时加载统计数据
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardStats();
+        });
+
+        // 加载仪表盘统计数据
+        function loadDashboardStats() {
+            fetch('/api/statistics/dashboard')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const overview = data.data.overview;
+                        document.getElementById('stat-students').textContent = overview.student_count || 0;
+                        document.getElementById('stat-teachers').textContent = overview.teacher_count || 0;
+                        document.getElementById('stat-departments').textContent = overview.dept_count || 0;
+                        document.getElementById('stat-majors').textContent = overview.major_count || 0;
+                        document.getElementById('stat-classes').textContent = overview.class_count || 0;
+                        document.getElementById('stat-courses').textContent = overview.course_count || 0;
+
+                        // 加载图表数据
+                        loadChartData();
+                    }
+                })
+                .catch(err => {
+                    console.error('加载统计数据失败:', err);
+                    // 设置默认值
+                    document.getElementById('stat-students').textContent = '0';
+                    document.getElementById('stat-teachers').textContent = '0';
+                    document.getElementById('stat-departments').textContent = '0';
+                    document.getElementById('stat-majors').textContent = '0';
+                    document.getElementById('stat-classes').textContent = '0';
+                    document.getElementById('stat-courses').textContent = '0';
+                });
+        }
+
+        // 加载图表数据
+        function loadChartData() {
+            // 加载院系分布数据
+            fetch('/api/statistics/students?group_by=department')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderDeptChart(data.data);
+                    }
+                })
+                .catch(err => console.error('加载院系数据失败:', err));
+
+            // 加载性别比例数据
+            fetch('/api/statistics/gender')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderGenderChart(data.data);
+                    }
+                })
+                .catch(err => console.error('加载性别数据失败:', err));
+        }
+
+        // 渲染院系分布图表（使用Canvas绘制简单饼图）
+        function renderDeptChart(data) {
+            const canvas = document.getElementById('deptChartCanvas');
+            if (!canvas || !data || data.length === 0) {
+                document.getElementById('dept-chart').innerHTML = '<p>暂无数据</p>';
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            const total = data.reduce((sum, item) => sum + item.count, 0);
+            const colors = ['#cc3336', '#276749', '#c05621', '#6b46c1', '#2c5282', '#d69e2e', '#718096'];
+
+            // 绘制简单的条形图
+            const barHeight = 24;
+            const gap = 12;
+            const maxBarWidth = canvas.width - 150;
+            const maxCount = Math.max(...data.map(d => d.count));
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            data.forEach((item, index) => {
+                const y = index * (barHeight + gap) + 20;
+                const barWidth = (item.count / maxCount) * maxBarWidth;
+                const percentage = ((item.count / total) * 100).toFixed(1);
+
+                // 绘制条形
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.fillRect(100, y, barWidth, barHeight);
+
+                // 绘制标签
+                ctx.fillStyle = '#2d3748';
+                ctx.font = '12px Microsoft YaHei';
+                ctx.textAlign = 'right';
+                ctx.fillText(item.name, 90, y + barHeight / 2 + 4);
+
+                // 绘制数值
+                ctx.textAlign = 'left';
+                ctx.fillText(`${item.count}人 (${percentage}%)`, 100 + barWidth + 8, y + barHeight / 2 + 4);
+            });
+        }
+
+        // 渲染性别比例图表
+        function renderGenderChart(data) {
+            const canvas = document.getElementById('genderChartCanvas');
+            if (!canvas || !data || !data.total) {
+                document.getElementById('gender-chart').innerHTML = '<p>暂无数据</p>';
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            const total = data.total.reduce((sum, item) => sum + item.count, 0);
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2 + 10;
+            const radius = Math.min(canvas.width, canvas.height) / 3;
+
+            let currentAngle = -Math.PI / 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            data.total.forEach((item, index) => {
+                const percentage = item.count / total;
+                const angle = percentage * Math.PI * 2;
+
+                // 绘制扇形
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + angle);
+                ctx.closePath();
+                ctx.fillStyle = item.gender === '男' ? '#cc3336' : (item.gender === '女' ? '#e83e8c' : '#718096');
+                ctx.fill();
+
+                // 绘制标签
+                const labelAngle = currentAngle + angle / 2;
+                const labelX = centerX + Math.cos(labelAngle) * (radius + 30);
+                const labelY = centerY + Math.sin(labelAngle) * (radius + 30);
+                ctx.fillStyle = '#2d3748';
+                ctx.font = '13px Microsoft YaHei';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${item.gender || '未知'}: ${item.count}人`, labelX, labelY);
+
+                currentAngle += angle;
+            });
+
+            // 绘制中心圆
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // 中心文字
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 16px Microsoft YaHei';
+            ctx.textAlign = 'center';
+            ctx.fillText(`总计`, centerX, centerY - 5);
+            ctx.font = '14px Microsoft YaHei';
+            ctx.fillText(`${total}人`, centerX, centerY + 15);
+        }
+
+        // 窗口大小改变时重绘图表
+        window.addEventListener('resize', function() {
+            loadChartData();
+        });
+    </script>
 </body>
 </html>

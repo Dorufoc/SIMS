@@ -1,0 +1,292 @@
+{% set active_page = 'dorm' %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>住宿分配 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="container admin-container">
+                    <div class="page-header">
+            <h1>住宿分配</h1>
+            <div>
+                <button class="btn btn-success" onclick="location.href='/dorm_rooms'">宿舍管理</button>
+                <button class="btn btn-primary" onclick="openModal()">分配宿舍</button>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <select id="statusFilter" onchange="handleSearch()">
+                <option value="">所有状态</option>
+                <option value="在住">在住</option>
+                <option value="已退">已退</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="搜索学号或学生姓名..." onkeyup="handleSearch()">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>学号</th>
+                    <th>姓名</th>
+                    <th>性别</th>
+                    <th>楼栋</th>
+                    <th>房间号</th>
+                    <th>床位号</th>
+                    <th>入住日期</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="assignmentTable">
+                <!-- 数据将通过JS加载 -->
+            </tbody>
+        </table>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 分配宿舍模态框 -->
+    <div id="assignModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>分配宿舍</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="assignForm" onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label>学号 *</label>
+                    <input type="text" id="studentId" required placeholder="请输入学生学号">
+                </div>
+                <div class="form-group">
+                    <label>房间 *</label>
+                    <select id="roomId" required onchange="updateAvailableBeds()">
+                        <option value="">请选择房间</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>床位号</label>
+                    <input type="text" id="bedNumber" placeholder="如：1号床">
+                </div>
+                <div class="form-group">
+                    <label>入住日期</label>
+                    <input type="date" id="checkInDate">
+                </div>
+                <button type="submit" class="btn btn-primary">确认分配</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 退宿模态框 -->
+    <div id="checkoutModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>退宿确认</h2>
+                <span class="close" onclick="closeCheckoutModal()">&times;</span>
+            </div>
+            <form id="checkoutForm" onsubmit="handleCheckout(event)">
+                <input type="hidden" id="checkoutAssignId">
+                <div class="form-group">
+                    <label>退宿日期</label>
+                    <input type="date" id="checkOutDate">
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <textarea id="checkoutRemark" rows="3" placeholder="退宿原因等备注信息"></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning">确认退宿</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let searchKeyword = '';
+        let statusFilter = '';
+
+        // 加载住宿分配列表
+        function loadAssignments(page = 1) {
+            currentPage = page;
+            let url = `/api/dorm_assignments?page=${page}&page_size=10`;
+            if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
+            if (searchKeyword) url += `&student_id=${encodeURIComponent(searchKeyword)}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        totalPages = data.total_pages || 1;
+                        renderPagination();
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('assignmentTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9">暂无数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(assign => {
+                const statusClass = assign.status === '在住' ? 'status-active' : 'status-inactive';
+                const actionButtons = assign.status === '在住' 
+                    ? `<button class="btn btn-warning" onclick="openCheckoutModal(${assign.assign_id})">退宿</button>`
+                    : '<span>已退</span>';
+                return `
+                    <tr>
+                        <td>${assign.student_id}</td>
+                        <td>${assign.student_name}</td>
+                        <td>${assign.gender || '-'}</td>
+                        <td>${assign.building}</td>
+                        <td>${assign.room_number}</td>
+                        <td>${assign.bed_number || '-'}</td>
+                        <td>${assign.check_in_date || '-'}</td>
+                        <td><span class="${statusClass}">${assign.status}</span></td>
+                        <td class="actions">
+                            ${actionButtons}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 渲染分页
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            let html = `<button class="page-btn" onclick="loadAssignments(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadAssignments(${i})">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<span>...</span>`;
+                }
+            }
+            html += `<button class="page-btn" onclick="loadAssignments(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+            pagination.innerHTML = html;
+        }
+
+        // 加载有空床位的房间
+        function loadAvailableRooms() {
+            fetch('/api/dorm_rooms/available')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const select = document.getElementById('roomId');
+                        const options = data.data.map(room => 
+                            `<option value="${room.room_id}">${room.building} ${room.room_number} (空${room.available_beds}床)</option>`
+                        ).join('');
+                        select.innerHTML = '<option value="">请选择房间</option>' + options;
+                    }
+                });
+        }
+
+        // 搜索处理
+        function handleSearch() {
+            searchKeyword = document.getElementById('searchInput').value;
+            statusFilter = document.getElementById('statusFilter').value;
+            loadAssignments(1);
+        }
+
+        // 打开分配模态框
+        function openModal() {
+            document.getElementById('assignModal').classList.add('active');
+            document.getElementById('assignForm').reset();
+            loadAvailableRooms();
+        }
+
+        // 关闭分配模态框
+        function closeModal() {
+            document.getElementById('assignModal').classList.remove('active');
+        }
+
+        // 打开退宿模态框
+        function openCheckoutModal(assignId) {
+            document.getElementById('checkoutModal').classList.add('active');
+            document.getElementById('checkoutAssignId').value = assignId;
+            document.getElementById('checkoutForm').reset();
+        }
+
+        // 关闭退宿模态框
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.remove('active');
+        }
+
+        // 提交分配
+        function handleSubmit(e) {
+            e.preventDefault();
+            const data = {
+                student_id: document.getElementById('studentId').value,
+                room_id: parseInt(document.getElementById('roomId').value),
+                bed_number: document.getElementById('bedNumber').value,
+                check_in_date: document.getElementById('checkInDate').value
+            };
+
+            fetch('/api/dorm_assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadAssignments(currentPage);
+                }
+            });
+        }
+
+        // 提交退宿
+        function handleCheckout(e) {
+            e.preventDefault();
+            const assignId = document.getElementById('checkoutAssignId').value;
+            const data = {
+                check_out_date: document.getElementById('checkOutDate').value,
+                remark: document.getElementById('checkoutRemark').value
+            };
+
+            fetch(`/api/dorm_assignments/${assignId}/checkout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeCheckoutModal();
+                    loadAssignments(currentPage);
+                }
+            });
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) {
+                closeModal();
+                closeCheckoutModal();
+            }
+        }
+
+        // 初始化
+        loadAssignments();
+    </script>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

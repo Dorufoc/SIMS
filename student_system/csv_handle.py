@@ -8,12 +8,12 @@ from io import BytesIO, StringIO
 import db_utils
 
 # 标准表头定义
-HEADERS = ['学号', '姓名', '性别', '年龄', '专业', '年级', '班级']
+HEADERS = ['学号', '姓名', '性别', '年龄', '班级', '年级', '专业', '学院']
 
 # 数据库字段与表头对应顺序
 FIELD_ORDER = [
-    'student_no', 'student_name', 'gender',
-    'age', 'major', 'grade', 'class_name'
+    'student_no', 'student_name', 'gender', 'age',
+    'class_name', 'grade', 'major_name', 'dept_name'
 ]
 
 
@@ -39,6 +39,15 @@ def parse_csv(file_stream):
     errors = []
     seen_student_no = set()
 
+    # 预加载班级名称→ID映射
+    class_map = {}
+    try:
+        class_rows = db_utils.query("SELECT class_id, class_name FROM classes")
+        for cr in class_rows:
+            class_map[cr['class_name']] = cr['class_id']
+    except Exception:
+        pass
+
     for index, row in enumerate(rows):
         # 跳过表头行（第一行）
         if index == 0:
@@ -48,12 +57,12 @@ def parse_csv(file_stream):
         if not row or all(cell.strip() == '' for cell in row):
             continue
 
-        # 补齐不足7列的行
-        while len(row) < 7:
+        # 补齐不足8列的行
+        while len(row) < 8:
             row.append('')
 
-        row = [cell.strip() for cell in row[:7]]
-        student_no, student_name, gender, age, major, grade, class_name = row
+        row = [cell.strip() for cell in row[:8]]
+        student_no, student_name, gender, age, class_name, grade, major, dept = row
         row_num = index + 1  # 显示用行号（从1开始）
 
         # 校验：学号为空
@@ -74,16 +83,24 @@ def parse_csv(file_stream):
 
         # 校验：学号在数据库中已存在
         existing = db_utils.query(
-            "SELECT student_no FROM student_info WHERE student_no = %s",
+            "SELECT student_no FROM students WHERE student_no = %s",
             (student_no,)
         )
         if existing:
             errors.append(f"第{row_num}行: 学号{student_no}已存在")
             continue
 
+        # 班级名称映射为 class_id
+        class_id = class_map.get(class_name)
+        if not class_name:
+            class_id = None
+        elif class_id is None:
+            errors.append(f"第{row_num}行: 班级'{class_name}'不存在，请先创建班级")
+            continue
+
         # 合法数据
         age_val = int(age) if age else None
-        valid_data.append([student_no, student_name, gender, age_val, major, grade, class_name])
+        valid_data.append([student_no, student_name, gender, age_val, class_id])
 
     return {
         'valid_data': valid_data,
@@ -101,9 +118,8 @@ def import_data(valid_data):
         cursor.execute("BEGIN")
 
         insert_sql = (
-            "INSERT INTO student_info"
-            "(student_no,student_name,gender,age,major,grade,class_name)"
-            " VALUES(%s,%s,%s,%s,%s,%s,%s)"
+            "INSERT INTO students(student_no, student_name, gender, age, class_id) "
+            "VALUES(%s, %s, %s, %s, %s)"
         )
 
         for row in valid_data:
@@ -125,7 +141,15 @@ def import_data(valid_data):
 def export_csv(query_sql=None, params=None):
     """根据查询条件导出CSV数据，返回BytesIO对象（含BOM头）"""
     if query_sql is None:
-        query_sql = "SELECT student_no,student_name,gender,age,major,grade,class_name FROM student_info"
+        query_sql = """
+            SELECT s.student_no, s.student_name, s.gender, s.age,
+                   c.class_name, c.grade, m.major_name, d.dept_name
+            FROM students s
+            LEFT JOIN classes c ON s.class_id = c.class_id
+            LEFT JOIN majors m ON c.major_id = m.major_id
+            LEFT JOIN departments d ON m.dept_id = d.dept_id
+            ORDER BY s.student_id
+        """
 
     rows = db_utils.query(query_sql, params)
 

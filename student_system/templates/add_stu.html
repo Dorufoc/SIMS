@@ -1,3 +1,4 @@
+{% set active_page = 'add_stu' %}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -7,64 +8,60 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav class="nav-bar">
-        <div class="nav-brand">学生信息管理系统</div>
-        <div class="nav-links">
-            <a href="/" class="nav-link">首页</a>
-            <a href="/manage" class="nav-link">数据管理</a>
-            {% if session.get('user_role') == 'admin' %}
-            <a href="/add" class="nav-link">新增学生</a>
-            {% endif %}
-            <a href="/query" class="nav-link">高级查询</a>
-            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
-        </div>
-        {% if session.get('username') %}
-        <div class="nav-user">欢迎，{{ session.get('username') }}
-            {% if session.get('user_role') == 'admin' %}
-            <span class="role-badge role-badge-admin">管理员</span>
-            {% else %}
-            <span class="role-badge role-badge-user">普通用户</span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </nav>
+    {% include '_header.html' %}
 
-    <main class="main-content">
-        {% if session.get('user_role') == 'admin' %}
-        <div class="form-container">
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="add-student-container">
             <h2>新增学生</h2>
             <form id="add_stu_form" class="stu-form">
-                <div class="form-group">
-                    <label for="student_no">学号</label>
-                    <input type="text" id="student_no" name="student_no" required placeholder="请输入学号">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="student_no">学号</label>
+                        <input type="text" id="student_no" name="student_no" required placeholder="请输入学号">
+                    </div>
+                    <div class="form-group">
+                        <label for="student_name">姓名</label>
+                        <input type="text" id="student_name" name="student_name" required placeholder="请输入姓名">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="student_name">姓名</label>
-                    <input type="text" id="student_name" name="student_name" required placeholder="请输入姓名">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="gender">性别</label>
+                        <select id="gender" name="gender" required>
+                            <option value="">请选择</option>
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="age">年龄</label>
+                        <input type="number" id="age" name="age" min="1" max="150" placeholder="请输入年龄">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="gender">性别</label>
-                    <select id="gender" name="gender" required>
-                        <option value="">请选择</option>
-                        <option value="男">男</option>
-                        <option value="女">女</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dept_select">学院</label>
+                        <select id="dept_select" required>
+                            <option value="">-- 请选择学院 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="major_select">专业</label>
+                        <select id="major_select" required>
+                            <option value="">-- 请先选择学院 --</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="age">年龄</label>
-                    <input type="number" id="age" name="age" min="1" max="150" placeholder="请输入年龄">
-                </div>
-                <div class="form-group">
-                    <label for="major">专业</label>
-                    <input type="text" id="major" name="major" placeholder="请输入专业">
-                </div>
-                <div class="form-group">
-                    <label for="grade">年级</label>
-                    <input type="text" id="grade" name="grade" placeholder="请输入年级">
-                </div>
-                <div class="form-group">
-                    <label for="class_name">班级</label>
-                    <input type="text" id="class_name" name="class_name" placeholder="请输入班级">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="class_select">班级</label>
+                        <select id="class_select" name="class_id" required>
+                            <option value="">-- 请先选择专业 --</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group form-group-actions">
                     <button type="submit" class="btn btn-primary">提交</button>
@@ -72,17 +69,10 @@
                 </div>
             </form>
             <div id="msg_box" class="msg-box" style="display:none;"></div>
-        </div>
-        {% else %}
-        <div class="form-container">
-            <div class="permission-denied">
-                <h2>权限不足</h2>
-                <p>仅管理员可新增学生，您当前为普通用户角色。</p>
-                <a href="/" class="btn btn-primary">返回首页</a>
+                </div>
             </div>
-        </div>
-        {% endif %}
-    </main>
+        </main>
+    </div>
 
     <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
 
@@ -141,6 +131,87 @@
             };
             xhr.send(params.toString());
             show_loading();
+        });
+
+        /* ========== 三级联动选择器 ========== */
+        var dept_select = document.getElementById('dept_select');
+        var major_select = document.getElementById('major_select');
+        var class_select = document.getElementById('class_select');
+
+        // 加载学院列表
+        function load_departments() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/departments', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var depts = JSON.parse(xhr.responseText);
+                        dept_select.innerHTML = '<option value="">-- 请选择学院 --</option>';
+                        depts.forEach(function(d) {
+                            var opt = document.createElement('option');
+                            opt.value = d.dept_id;
+                            opt.textContent = d.dept_name;
+                            dept_select.appendChild(opt);
+                        });
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        }
+        load_departments();
+
+        // 学院变化  加载专业
+        dept_select.addEventListener('change', function() {
+            var dept_id = this.value;
+            major_select.innerHTML = '<option value="">-- 请选择专业 --</option>';
+            class_select.innerHTML = '<option value="">-- 请先选择专业 --</option>';
+            class_select.disabled = true;
+            
+            if (!dept_id) return;
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/majors?dept_id=' + dept_id, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var majors = JSON.parse(xhr.responseText);
+                        majors.forEach(function(m) {
+                            var opt = document.createElement('option');
+                            opt.value = m.major_id;
+                            opt.textContent = m.major_name;
+                            major_select.appendChild(opt);
+                        });
+                        major_select.disabled = false;
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        });
+
+        // 专业变化  加载班级
+        major_select.addEventListener('change', function() {
+            var major_id = this.value;
+            class_select.innerHTML = '<option value="">-- 请选择班级 --</option>';
+            
+            if (!major_id) return;
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/classes?major_id=' + major_id, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var classes = JSON.parse(xhr.responseText);
+                        classes.forEach(function(c) {
+                            var opt = document.createElement('option');
+                            opt.value = c.class_id;
+                            opt.textContent = c.class_name + ' (' + c.grade + '年)';
+                            class_select.appendChild(opt);
+                        });
+                        class_select.disabled = false;
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
         });
     </script>
 </body>

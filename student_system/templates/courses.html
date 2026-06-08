@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'courses' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>课程管理</h1>
+                        <button class="btn btn-primary" onclick="openModal()">新增课程</button>
+                    </div>
+
+                    <div class="search-box">
+                        <select id="deptFilter" onchange="handleSearch()">
+                            <option value="">所有院系</option>
+                        </select>
+                        <select id="typeFilter" onchange="handleSearch()">
+                            <option value="">所有类型</option>
+                            <option value="必修">必修</option>
+                            <option value="选修">选修</option>
+                            <option value="通识">通识</option>
+                        </select>
+                        <input type="text" id="searchInput" placeholder="搜索课程代码或名称..." onkeyup="handleSearch()">
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>课程代码</th>
+                                    <th>课程名称</th>
+                                    <th>开课院系</th>
+                                    <th>学分</th>
+                                    <th>学时</th>
+                                    <th>类型</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="courseTable">
+                                <!-- 数据将通过JS加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/编辑模态框 -->
+    <div id="courseModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增课程</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="courseForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="courseId">
+                <div class="form-group">
+                    <label>课程代码 *</label>
+                    <input type="text" id="courseIdInput" required placeholder="如：CS101">
+                </div>
+                <div class="form-group">
+                    <label>课程名称 *</label>
+                    <input type="text" id="courseName" required>
+                </div>
+                <div class="form-group">
+                    <label>开课院系 *</label>
+                    <select id="deptId" required>
+                        <option value="">请选择院系</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>学分 *</label>
+                    <input type="number" id="credits" step="0.5" min="0.5" max="10" required>
+                </div>
+                <div class="form-group">
+                    <label>学时 *</label>
+                    <input type="number" id="hours" min="8" max="160" required>
+                </div>
+                <div class="form-group">
+                    <label>课程类型</label>
+                    <select id="courseType">
+                        <option value="必修">必修</option>
+                        <option value="选修">选修</option>
+                        <option value="通识">通识</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>课程简介</label>
+                    <input type="text" id="description">
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let searchKeyword = '';
+        let deptFilter = '';
+        let typeFilter = '';
+        let departments = [];
+
+        // 加载院系列表
+        function loadDepartments() {
+            fetch('/api/departments?page=-1')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        departments = data.data;
+                        const deptSelect = document.getElementById('deptId');
+                        const deptFilterSelect = document.getElementById('deptFilter');
+                        const options = departments.map(d => `<option value="${d.dept_id}">${d.dept_name}</option>`).join('');
+                        deptSelect.innerHTML = '<option value="">请选择院系</option>' + options;
+                        deptFilterSelect.innerHTML = '<option value="">所有院系</option>' + options;
+                    }
+                });
+        }
+
+        // 加载课程列表
+        function loadCourses(page = 1) {
+            currentPage = page;
+            let url = `/api/courses?page=${page}&page_size=10`;
+            if (searchKeyword) url += `&keyword=${encodeURIComponent(searchKeyword)}`;
+            if (deptFilter) url += `&dept_id=${deptFilter}`;
+            if (typeFilter) url += `&type=${encodeURIComponent(typeFilter)}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        totalPages = data.total_pages || 1;
+                        renderPagination();
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('courseTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7">暂无数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(course => {
+                const dept = departments.find(d => d.dept_id === course.dept_id);
+                return `
+                    <tr>
+                        <td>${course.course_id}</td>
+                        <td>${course.course_name}</td>
+                        <td>${dept ? dept.dept_name : '-'}</td>
+                        <td>${course.credits}</td>
+                        <td>${course.hours}</td>
+                        <td>${course.type || '-'}</td>
+                        <td class="actions">
+                            <button class="btn btn-warning" onclick="editCourse('${course.course_id}')">编辑</button>
+                            <button class="btn btn-danger" onclick="deleteCourse('${course.course_id}', '${course.course_name}')">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 渲染分页
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            let html = `<button class="page-btn" onclick="loadCourses(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadCourses(${i})">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<span>...</span>`;
+                }
+            }
+            html += `<button class="page-btn" onclick="loadCourses(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+            pagination.innerHTML = html;
+        }
+
+        // 搜索处理
+        function handleSearch() {
+            searchKeyword = document.getElementById('searchInput').value;
+            deptFilter = document.getElementById('deptFilter').value;
+            typeFilter = document.getElementById('typeFilter').value;
+            loadCourses(1);
+        }
+
+        // 打开模态框
+        function openModal() {
+            document.getElementById('courseModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '新增课程';
+            document.getElementById('courseForm').reset();
+            document.getElementById('courseId').value = '';
+            document.getElementById('courseIdInput').disabled = false;
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('courseModal').classList.remove('active');
+        }
+
+        // 编辑课程
+        function editCourse(id) {
+            fetch(`/api/courses/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const course = data.data;
+                        document.getElementById('courseModal').classList.add('active');
+                        document.getElementById('modalTitle').textContent = '编辑课程';
+                        document.getElementById('courseId').value = course.course_id;
+                        document.getElementById('courseIdInput').value = course.course_id;
+                        document.getElementById('courseIdInput').disabled = true;
+                        document.getElementById('courseName').value = course.course_name;
+                        document.getElementById('deptId').value = course.dept_id;
+                        document.getElementById('credits').value = course.credits;
+                        document.getElementById('hours').value = course.hours;
+                        document.getElementById('courseType').value = course.type || '必修';
+                        document.getElementById('description').value = course.description || '';
+                    }
+                });
+        }
+
+        // 提交表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('courseId').value;
+            const data = {
+                course_id: document.getElementById('courseIdInput').value,
+                course_name: document.getElementById('courseName').value,
+                dept_id: parseInt(document.getElementById('deptId').value),
+                credits: parseFloat(document.getElementById('credits').value),
+                hours: parseInt(document.getElementById('hours').value),
+                type: document.getElementById('courseType').value,
+                description: document.getElementById('description').value
+            };
+
+            const url = id ? `/api/courses/${id}` : '/api/courses';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadCourses(currentPage);
+                }
+            });
+        }
+
+        // 删除课程
+        function deleteCourse(id, name) {
+            if (!confirm(`确定要删除课程 "${name}" 吗？`)) return;
+
+            fetch(`/api/courses/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.msg);
+                    if (data.code === 0) loadCourses(currentPage);
+                });
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        }
+
+        // 初始化
+        loadDepartments();
+        loadCourses();
+    </script>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

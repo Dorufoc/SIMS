@@ -7,41 +7,23 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav class="nav-bar">
-        <div class="nav-brand">学生信息管理系统</div>
-        <div class="nav-links">
-            <a href="/" class="nav-link">首页</a>
-            <a href="/manage" class="nav-link">数据管理</a>
-            {% if session.get('user_role') == 'admin' %}
-            <a href="/add" class="nav-link">新增学生</a>
-            {% endif %}
-            <a href="/query" class="nav-link">高级查询</a>
-            <a href="/logout" class="nav-link nav-link-logout">退出登录</a>
-        </div>
-        {% if session.get('username') %}
-        <div class="nav-user">欢迎，{{ session.get('username') }}
-            {% if session.get('user_role') == 'admin' %}
-            <span class="role-badge role-badge-admin">管理员</span>
-            {% else %}
-            <span class="role-badge role-badge-user">普通用户</span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </nav>
+    {% set active_page = 'manage' %}
+    {% include '_header.html' %}
 
-    <main class="main-content">
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
         <!-- 导入导出操作区 -->
         <section class="import-export-area">
             <h2>导入导出操作</h2>
             <div class="import-export-actions">
-                {% if session.get('user_role') == 'admin' %}
                 <a href="/csv/template" class="btn btn-secondary" download>下载导入模板</a>
 
                 <div class="import-section">
                     <input type="file" id="csv_file_input" accept=".csv" class="file-input">
                     <button type="button" id="btn_preview_import" class="btn btn-primary">批量导入</button>
                 </div>
-                {% endif %}
 
                 <a href="/csv/export" class="btn btn-secondary" download>导出全部数据</a>
                 <a href="/csv/export_filtered" class="btn btn-secondary" download>导出筛选数据</a>
@@ -86,9 +68,10 @@
                             <th>姓名</th>
                             <th>性别</th>
                             <th>年龄</th>
-                            <th>专业</th>
-                            <th>年级</th>
                             <th>班级</th>
+                            <th>年级</th>
+                            <th>专业</th>
+                            <th>学院</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -100,21 +83,18 @@
                             <td>{{ stu.student_name }}</td>
                             <td>{{ stu.gender or '' }}</td>
                             <td>{{ stu.age or '' }}</td>
-                            <td>{{ stu.major or '' }}</td>
-                            <td>{{ stu.grade or '' }}</td>
                             <td>{{ stu.class_name or '' }}</td>
+                            <td>{{ stu.grade or '' }}</td>
+                            <td>{{ stu.major_name or '' }}</td>
+                            <td>{{ stu.dept_name or '' }}</td>
                             <td class="action-cell">
-                                {% if session.get('user_role') == 'admin' %}
-                                <a href="/edit/{{ stu.id }}" class="btn btn-sm btn-primary">编辑</a>
-                                <button type="button" class="btn btn-sm btn-danger" onclick="delete_student({{ stu.id }}, '{{ stu.student_name }}')">删除</button>
-                                {% else %}
-                                <span class="action-readonly">只读</span>
-                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-primary" onclick="open_edit_modal({{ stu.student_id }}, '{{ stu.student_no }}', '{{ stu.student_name }}', '{{ stu.gender or '' }}', {{ stu.age or 'null' }}, {{ stu.class_id or 'null' }})">编辑</button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="delete_student({{ stu.student_id }}, '{{ stu.student_name }}')">删除</button>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="9" class="empty-row">暂无数据</td>
+                            <td colspan="10" class="empty-row">暂无数据</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -145,11 +125,14 @@
                 {% endif %}
             </nav>
             {% endif %}
-        </section>
+                </div>
+            </section>
+        </div>
     </main>
+</div>
 
     <!-- 编辑模态框 -->
-    <div id="edit_modal" class="modal" style="display:none;">
+    <div id="edit_modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>编辑学生信息</h3>
@@ -178,16 +161,10 @@
                     <input type="number" id="edit_age" name="age" min="1" max="150">
                 </div>
                 <div class="form-group">
-                    <label for="edit_major">专业</label>
-                    <input type="text" id="edit_major" name="major">
-                </div>
-                <div class="form-group">
-                    <label for="edit_grade">年级</label>
-                    <input type="text" id="edit_grade" name="grade">
-                </div>
-                <div class="form-group">
-                    <label for="edit_class_name">班级</label>
-                    <input type="text" id="edit_class_name" name="class_name">
+                    <label for="edit_class_id">班级</label>
+                    <select id="edit_class_id" name="class_id">
+                        <option value="">-- 请选择班级 --</option>
+                    </select>
                 </div>
                 <div class="form-group form-group-actions">
                     <button type="submit" class="btn btn-primary">保存</button>
@@ -211,36 +188,29 @@
         var btn_confirm_import = document.getElementById('btn_confirm_import');
         var btn_cancel_import = document.getElementById('btn_cancel_import');
 
-        var pending_csv_file = null;
+        var pending_csv_data = null;
 
         btn_preview_import.addEventListener('click', function() {
             if (!csv_file_input.files || csv_file_input.files.length === 0) {
                 alert('请先选择CSV文件');
                 return;
             }
-            pending_csv_file = csv_file_input.files[0];
-            var form_data = new FormData();
-            form_data.append('file', pending_csv_file);
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/csv/preview', true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    hide_loading();
-                    if (xhr.status === 200) {
-                        try {
-                            var res = JSON.parse(xhr.responseText);
-                            render_csv_preview(res);
-                        } catch (err) {
-                            alert('预览数据解析失败');
-                        }
-                    } else {
-                        alert('预览请求失败，状态码：' + xhr.status);
-                    }
-                }
+            var file = csv_file_input.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result;
+                var parsed = parse_csv_content(text);
+                var validated = validate_csv_data(parsed.rows);
+                render_csv_preview(validated);
+                pending_csv_data = validated.valid_data;
+                hide_loading();
             };
-            xhr.send(form_data);
+            reader.onerror = function() {
+                alert('文件读取失败');
+                hide_loading();
+            };
             show_loading();
+            reader.readAsText(file);
         });
 
         function render_csv_preview(res) {
@@ -279,15 +249,14 @@
         }
 
         btn_confirm_import.addEventListener('click', function() {
-            if (!pending_csv_file) {
-                alert('未选择文件');
+            if (!pending_csv_data || pending_csv_data.length === 0) {
+                alert('没有有效数据可导入');
                 return;
             }
-            var form_data = new FormData();
-            form_data.append('file', pending_csv_file);
 
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/csv/import', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
@@ -308,7 +277,7 @@
                     }
                 }
             };
-            xhr.send(form_data);
+            xhr.send(JSON.stringify({data: pending_csv_data}));
             show_loading();
         });
 
@@ -316,7 +285,7 @@
             csv_preview_area.style.display = 'none';
             csv_preview_tbody.innerHTML = '';
             csv_preview_errors.style.display = 'none';
-            pending_csv_file = null;
+            pending_csv_data = null;
             csv_file_input.value = '';
         });
 
@@ -357,21 +326,41 @@
         var edit_stu_form = document.getElementById('edit_stu_form');
         var edit_msg_box = document.getElementById('edit_msg_box');
 
-        function open_edit_modal(stu_id, stu_no, stu_name, gender, age, major, grade, class_name) {
+        function open_edit_modal(stu_id, stu_no, stu_name, gender, age, class_id) {
+            edit_modal.classList.add('active');
             document.getElementById('edit_id').value = stu_id;
             document.getElementById('edit_student_no').value = stu_no;
             document.getElementById('edit_student_name').value = stu_name;
             document.getElementById('edit_gender').value = gender || '';
             document.getElementById('edit_age').value = age || '';
-            document.getElementById('edit_major').value = major || '';
-            document.getElementById('edit_grade').value = grade || '';
-            document.getElementById('edit_class_name').value = class_name || '';
+            
+            // 加载班级列表
+            var classSelect = document.getElementById('edit_class_id');
+            classSelect.innerHTML = '<option value="">-- 请选择班级 --</option>';
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/classes', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var classes = JSON.parse(xhr.responseText);
+                        classes.forEach(function(c) {
+                            var opt = document.createElement('option');
+                            opt.value = c.class_id;
+                            opt.textContent = c.class_name + ' (' + c.grade + ')';
+                            if (c.class_id == class_id) opt.selected = true;
+                            classSelect.appendChild(opt);
+                        });
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+            
             edit_msg_box.style.display = 'none';
-            edit_modal.style.display = 'flex';
         }
 
         function close_edit_modal() {
-            edit_modal.style.display = 'none';
+            edit_modal.classList.remove('active');
             edit_stu_form.reset();
         }
 
