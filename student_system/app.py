@@ -393,8 +393,10 @@ def update_my_student_profile():
     address = request.form.get('address', '').strip()
 
     execute(
-        "UPDATE students SET phone=%s, email=%s, address=%s WHERE student_id=%s",
-        (phone or None, email or None, address or None, student_id)
+        """INSERT INTO students (student_id, name, enrollment_year, phone, email, address)
+           VALUES (%s, '', YEAR(CURDATE()), %s, %s, %s)
+           ON DUPLICATE KEY UPDATE phone=VALUES(phone), email=VALUES(email), address=VALUES(address)""",
+        (student_id, phone or None, email or None, address or None)
     )
     return jsonify({'code': 0, 'msg': '修改成功'})
 
@@ -413,8 +415,10 @@ def update_my_teacher_profile():
     email = request.form.get('email', '').strip()
 
     execute(
-        "UPDATE teachers SET phone=%s, email=%s WHERE teacher_id=%s",
-        (phone or None, email or None, teacher_id)
+        """INSERT INTO teachers (teacher_id, name, phone, email)
+           VALUES (%s, '', %s, %s)
+           ON DUPLICATE KEY UPDATE phone=VALUES(phone), email=VALUES(email)""",
+        (teacher_id, phone or None, email or None)
     )
     return jsonify({'code': 0, 'msg': '修改成功'})
 
@@ -1305,8 +1309,9 @@ ORDER BY 人数 DESC"""
                 prev_age = age
             case_parts.append(f"SUM(CASE WHEN s.age >= {prev_age} THEN 1 ELSE 0 END) AS '{prev_age}岁以上'")
 
+            sep = ',\n'
             sql = f"""SELECT
-{',\n'.join(case_parts)}
+{sep.join(case_parts)}
 FROM students s"""
 
         elif action == 'grade_count':

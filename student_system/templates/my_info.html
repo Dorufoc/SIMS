@@ -70,6 +70,31 @@
             color: #cc3336;
             font-weight: 600;
         }
+        /* 表单输入框在 info-grid 中的样式 */
+        .info-item input.form-control,
+        .info-item select.form-control {
+            font-size: 14px;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            color: #2d3748;
+            background: #fff;
+            transition: border-color 0.15s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .info-item input.form-control:focus,
+        .info-item select.form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+        }
+        .info-item input.form-control:disabled {
+            background: #f7fafc;
+            color: #a0aec0;
+            cursor: not-allowed;
+            border-color: #e2e8f0;
+        }
         /* 数据表格 */
         .info-table-wrap {
             padding: 0 24px 20px;
@@ -136,6 +161,16 @@
             font-size: 13px;
             color: #a0aec0;
             margin: 0;
+        }
+        .no-data-form-footer {
+            padding: 0 24px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .no-data-form-footer .msg-box {
+            margin: 0;
+            flex: 1;
         }
         @media (max-width: 640px) {
             .info-grid {
@@ -423,23 +458,121 @@
                     </div>
                 </div>
 
+                {% elif role == 'student' %}
+                <!-- ====== 学生无数据 - 显示所有字段表单 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>基本信息</h2>
+                        <span class="status-tag inactive">未完善</span>
+                    </div>
+                    <form id="no_data_student_form">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="label">姓名</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">学号</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">性别</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">出生日期</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">入学年份</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">院系</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">专业</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">班级</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">联系电话</span>
+                                <input type="text" id="no_data_phone" class="form-control" placeholder="请输入联系电话">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">电子邮箱</span>
+                                <input type="email" id="no_data_email" class="form-control" placeholder="请输入邮箱">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">家庭住址</span>
+                                <input type="text" id="no_data_address" class="form-control" placeholder="请输入家庭住址">
+                            </div>
+                        </div>
+                        <div class="no-data-form-footer">
+                            <button type="submit" class="btn btn-primary">保存信息</button>
+                            <div id="no_data_student_msg" class="msg-box" style="display:none;"></div>
+                        </div>
+                    </form>
+                </div>
+
+                {% elif role == 'teacher' %}
+                <!-- ====== 教师无数据 - 显示所有字段表单 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>基本信息</h2>
+                        <span class="status-tag inactive">未完善</span>
+                    </div>
+                    <form id="no_data_teacher_form">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="label">姓名</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">工号</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">性别</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">职称</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">所属院系</span>
+                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">联系电话</span>
+                                <input type="text" id="no_data_phone" class="form-control" placeholder="请输入联系电话">
+                            </div>
+                            <div class="info-item">
+                                <span class="label">电子邮箱</span>
+                                <input type="email" id="no_data_email" class="form-control" placeholder="请输入邮箱">
+                            </div>
+                        </div>
+                        <div class="no-data-form-footer">
+                            <button type="submit" class="btn btn-primary">保存信息</button>
+                            <div id="no_data_teacher_msg" class="msg-box" style="display:none;"></div>
+                        </div>
+                    </form>
+                </div>
+
                 {% else %}
-                <!-- 无数据提示 -->
+                <!-- 未知角色提示 -->
                 <div class="info-section">
                     <div class="info-section-header">
                         <h2>提示</h2>
                     </div>
                     <div class="info-grid single-col">
                         <div class="info-item" style="text-align:center;padding:40px 0">
-                            <span class="value" style="color:#a0aec0">
-                                {% if role == 'student' %}
-                                未找到您的学生信息，请联系管理员完善您的档案。
-                                {% elif role == 'teacher' %}
-                                未找到您的教师信息，请联系管理员完善您的档案。
-                                {% else %}
-                                无法加载信息。
-                                {% endif %}
-                            </span>
+                            <span class="value" style="color:#a0aec0">无法加载信息。</span>
                         </div>
                     </div>
                 </div>
@@ -597,6 +730,95 @@
             show_loading();
         });
         editModal.addEventListener('click', function(e) { if (e.target === editModal) close_edit_modal(); });
+    </script>
+    {% endif %}
+
+    {% if role == 'student' and not student %}
+    <!-- 学生无数据表单提交 -->
+    <script>
+        (function() {
+            var form = document.getElementById('no_data_student_form');
+            if (!form) return;
+            var msgBox = document.getElementById('no_data_student_msg');
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                msgBox.style.display = 'none';
+                var params = new URLSearchParams();
+                params.append('phone', document.getElementById('no_data_phone').value);
+                params.append('email', document.getElementById('no_data_email').value);
+                params.append('address', document.getElementById('no_data_address').value);
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/my/profile/student', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        hide_loading();
+                        if (xhr.status === 200) {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.code === 0) {
+                                msgBox.textContent = '保存成功！';
+                                msgBox.className = 'msg-box msg-success';
+                                msgBox.style.display = 'block';
+                                setTimeout(function() { window.location.reload(); }, 800);
+                            } else {
+                                msgBox.textContent = res.msg || '保存失败';
+                                msgBox.className = 'msg-box msg-error';
+                                msgBox.style.display = 'block';
+                            }
+                        } else {
+                            msgBox.textContent = '请求失败，状态码：' + xhr.status;
+                            msgBox.className = 'msg-box msg-error';
+                            msgBox.style.display = 'block';
+                        }
+                    }
+                };
+                xhr.send(params.toString());
+                show_loading();
+            });
+        })();
+    </script>
+    {% elif role == 'teacher' and not teacher %}
+    <!-- 教师无数据表单提交 -->
+    <script>
+        (function() {
+            var form = document.getElementById('no_data_teacher_form');
+            if (!form) return;
+            var msgBox = document.getElementById('no_data_teacher_msg');
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                msgBox.style.display = 'none';
+                var params = new URLSearchParams();
+                params.append('phone', document.getElementById('no_data_phone').value);
+                params.append('email', document.getElementById('no_data_email').value);
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/my/profile/teacher', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        hide_loading();
+                        if (xhr.status === 200) {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.code === 0) {
+                                msgBox.textContent = '保存成功！';
+                                msgBox.className = 'msg-box msg-success';
+                                msgBox.style.display = 'block';
+                                setTimeout(function() { window.location.reload(); }, 800);
+                            } else {
+                                msgBox.textContent = res.msg || '保存失败';
+                                msgBox.className = 'msg-box msg-error';
+                                msgBox.style.display = 'block';
+                            }
+                        } else {
+                            msgBox.textContent = '请求失败，状态码：' + xhr.status;
+                            msgBox.className = 'msg-box msg-error';
+                            msgBox.style.display = 'block';
+                        }
+                    }
+                };
+                xhr.send(params.toString());
+                show_loading();
+            });
+        })();
     </script>
     {% endif %}
 </body>
