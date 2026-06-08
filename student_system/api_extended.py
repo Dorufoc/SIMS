@@ -3,10 +3,12 @@
 提供宿舍管理、缴费管理、奖惩管理、培养计划管理接口
 """
 
+import json
+
 import pymysql
 from flask import Blueprint, jsonify, request
 
-from db_utils import execute, get_page_data, query
+from db_utils import build_filter_sql, execute, get_page_data, query
 
 api_extended = Blueprint('api_extended', __name__)
 
@@ -23,9 +25,26 @@ def get_dorm_rooms():
     building = request.args.get('building', '').strip()
     gender_limit = request.args.get('gender_limit', '').strip()
     has_vacancy = request.args.get('has_vacancy', type=int)
+    filters_json = request.args.get('filters', '')
 
     base_sql = "SELECT * FROM dorm_rooms WHERE 1=1"
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'building': 'building',
+                'room_number': 'room_number',
+                'capacity': 'capacity',
+                'occupied': 'occupied',
+                'gender_limit': 'gender_limit',
+                'phone': 'phone'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if building:
         base_sql += " AND building = %s"
@@ -114,6 +133,7 @@ def get_dorm_assignments():
     student_id = request.args.get('student_id', '').strip()
     room_id = request.args.get('room_id', type=int)
     status = request.args.get('status', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = """
         SELECT da.*, s.name as student_name, s.gender,
@@ -124,6 +144,24 @@ def get_dorm_assignments():
         WHERE 1=1
     """
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'student_id': 'da.student_id',
+                'student_name': 's.name',
+                'gender': "CASE WHEN s.gender = 'M' THEN '男' WHEN s.gender = 'F' THEN '女' ELSE '' END",
+                'building': 'dr.building',
+                'room_number': 'dr.room_number',
+                'bed_number': 'da.bed_number',
+                'check_in_date': 'da.check_in_date',
+                'status': 'da.status'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if student_id:
         base_sql += " AND da.student_id = %s"

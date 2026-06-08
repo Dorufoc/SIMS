@@ -5,7 +5,10 @@
 
 from functools import wraps
 
+import json
 import math
+import re
+
 import pymysql
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file, session
@@ -15,7 +18,7 @@ from api_teaching import api_teaching
 from api_extended import api_extended
 from config import SECRET_KEY
 import csv_handle
-from db_utils import execute, get_page_data, query
+from db_utils import build_filter_sql, execute, get_page_data, query
 import permission_utils
 import password_utils
 
@@ -58,12 +61,13 @@ def login():
     if request.method == 'GET':
         return render_template('login.html')
 
-    username = request.form.get('username', '').strip()
+    identifier = request.form.get('username', '').strip()
     password = request.form.get('password', '').strip()
 
+    # 支持使用用户名、职工号/学号(ref_id)登录
     rows = query(
-        'SELECT user_id, username, role, ref_id, uuid, password_hash FROM users WHERE username=%s',
-        (username,)
+        'SELECT user_id, username, role, ref_id, uuid, password_hash FROM users WHERE username=%s OR ref_id=%s',
+        (identifier, identifier)
     )
 
     if rows:
@@ -82,9 +86,9 @@ def login():
 
             return jsonify({'code': 0, 'msg': '登录成功', 'role': user['role']})
         else:
-            return jsonify({'code': 1, 'msg': '用户名或密码错误'})
+            return jsonify({'code': 1, 'msg': '账号或密码错误'})
     else:
-        return jsonify({'code': 1, 'msg': '用户名或密码错误'})
+        return jsonify({'code': 1, 'msg': '账号或密码错误'})
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -93,28 +97,98 @@ def register():
     if request.method == 'GET':
         return render_template('register.html')
 
-    username = request.form.get('username', '').strip()
-    password = request.form.get('password', '').strip()
+    password = request.form.get('password', '').strip() or '123456'
     real_name = request.form.get('real_name', '').strip()
     role = request.form.get('role', 'student').strip()
-    ref_id = request.form.get('ref_id', '').strip()
+    register_method = request.form.get('register_method', '').strip()
+    register_value = request.form.get('register_value', '').strip()
 
     # 验证角色有效性
     if role not in ['admin', 'teacher', 'student']:
         role = 'student'
 
+    # 验证注册方式
+    if register_method not in ['ref_id', 'phone', 'email']:
+        return jsonify({'code': 1, 'msg': '请选择有效的注册方式'})
+    if not register_value:
+        return jsonify({'code': 1, 'msg': '请输入注册信息'})
+
+    # 检查学号/手机号/邮箱是否已被注册
+    if register_method == 'ref_id':
+        existing = query('SELECT user_id FROM users WHERE ref_id=%s', (register_value,))
+        field_name = '学号'
+    elif register_method == 'phone':
+        existing = query('SELECT user_id FROM users WHERE phone=%s', (register_value,))
+        field_name = '手机号'
+    else:
+        existing = query('SELECT user_id FROM users WHERE email=%s', (register_value,))
+        field_name = '邮箱'
+
+    if existing:
+        return jsonify({'code': 1, 'msg': f'该{field_name}已被注册'})
+
     try:
         user_uuid = permission_utils.generate_uuid()
+        # 生成临时用户名
+        temp_username = 'tmp_' + user_uuid[:8]
         encrypted_password = password_utils.encrypt_password(password)
-        execute(
-            'INSERT INTO users(uuid, username, password_hash, role, ref_id) VALUES(%s, %s, %s, %s, %s)',
-            (user_uuid, username, encrypted_password, role, ref_id or None)
-        )
+
+        if register_method == 'ref_id':
+            execute(
+                'INSERT INTO users(uuid, username, password_hash, role, ref_id) VALUES(%s, %s, %s, %s, %s)',
+                (user_uuid, temp_username, encrypted_password, role, register_value)
+            )
+        elif register_method == 'phone':
+            execute(
+                'INSERT INTO users(uuid, username, password_hash, role, phone) VALUES(%s, %s, %s, %s, %s)',
+                (user_uuid, temp_username, encrypted_password, role, register_value)
+            )
+        else:
+            execute(
+                'INSERT INTO users(uuid, username, password_hash, role, email) VALUES(%s, %s, %s, %s, %s)',
+                (user_uuid, temp_username, encrypted_password, role, register_value)
+            )
+
         # 初始化新用户权限
-        permission_utils.initialize_user_permissions(user_uuid)
-        return jsonify({'code': 0, 'msg': '注册成功'})
+        permission_utils.initialize_user_permissions(user_uuid, role)
+        return jsonify({'code': 0, 'msg': '注册成功', 'temp_username': temp_username})
     except pymysql.err.IntegrityError:
-        return jsonify({'code': 1, 'msg': '账号已被注册'})
+        return jsonify({'code': 1, 'msg': '注册失败，请稍后重试'})
+
+
+@app.route('/set-username')
+def set_username_page():
+    """设置用户名页面"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('set_username.html', current_username=session.get('user_name', ''))
+
+
+@app.route('/api/set-username', methods=['POST'])
+def api_set_username():
+    """设置/修改用户名"""
+    if 'user_id' not in session:
+        return jsonify({'code': 1, 'msg': '未登录'})
+
+    data = request.get_json()
+    new_username = data.get('username', '').strip()
+
+    if not new_username:
+        return jsonify({'code': 1, 'msg': '用户名不能为空'})
+    if len(new_username) < 3 or len(new_username) > 50:
+        return jsonify({'code': 1, 'msg': '用户名长度需在3-50个字符之间'})
+    if not re.match(r'^[a-zA-Z0-9_\u4e00-\u9fa5]+$', new_username):
+        return jsonify({'code': 1, 'msg': '用户名只能包含字母、数字、下划线和中文'})
+
+    # 检查用户名是否已被使用
+    user_id = session['user_id']
+    existing = query('SELECT user_id FROM users WHERE username=%s AND user_id!=%s', (new_username, user_id))
+    if existing:
+        return jsonify({'code': 1, 'msg': '该用户名已被使用'})
+
+    execute('UPDATE users SET username=%s WHERE user_id=%s', (new_username, user_id))
+    session['user_name'] = new_username
+    return jsonify({'code': 0, 'msg': '用户名设置成功'})
 
 
 @app.route('/logout')
@@ -122,6 +196,42 @@ def logout():
     """退出登录，清除session"""
     session.clear()
     return redirect('/login')
+
+
+@app.route('/api/change-password', methods=['POST'])
+def api_change_password():
+    """修改当前登录用户密码"""
+    if 'user_id' not in session:
+        return jsonify({'code': 1, 'msg': '未登录'})
+
+    data = request.get_json()
+    old_password = data.get('old_password', '')
+    new_password = data.get('new_password', '')
+
+    if not old_password:
+        return jsonify({'code': 1, 'msg': '请输入旧密码'})
+    if not new_password:
+        return jsonify({'code': 1, 'msg': '请输入新密码'})
+    if len(new_password) < 6:
+        return jsonify({'code': 1, 'msg': '新密码长度不能少于6位'})
+
+    # 获取当前用户信息
+    user_id = session['user_id']
+    rows = query('SELECT password_hash FROM users WHERE user_id=%s', (user_id,))
+    if not rows:
+        return jsonify({'code': 1, 'msg': '用户不存在'})
+
+    user = rows[0]
+
+    # 验证旧密码
+    if not password_utils.verify_password(old_password, user['password_hash']):
+        return jsonify({'code': 1, 'msg': '旧密码错误'})
+
+    # 更新新密码
+    encrypted_password = password_utils.encrypt_password(new_password)
+    execute('UPDATE users SET password_hash=%s WHERE user_id=%s', (encrypted_password, user_id))
+
+    return jsonify({'code': 0, 'msg': '密码修改成功'})
 
 
 # ============================================
@@ -132,6 +242,181 @@ def logout():
 def index():
     """首页"""
     return render_template('index.html')
+
+
+@app.route('/my')
+def my_info():
+    """个人中心 - 根据角色显示对应信息"""
+    role = session.get('user_role')
+    ref_id = session.get('user_ref_id')
+
+    if role == 'student':
+        # 查询学生基本信息（带院系、专业、班级名称）
+        student = query("""
+            SELECT s.*, d.dept_name, c.class_name, m.major_name
+            FROM students s
+            LEFT JOIN classes c ON s.class_id = c.class_id
+            LEFT JOIN majors m ON c.major_id = m.major_id
+            LEFT JOIN departments d ON m.dept_id = d.dept_id
+            WHERE s.student_id = %s
+        """, (ref_id,))
+        student_info = student[0] if student else None
+
+        # 选课记录（通过 teaching 表关联）
+        enrollments = query("""
+            SELECT e.*, c.course_name, c.credits, t.name as teacher_name,
+                   CONCAT(sem.academic_year, ' ', sem.semester_name) as semester_display
+            FROM enrollments e
+            JOIN teaching tg ON e.teaching_id = tg.teaching_id
+            JOIN courses c ON tg.course_id = c.course_id
+            LEFT JOIN teachers t ON tg.teacher_id = t.teacher_id
+            LEFT JOIN semesters sem ON tg.semester_id = sem.semester_id
+            WHERE e.student_id = %s
+        """, (ref_id,))
+
+        # 成绩（通过 teaching 表关联）
+        scores = query("""
+            SELECT e.score, e.grade_point, c.course_name, c.credits
+            FROM enrollments e
+            JOIN teaching tg ON e.teaching_id = tg.teaching_id
+            JOIN courses c ON tg.course_id = c.course_id
+            WHERE e.student_id = %s AND e.score IS NOT NULL
+            ORDER BY tg.semester_id DESC
+        """, (ref_id,))
+
+        # 计算 GPA
+        total_credits = 0
+        weighted_grade_points = 0
+        for s in scores:
+            credit = s['credits'] or 0
+            gp = s['grade_point'] or 0
+            total_credits += credit
+            weighted_grade_points += credit * gp
+        gpa = round(weighted_grade_points / total_credits, 2) if total_credits > 0 else 0
+
+        # 奖惩记录
+        rewards = query(
+            "SELECT * FROM rewards_punishments WHERE student_id = %s ORDER BY date DESC",
+            (ref_id,)
+        )
+
+        # 培养计划（按专业+入学年份查询）
+        curriculum = []
+        if student_info and student_info.get('class_id'):
+            class_info = query(
+                "SELECT m.major_id, c.enrollment_year FROM classes c JOIN majors m ON c.major_id = m.major_id WHERE c.class_id = %s",
+                (student_info['class_id'],)
+            )
+            if class_info:
+                major_id = class_info[0]['major_id']
+                enroll_year = student_info['enrollment_year']
+                curriculum = query("""
+                    SELECT cu.*, c.course_name, c.credits, c.hours
+                    FROM curriculum cu
+                    JOIN courses c ON cu.course_id = c.course_id
+                    WHERE cu.major_id = %s AND cu.enrollment_year = %s
+                    ORDER BY cu.recommended_term
+                """, (major_id, enroll_year))
+
+        # 查询当前用户的权限码
+        user_uuid = session.get('user_uuid')
+        student_perm = permission_utils.get_user_permission(user_uuid, 'students') if user_uuid else '000'
+        _, can_write_student, _ = permission_utils.parse_permission_code(student_perm)
+
+        return render_template(
+            'my_info.html',
+            role=role,
+            student=student_info,
+            enrollments=enrollments,
+            scores=scores,
+            gpa=gpa,
+            total_credits=total_credits,
+            rewards=rewards,
+            curriculum=curriculum,
+            can_edit=can_write_student
+        )
+
+    elif role == 'teacher':
+        # 查询教师基本信息
+        teacher = query("""
+            SELECT t.*, d.dept_name
+            FROM teachers t
+            LEFT JOIN departments d ON t.dept_id = d.dept_id
+            WHERE t.teacher_id = %s
+        """, (ref_id,))
+        teacher_info = teacher[0] if teacher else None
+
+        # 授课列表
+        teachings = query("""
+            SELECT tg.*, c.course_name, c.credits, c.hours,
+                   CONCAT(sem.academic_year, ' ', sem.semester_name) as semester_display
+            FROM teaching tg
+            JOIN courses c ON tg.course_id = c.course_id
+            LEFT JOIN semesters sem ON tg.semester_id = sem.semester_id
+            WHERE tg.teacher_id = %s
+            ORDER BY tg.semester_id DESC
+        """, (ref_id,))
+
+        # 查询当前用户的权限码
+        user_uuid = session.get('user_uuid')
+        teacher_perm = permission_utils.get_user_permission(user_uuid, 'teachers') if user_uuid else '000'
+        _, can_write_teacher, _ = permission_utils.parse_permission_code(teacher_perm)
+
+        return render_template(
+            'my_info.html',
+            role=role,
+            teacher=teacher_info,
+            teachings=teachings,
+            can_edit=can_write_teacher
+        )
+
+    # admin 或未知角色重定向到首页
+    return redirect('/')
+
+
+# ============================================
+# 个人信息修改API
+# ============================================
+
+@app.route('/api/my/profile/student', methods=['POST'])
+def update_my_student_profile():
+    """学生自助修改个人信息"""
+    if session.get('user_role') != 'student':
+        return jsonify({'code': 1, 'msg': '仅学生可操作'}), 403
+
+    student_id = session.get('user_ref_id')
+    if not student_id:
+        return jsonify({'code': 1, 'msg': '未关联学生信息'}), 400
+
+    phone = request.form.get('phone', '').strip()
+    email = request.form.get('email', '').strip()
+    address = request.form.get('address', '').strip()
+
+    execute(
+        "UPDATE students SET phone=%s, email=%s, address=%s WHERE student_id=%s",
+        (phone or None, email or None, address or None, student_id)
+    )
+    return jsonify({'code': 0, 'msg': '修改成功'})
+
+
+@app.route('/api/my/profile/teacher', methods=['POST'])
+def update_my_teacher_profile():
+    """教师自助修改个人信息"""
+    if session.get('user_role') != 'teacher':
+        return jsonify({'code': 1, 'msg': '仅教师可操作'}), 403
+
+    teacher_id = session.get('user_ref_id')
+    if not teacher_id:
+        return jsonify({'code': 1, 'msg': '未关联教师信息'}), 400
+
+    phone = request.form.get('phone', '').strip()
+    email = request.form.get('email', '').strip()
+
+    execute(
+        "UPDATE teachers SET phone=%s, email=%s WHERE teacher_id=%s",
+        (phone or None, email or None, teacher_id)
+    )
+    return jsonify({'code': 0, 'msg': '修改成功'})
 
 
 # ============================================
@@ -230,16 +515,42 @@ def manage():
     """数据管理（分页展示）"""
     page = request.args.get('page', 1, type=int)
     base_sql = """
-        SELECT s.student_id, s.name, s.gender, s.birth_date, s.enrollment_year,
-               s.status, s.phone, s.email,
-               c.class_name, c.enrollment_year as class_year,
-               m.major_name, d.dept_name
+        SELECT s.student_id as student_no, s.name as student_name,
+               CASE WHEN s.gender = 'M' THEN '男' WHEN s.gender = 'F' THEN '女' ELSE '' END as gender,
+               TIMESTAMPDIFF(YEAR, s.birth_date, CURDATE()) as age,
+               c.class_name, c.enrollment_year as grade,
+               m.major_name, d.dept_name,
+               s.status, s.phone, s.email
         FROM students s
         LEFT JOIN classes c ON s.class_id = c.class_id
         LEFT JOIN majors m ON c.major_id = m.major_id
         LEFT JOIN departments d ON m.dept_id = d.dept_id
+        WHERE 1=1
     """
-    page_data = get_page_data(base_sql, page=page)
+    params = []
+
+    filters_json = request.args.get('filters', '')
+    if filters_json:
+        try:
+            import json
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'student_no': 's.student_id',
+                'student_name': 's.name',
+                'gender': "CASE WHEN s.gender = 'M' THEN '男' WHEN s.gender = 'F' THEN '女' ELSE '' END",
+                'age': 'TIMESTAMPDIFF(YEAR, s.birth_date, CURDATE())',
+                'class_name': 'c.class_name',
+                'grade': 'c.enrollment_year',
+                'major_name': 'm.major_name',
+                'dept_name': 'd.dept_name'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    base_sql += " ORDER BY s.student_id"
+    page_data = get_page_data(base_sql, page=page, params=params if params else None)
     return render_template(
         'manage.html',
         data=page_data['data'],
@@ -1113,9 +1424,26 @@ def api_users_list():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = "SELECT user_id, uuid, username, role, ref_id, last_login, created_at FROM users WHERE 1=1"
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'user_id': 'user_id',
+                'username': 'username',
+                'role': 'role',
+                'ref_id': 'ref_id',
+                'last_login': 'last_login',
+                'created_at': 'created_at'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
     
     if keyword:
         base_sql += " AND (username LIKE %s OR ref_id LIKE %s)"
@@ -1139,12 +1467,12 @@ def api_create_user():
     """创建新用户"""
     data = request.get_json()
     username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
+    password = data.get('password', '').strip() or '123456'
     role = data.get('role', 'student').strip()
     ref_id = data.get('ref_id', '').strip()
 
-    if not username or not password:
-        return jsonify({'code': 1, 'msg': '用户名和密码不能为空'})
+    if not username:
+        return jsonify({'code': 1, 'msg': '用户名不能为空'})
     
     if role not in ['admin', 'teacher', 'student']:
         role = 'student'
@@ -1156,7 +1484,7 @@ def api_create_user():
             'INSERT INTO users(uuid, username, password_hash, role, ref_id) VALUES(%s, %s, %s, %s, %s)',
             (user_uuid, username, encrypted_password, role, ref_id or None)
         )
-        permission_utils.initialize_user_permissions(user_uuid)
+        permission_utils.initialize_user_permissions(user_uuid, role)
         return jsonify({'code': 0, 'msg': '创建成功'})
     except pymysql.err.IntegrityError:
         return jsonify({'code': 1, 'msg': '用户名已存在'})

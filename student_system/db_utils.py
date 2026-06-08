@@ -168,6 +168,78 @@ def execute(sql, params=None):
             conn.close()
 
 
+def build_filter_sql(filters, field_map):
+    """
+    根据筛选条件列表构建SQL WHERE子句和参数
+    filters: list of dict [{"field":"dept_name", "op":"contains", "value":"计算机"}]
+            op支持: eq, neq, contains, startswith, endswith, gt, gte, lt, lte, in, between
+            in: value为逗号分隔的多值，e.g. "计算机,数学" → IN ('计算机','数学')
+            between: value为逗号分隔的起止值，e.g. "18,25" → BETWEEN 18 AND 25
+    field_map: dict mapping field names to SQL column expressions
+               例: {"dept_name": "dept_name", "dept_id": "dept_id"}
+    returns: (where_clause, params_list)
+    """
+    if not filters:
+        return "", []
+
+    clauses = []
+    params = []
+
+    for f in filters:
+        field = f.get("field", "").strip()
+        op = f.get("op", "eq").strip()
+        value = f.get("value", "")
+
+        # 跳过无效筛选条件
+        if not field or field not in field_map:
+            continue
+
+        col = field_map[field]
+
+        if op == "eq":
+            clauses.append(f"AND {col} = %s")
+            params.append(value)
+        elif op == "neq":
+            clauses.append(f"AND {col} != %s")
+            params.append(value)
+        elif op == "contains":
+            clauses.append(f"AND {col} LIKE %s")
+            params.append(f"%{value}%")
+        elif op == "startswith":
+            clauses.append(f"AND {col} LIKE %s")
+            params.append(f"{value}%")
+        elif op == "endswith":
+            clauses.append(f"AND {col} LIKE %s")
+            params.append(f"%{value}")
+        elif op == "gt":
+            clauses.append(f"AND {col} > %s")
+            params.append(value)
+        elif op == "gte":
+            clauses.append(f"AND {col} >= %s")
+            params.append(value)
+        elif op == "lt":
+            clauses.append(f"AND {col} < %s")
+            params.append(value)
+        elif op == "lte":
+            clauses.append(f"AND {col} <= %s")
+            params.append(value)
+        elif op == "in":
+            # 逗号分隔的多值筛选
+            values = [v.strip() for v in value.split(",") if v.strip()]
+            if values:
+                placeholders = ", ".join(["%s"] * len(values))
+                clauses.append(f"AND {col} IN ({placeholders})")
+                params.extend(values)
+        elif op == "between":
+            # 逗号分隔的起止范围，如 "18,25"
+            parts = [v.strip() for v in value.split(",", 1)]
+            if len(parts) == 2 and parts[0] and parts[1]:
+                clauses.append(f"AND {col} BETWEEN %s AND %s")
+                params.extend([parts[0], parts[1]])
+
+    return " ".join(clauses), params
+
+
 def get_page_data(sql, page=1, page_size=10, params=None):
     """分页查询，返回分页信息及数据"""
     conn = None

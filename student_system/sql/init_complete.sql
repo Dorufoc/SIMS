@@ -191,13 +191,23 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL COMMENT '加密密码',
   `role`          ENUM('admin','teacher','student') NOT NULL COMMENT '角色',
   `ref_id`        VARCHAR(20)  COMMENT '关联的学生学号或教师工号',
+  `email`         VARCHAR(100) COMMENT '电子邮箱',
+  `phone`         VARCHAR(20)  COMMENT '手机号码',
   `last_login`    DATETIME     COMMENT '最后登录时间',
   `created_at`    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   INDEX `idx_user_role` (`role`),
   INDEX `idx_user_ref` (`ref_id`),
   INDEX `idx_user_username` (`username`),
-  INDEX `idx_user_uuid` (`uuid`)
+  INDEX `idx_user_uuid` (`uuid`),
+  INDEX `idx_user_email` (`email`),
+  INDEX `idx_user_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='用户表';
+
+-- 为已有数据库添加 email 和 phone 字段的迁移语句
+-- ALTER TABLE `users` ADD COLUMN `email` VARCHAR(100) COMMENT '电子邮箱' AFTER `ref_id`;
+-- ALTER TABLE `users` ADD COLUMN `phone` VARCHAR(20) COMMENT '手机号码' AFTER `email`;
+-- ALTER TABLE `users` ADD INDEX `idx_user_email` (`email`);
+-- ALTER TABLE `users` ADD INDEX `idx_user_phone` (`phone`);
 
 -- ============================================
 -- 11.5. 用户权限表 (user_permissions)

@@ -3,3 +3,5 @@ __pycache__/
 PLAN.MD
 student_system/__pycache__/
 student_system/.*/
+.*/
+student_system/tests/__pycache__/

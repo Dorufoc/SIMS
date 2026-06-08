@@ -27,6 +27,8 @@
 
                 <a href="/csv/export" class="btn btn-secondary" download>导出全部数据</a>
                 <a href="/csv/export_filtered" class="btn btn-secondary" download>导出筛选数据</a>
+
+                <button type="button" class="btn btn-primary" onclick="open_add_modal()" style="margin-left:auto">+ 手动添加</button>
             </div>
 
             <!-- CSV导入预览区 -->
@@ -52,6 +54,24 @@
                 <div class="preview-actions">
                     <button type="button" id="btn_confirm_import" class="btn btn-primary">确认导入</button>
                     <button type="button" id="btn_cancel_import" class="btn btn-secondary">取消</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 筛选模块 -->
+        <section class="data-section">
+            <h2>筛选条件</h2>
+            <div id="filterModule" class="filter-builder" style="margin-bottom:0;">
+                <div class="filter-builder-header">
+                    <h3>筛选条件</h3>
+                    <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                </div>
+                <div class="filter-rows-container">
+                    <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                </div>
+                <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                    <button class="btn btn-primary btn-apply-filters">查询</button>
+                    <button class="btn btn-secondary btn-reset-filters">重置</button>
                 </div>
             </div>
         </section>
@@ -172,6 +192,81 @@
                 </div>
             </form>
             <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- 新增学生模态框 -->
+    <div id="add_modal" class="modal-overlay">
+        <div class="modal-content" style="max-width:560px">
+            <div class="modal-header">
+                <h3>新增学生</h3>
+                <button type="button" class="modal-close" onclick="close_add_modal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add_stu_form_modal">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>学号 *</label>
+                            <input type="text" id="add_student_no" name="student_id" required placeholder="请输入学号">
+                        </div>
+                        <div class="form-group">
+                            <label>姓名 *</label>
+                            <input type="text" id="add_name" name="name" required placeholder="请输入姓名">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>性别</label>
+                            <select id="add_gender" name="gender">
+                                <option value="">请选择</option>
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>入学年份</label>
+                            <input type="number" id="add_enrollment_year" name="enrollment_year" placeholder="如：2024" min="2000" max="2099">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>学院</label>
+                            <select id="add_dept_select">
+                                <option value="">-- 请选择学院 --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>专业</label>
+                            <select id="add_major_select">
+                                <option value="">-- 请先选择学院 --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>班级</label>
+                            <select id="add_class_select" name="class_id">
+                                <option value="">-- 请先选择专业 --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>联系电话</label>
+                            <input type="text" id="add_phone" name="phone" placeholder="请输入电话">
+                        </div>
+                        <div class="form-group">
+                            <label>邮箱</label>
+                            <input type="email" id="add_email" name="email" placeholder="请输入邮箱">
+                        </div>
+                    </div>
+                    <div class="form-group form-group-actions">
+                        <button type="submit" class="btn btn-primary">提交</button>
+                        <button type="button" class="btn btn-secondary" onclick="close_add_modal()">取消</button>
+                    </div>
+                </form>
+                <div id="add_msg_box" class="msg-box" style="display:none;"></div>
+            </div>
         </div>
     </div>
 
@@ -411,6 +506,231 @@
                 close_edit_modal();
             }
         });
+
+        /* ========== 新增学生模态框 ========== */
+        var add_modal = document.getElementById('add_modal');
+        var add_stu_form_modal = document.getElementById('add_stu_form_modal');
+        var add_msg_box = document.getElementById('add_msg_box');
+        var add_dept_select = document.getElementById('add_dept_select');
+        var add_major_select = document.getElementById('add_major_select');
+        var add_class_select = document.getElementById('add_class_select');
+
+        function open_add_modal() {
+            add_modal.classList.add('active');
+            add_stu_form_modal.reset();
+            add_msg_box.style.display = 'none';
+            // 加载学院列表
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/departments', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var depts = JSON.parse(xhr.responseText);
+                        add_dept_select.innerHTML = '<option value="">-- 请选择学院 --</option>';
+                        if (depts.code === 0 && depts.data) {
+                            depts.data.forEach(function(d) {
+                                var opt = document.createElement('option');
+                                opt.value = d.dept_id;
+                                opt.textContent = d.dept_name;
+                                add_dept_select.appendChild(opt);
+                            });
+                        } else if (Array.isArray(depts)) {
+                            depts.forEach(function(d) {
+                                var opt = document.createElement('option');
+                                opt.value = d.dept_id;
+                                opt.textContent = d.dept_name;
+                                add_dept_select.appendChild(opt);
+                            });
+                        }
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        }
+
+        function close_add_modal() {
+            add_modal.classList.remove('active');
+        }
+
+        // 学院变化 → 加载专业
+        add_dept_select.addEventListener('change', function() {
+            var dept_id = this.value;
+            add_major_select.innerHTML = '<option value="">-- 请选择专业 --</option>';
+            add_class_select.innerHTML = '<option value="">-- 请先选择专业 --</option>';
+            add_class_select.disabled = true;
+            if (!dept_id) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/majors?dept_id=' + dept_id, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var majors = JSON.parse(xhr.responseText);
+                        if (majors.code === 0 && majors.data) {
+                            majors.data.forEach(function(m) {
+                                var opt = document.createElement('option');
+                                opt.value = m.major_id;
+                                opt.textContent = m.major_name;
+                                add_major_select.appendChild(opt);
+                            });
+                        } else if (Array.isArray(majors)) {
+                            majors.forEach(function(m) {
+                                var opt = document.createElement('option');
+                                opt.value = m.major_id;
+                                opt.textContent = m.major_name;
+                                add_major_select.appendChild(opt);
+                            });
+                        }
+                        add_major_select.disabled = false;
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        });
+
+        // 专业变化 → 加载班级
+        add_major_select.addEventListener('change', function() {
+            var major_id = this.value;
+            add_class_select.innerHTML = '<option value="">-- 请选择班级 --</option>';
+            if (!major_id) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/classes?major_id=' + major_id, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var classes = JSON.parse(xhr.responseText);
+                        if (classes.code === 0 && classes.data) {
+                            classes.data.forEach(function(c) {
+                                var opt = document.createElement('option');
+                                opt.value = c.class_id;
+                                opt.textContent = c.class_name;
+                                add_class_select.appendChild(opt);
+                            });
+                        } else if (Array.isArray(classes)) {
+                            classes.forEach(function(c) {
+                                var opt = document.createElement('option');
+                                opt.value = c.class_id;
+                                opt.textContent = c.class_name;
+                                add_class_select.appendChild(opt);
+                            });
+                        }
+                        add_class_select.disabled = false;
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        });
+
+        // 提交新增表单
+        add_stu_form_modal.addEventListener('submit', function(e) {
+            e.preventDefault();
+            add_msg_box.style.display = 'none';
+
+            var form_data = new FormData(add_stu_form_modal);
+            var params = new URLSearchParams();
+            form_data.forEach(function(value, key) {
+                params.append(key, value);
+            });
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/add', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.code === 0) {
+                                add_msg_box.textContent = '新增成功！';
+                                add_msg_box.className = 'msg-box msg-success';
+                                add_msg_box.style.display = 'block';
+                                setTimeout(function() {
+                                    close_add_modal();
+                                    window.location.reload();
+                                }, 800);
+                            } else {
+                                add_msg_box.textContent = res.msg || '新增失败';
+                                add_msg_box.className = 'msg-box msg-error';
+                                add_msg_box.style.display = 'block';
+                            }
+                        } catch (err) {
+                            add_msg_box.textContent = '服务器响应异常';
+                            add_msg_box.className = 'msg-box msg-error';
+                            add_msg_box.style.display = 'block';
+                        }
+                    } else {
+                        add_msg_box.textContent = '请求失败，状态码：' + xhr.status;
+                        add_msg_box.className = 'msg-box msg-error';
+                        add_msg_box.style.display = 'block';
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
+        });
+
+        // 点击遮罩关闭
+        add_modal.addEventListener('click', function(e) {
+            if (e.target === add_modal) {
+                close_add_modal();
+            }
+        });
+
+        /* ========== 筛选模块初始化（使用main.js中的统一函数） ========== */
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'student_no', label: '学号', type: 'text'},
+                {name: 'student_name', label: '姓名', type: 'text'},
+                {name: 'gender', label: '性别', type: 'select', options: ['男', '女']},
+                {name: 'age', label: '年龄', type: 'number'},
+                {name: 'class_name', label: '班级', type: 'text'},
+                {name: 'grade', label: '年级', type: 'text'},
+                {name: 'major_name', label: '专业', type: 'text'},
+                {name: 'dept_name', label: '学院', type: 'text'}
+            ],
+            onApply: function(filters) {
+                if (filters.length > 0) {
+                    window.location.href = '/manage?page=1&' + encodeFilters(filters);
+                } else {
+                    window.location.href = '/manage';
+                }
+            },
+            onReset: function() {
+                window.location.href = '/manage';
+            }
+        });
+
+        // 从URL恢复筛选条件状态
+        (function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var filtersParam = urlParams.get('filters');
+            if (!filtersParam) return;
+            try {
+                var savedFilters = JSON.parse(filtersParam);
+                if (!savedFilters || savedFilters.length === 0) return;
+                // 等main.js初始化完成后恢复
+                var waitCount = 0;
+                var waitTimer = setInterval(function() {
+                    if (window._filterModules && window._filterModules['filterModule']) {
+                        clearInterval(waitTimer);
+                        var module = window._filterModules['filterModule'];
+                        savedFilters.forEach(function(f, idx) {
+                            addFilterRow('filterModule');
+                            var row = document.getElementById('filter-row-filterModule-' + idx);
+                            if (row) {
+                                row.querySelector('.filter-row-field').value = f.field || '';
+                                row.querySelector('.filter-row-operator').value = f.op || 'contains';
+                                var valueInput = row.querySelector('.filter-row-value');
+                                if (valueInput) valueInput.value = f.value || '';
+                            }
+                        });
+                    }
+                    waitCount++;
+                    if (waitCount > 50) clearInterval(waitTimer);
+                }, 100);
+            } catch(e) {}
+        })();
     </script>
 </body>
 </html>

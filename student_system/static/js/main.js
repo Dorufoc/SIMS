@@ -2498,3 +2498,285 @@ if (scene_select) {
         }
     }
 })();
+
+/* ========== 统一筛选模块（增强版） ========== */
+
+/**
+ * 根据字段类型获取可用的运算符列表
+ * @param {string} type - 字段类型: text, number, select
+ * @returns {Array<{value:string, label:string}>} 运算符列表
+ */
+function getOperatorsForType(type) {
+    if (type === 'number') {
+        return [
+            {value: 'eq', label: '等于'},
+            {value: 'neq', label: '不等于'},
+            {value: 'gt', label: '大于'},
+            {value: 'gte', label: '大于等于'},
+            {value: 'lt', label: '小于'},
+            {value: 'lte', label: '小于等于'},
+            {value: 'between', label: '在...之间'}
+        ];
+    } else if (type === 'select') {
+        return [
+            {value: 'eq', label: '等于'},
+            {value: 'neq', label: '不等于'},
+            {value: 'in', label: '多选（逗号分隔）'}
+        ];
+    } else {
+        // text 类型
+        return [
+            {value: 'contains', label: '包含'},
+            {value: 'eq', label: '等于'},
+            {value: 'neq', label: '不等于'},
+            {value: 'startswith', label: '以...开头'},
+            {value: 'endswith', label: '以...结尾'},
+            {value: 'in', label: '多值（逗号分隔）'}
+        ];
+    }
+}
+
+/**
+ * 收集筛选模块中的所有筛选条件
+ * @param {string} containerId - 筛选模块容器的ID
+ * @returns {Array<{field:string, op:string, value:string}>} 筛选条件数组
+ */
+function collectFilterValues(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return [];
+
+    var rows = container.querySelectorAll('.filter-row');
+    var filters = [];
+    for (var i = 0; i < rows.length; i++) {
+        var fieldSelect = rows[i].querySelector('.filter-field-select');
+        var operatorSelect = rows[i].querySelector('.filter-operator-select');
+        var valueInputs = rows[i].querySelectorAll('.filter-value-input');
+
+        if (!fieldSelect || !operatorSelect) continue;
+        var field = fieldSelect.value;
+        var op = operatorSelect.value;
+        if (!field) continue;
+
+        if (op === 'between') {
+            // between: 取两个输入框的值，用逗号拼接
+            var val1 = valueInputs.length > 0 ? valueInputs[0].value.trim() : '';
+            var val2 = valueInputs.length > 1 ? valueInputs[1].value.trim() : '';
+            if (val1 && val2) {
+                filters.push({field: field, op: op, value: val1 + ',' + val2});
+            }
+        } else {
+            var val = valueInputs.length > 0 ? valueInputs[0].value.trim() : '';
+            if (val) {
+                filters.push({field: field, op: op, value: val});
+            }
+        }
+    }
+    return filters;
+}
+
+/**
+ * 将筛选条件数组编码为 URL 查询字符串
+ * @param {Array<{field:string, op:string, value:string}>} filters
+ * @returns {string} 如: filters=%5B%7B%22field%22%3A%22...%22%7D%5D
+ */
+function encodeFilters(filters) {
+    if (!filters || filters.length === 0) return '';
+    return 'filters=' + encodeURIComponent(JSON.stringify(filters));
+}
+
+/**
+ * 初始化统一筛选模块
+ * @param {object} config - 配置对象
+ * @param {string} config.containerId - 筛选模块容器的ID
+ * @param {Array<{name:string, label:string, type:string, options?:string[]}>} config.fields - 筛选字段配置
+ * @param {function} config.onApply - 点击查询时的回调，接收 filters 数组
+ * @param {function} config.onReset - 点击重置时的回调
+ */
+function initFilterModule(config) {
+    var container = document.getElementById(config.containerId);
+    if (!container) return;
+
+    var rowsContainer = container.querySelector('.filter-rows-container');
+    var addBtn = container.querySelector('.btn-add-filter');
+    var applyBtn = container.querySelector('.btn-apply-filters');
+    var resetBtn = container.querySelector('.btn-reset-filters');
+
+    // 构建字段选项 HTML（不包含可选的占位项，自动默认选中第一个字段）
+    function buildFieldOptions(selectedName) {
+        var html = '';
+        for (var i = 0; i < config.fields.length; i++) {
+            var f = config.fields[i];
+            var sel = (f.name === selectedName) ? ' selected' : '';
+            html += '<option value="' + f.name + '"' + sel + '>' + f.label + '</option>';
+        }
+        return html;
+    }
+
+    // 构建运算符选项 HTML
+    function buildOperatorOptions(type, selectedOp) {
+        var ops = getOperatorsForType(type);
+        var html = '';
+        for (var i = 0; i < ops.length; i++) {
+            var sel = (ops[i].value === selectedOp) ? ' selected' : '';
+            html += '<option value="' + ops[i].value + '"' + sel + '>' + ops[i].label + '</option>';
+        }
+        return html;
+    }
+
+    // 获取字段配置
+    function getFieldConfig(name) {
+        for (var i = 0; i < config.fields.length; i++) {
+            if (config.fields[i].name === name) return config.fields[i];
+        }
+        return null;
+    }
+
+    // 根据字段类型和运算符构建值输入控件
+    function buildValueControl(fieldConfig, operator, currentValues) {
+        if (!fieldConfig) return '';
+        var type = fieldConfig.type;
+
+        if (operator === 'between') {
+            // 范围：显示两个输入框
+            var v1 = currentValues && currentValues.length > 0 ? currentValues[0] : '';
+            var v2 = currentValues && currentValues.length > 1 ? currentValues[1] : '';
+            return '<div class="filter-between-group">' +
+                '<input type="' + (type === 'number' ? 'number' : 'text') + '" class="filter-value-input filter-value-from" placeholder="起始值" value="' + v1 + '">' +
+                '<span class="filter-between-sep">至</span>' +
+                '<input type="' + (type === 'number' ? 'number' : 'text') + '" class="filter-value-input filter-value-to" placeholder="结束值" value="' + v2 + '">' +
+                '</div>';
+        }
+
+        if (type === 'select' && fieldConfig.options) {
+            var selectHtml = '<select class="filter-value-input" style="flex:1;min-width:120px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
+            selectHtml += '<option value="">请选择</option>';
+            var curVal = currentValues && currentValues.length > 0 ? currentValues[0] : '';
+            for (var i = 0; i < fieldConfig.options.length; i++) {
+                var sel = (fieldConfig.options[i] === curVal) ? ' selected' : '';
+                selectHtml += '<option value="' + fieldConfig.options[i] + '"' + sel + '>' + fieldConfig.options[i] + '</option>';
+            }
+            selectHtml += '</select>';
+            return selectHtml;
+        }
+
+        // text / number 默认输入框
+        var placeholder = (operator === 'in') ? '多个值用逗号分隔' : '请输入筛选值';
+        var curVal = currentValues && currentValues.length > 0 ? currentValues[0] : '';
+        return '<input type="' + (type === 'number' ? 'number' : 'text') + '" class="filter-value-input" placeholder="' + placeholder + '" value="' + curVal.replace(/"/g, '&quot;') + '" style="flex:1;min-width:150px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
+    }
+
+    // 更新单行的运算符和值输入
+    function updateRowControls(row, fieldName, operator, values) {
+        var operatorSelect = row.querySelector('.filter-operator-select');
+        var valueCell = row.querySelector('.filter-value-cell');
+        var fieldConfig = getFieldConfig(fieldName);
+        if (!fieldConfig) return;
+
+        // 更新运算符选项
+        var operators = getOperatorsForType(fieldConfig.type);
+        var opHtml = '';
+        for (var i = 0; i < operators.length; i++) {
+            var sel = (operators[i].value === operator) ? ' selected' : '';
+            opHtml += '<option value="' + operators[i].value + '"' + sel + '>' + operators[i].label + '</option>';
+        }
+        operatorSelect.innerHTML = opHtml;
+
+        // 更新值控件
+        valueCell.innerHTML = buildValueControl(fieldConfig, operator, values || []);
+    }
+
+    // 添加一行筛选条件
+    function addFilterRow(fieldName, operator, value) {
+        var hint = rowsContainer.querySelector('.filter-empty-hint');
+        if (hint) hint.style.display = 'none';
+
+        var firstField = config.fields.length > 0 ? config.fields[0] : null;
+        var fc = fieldName ? getFieldConfig(fieldName) : firstField;
+        if (!fc) return;
+        var selectedName = fc.name;
+        var selectedOp = operator || (getOperatorsForType(fc.type)[0] ? getOperatorsForType(fc.type)[0].value : 'contains');
+
+        var row = document.createElement('div');
+        row.className = 'filter-row';
+
+        row.innerHTML =
+            '<select class="filter-field-select" style="min-width:120px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;background:#fff;">' +
+                buildFieldOptions(selectedName) +
+            '</select>' +
+            '<select class="filter-operator-select" style="min-width:110px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;background:#fff;">' +
+                buildOperatorOptions(fc.type, selectedOp) +
+            '</select>' +
+            '<div class="filter-value-cell" style="flex:1;display:flex;align-items:center;gap:6px;min-width:150px;">' +
+                buildValueControl(fc, selectedOp, value ? [value] : []) +
+            '</div>' +
+            '<button class="filter-row-remove" style="padding:6px 12px;border:1px solid #feb2b2;background:#fff5f5;color:#c53030;cursor:pointer;border-radius:4px;font-size:13px;white-space:nowrap;">删除</button>';
+
+        rowsContainer.appendChild(row);
+
+        // 字段切换事件
+        var fieldSelect = row.querySelector('.filter-field-select');
+        fieldSelect.addEventListener('change', function() {
+            var currentRow = this.closest('.filter-row');
+            var currentOp = currentRow.querySelector('.filter-operator-select');
+            var newFieldName = this.value;
+            var newFc = getFieldConfig(newFieldName);
+            if (!newFc) return;
+            var defaultOp = getOperatorsForType(newFc.type)[0] ? getOperatorsForType(newFc.type)[0].value : 'contains';
+            updateRowControls(currentRow, newFieldName, defaultOp, []);
+        });
+
+        // 运算符切换事件
+        var operatorSelect = row.querySelector('.filter-operator-select');
+        operatorSelect.addEventListener('change', function() {
+            var currentRow = this.closest('.filter-row');
+            var fieldSelect = currentRow.querySelector('.filter-field-select');
+            var newOp = this.value;
+            var fc = getFieldConfig(fieldSelect.value);
+            if (fc) {
+                updateRowControls(currentRow, fieldSelect.value, newOp, []);
+            }
+        });
+
+        // 删除事件
+        var removeBtn = row.querySelector('.filter-row-remove');
+        removeBtn.addEventListener('click', function() {
+            rowsContainer.removeChild(row);
+            var remaining = rowsContainer.querySelectorAll('.filter-row');
+            if (remaining.length === 0) {
+                var emptyHint = rowsContainer.querySelector('.filter-empty-hint');
+                if (emptyHint) emptyHint.style.display = '';
+            }
+        });
+    }
+
+    // 添加筛选条件按钮
+    if (addBtn) {
+        addBtn.addEventListener('click', function() { addFilterRow(); });
+    }
+
+    // 查询按钮
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            if (typeof config.onApply === 'function') {
+                config.onApply(collectFilterValues(config.containerId));
+            }
+        });
+    }
+
+    // 重置按钮
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            var rows = rowsContainer.querySelectorAll('.filter-row');
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].remove();
+            }
+            var hint = rowsContainer.querySelector('.filter-empty-hint');
+            if (hint) hint.style.display = '';
+            if (typeof config.onReset === 'function') {
+                config.onReset([]);
+            }
+        });
+    }
+}
+
+

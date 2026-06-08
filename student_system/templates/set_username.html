@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置用户名 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            background: url('/static/img/bg.png') no-repeat center center;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+        .set-username-container {
+            width: 400px;
+            margin: 120px auto;
+            border: 1px solid #e2e8f0;
+            padding: 40px;
+            background: #fff;
+            border-radius: 4px;
+        }
+        .set-username-container h1 {
+            text-align: center;
+            color: #cc3336;
+            font-size: 20px;
+            border: none;
+            padding: 0;
+            margin-bottom: 10px;
+        }
+        .set-username-container .subtitle {
+            text-align: center;
+            font-size: 13px;
+            color: #a0aec0;
+            margin-bottom: 30px;
+        }
+        .set-username-container .form-group {
+            margin-bottom: 20px;
+        }
+        .set-username-container .form-group label {
+            display: block;
+            text-align: left;
+            width: auto;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+        .set-username-container .form-group input {
+            width: 100%;
+            height: 42px;
+            padding: 0 15px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .set-username-container .form-group input:focus {
+            border-color: #cc3336;
+            outline: none;
+        }
+        .set-username-container .btn-primary {
+            width: 100%;
+            height: 44px;
+            font-size: 15px;
+            margin-top: 10px;
+        }
+        .set-username-container .hint {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 6px;
+        }
+        .msg-box {
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: none;
+        }
+        .msg-success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #276749;
+            display: block;
+        }
+        .msg-error {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #c53030;
+            display: block;
+        }
+        .current-info {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #4a5568;
+        }
+        .current-info strong {
+            color: #2d3748;
+        }
+        .skip-link {
+            text-align: center;
+            margin-top: 16px;
+        }
+        .skip-link a {
+            font-size: 13px;
+            color: #718096;
+            text-decoration: none;
+        }
+        .skip-link a:hover {
+            color: #cc3336;
+        }
+    </style>
+</head>
+<body>
+    {% set active_page = 'set_username' %}
+    {% include '_header.html' %}
+
+    <div class="set-username-container">
+        <h1>设置用户名</h1>
+        <p class="subtitle">设置一个自定义用户名，方便您后续登录</p>
+        <div class="msg-box" id="msg-box"></div>
+        <div class="current-info">
+            当前用户名：<strong id="current-username">{{ current_username }}</strong>
+            {% if current_username and current_username.startswith('tmp_') %}
+            <span style="color:#cc3336;margin-left:8px">（临时用户名，请设置您的自定义用户名）</span>
+            {% endif %}
+        </div>
+        <form id="set-username-form">
+            <div class="form-group">
+                <label for="username">新用户名</label>
+                <input type="text" id="username" name="username" placeholder="请输入3-50个字符（字母、数字、下划线）" maxlength="50" autocomplete="username">
+                <div class="hint">用户名只能包含中文、字母、数字和下划线，设置后可用于登录</div>
+            </div>
+            <button type="submit" class="btn-primary">保存用户名</button>
+        </form>
+        <div class="skip-link">
+            <a href="/my">暂时跳过，稍后设置</a>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        var form = document.getElementById('set-username-form');
+        var msgBox = document.getElementById('msg-box');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            msgBox.style.display = 'none';
+            msgBox.className = 'msg-box';
+
+            var username = document.getElementById('username').value.trim();
+
+            if (!username) {
+                msgBox.textContent = '用户名不能为空';
+                msgBox.className = 'msg-box msg-error';
+                msgBox.style.display = 'block';
+                return;
+            }
+            if (username.length < 3 || username.length > 50) {
+                msgBox.textContent = '用户名长度需在3-50个字符之间';
+                msgBox.className = 'msg-box msg-error';
+                msgBox.style.display = 'block';
+                return;
+            }
+            if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(username)) {
+                msgBox.textContent = '用户名只能包含中文、字母、数字和下划线';
+                msgBox.className = 'msg-box msg-error';
+                msgBox.style.display = 'block';
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/set-username', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            msgBox.textContent = res.msg + '，即将跳转...';
+                            msgBox.className = 'msg-box msg-success';
+                            msgBox.style.display = 'block';
+                            document.getElementById('current-username').textContent = username;
+                            setTimeout(function() {
+                                window.location.href = '/my';
+                            }, 1200);
+                        } else {
+                            msgBox.textContent = res.msg;
+                            msgBox.className = 'msg-box msg-error';
+                            msgBox.style.display = 'block';
+                        }
+                    } else {
+                        msgBox.textContent = '请求失败，请稍后重试';
+                        msgBox.className = 'msg-box msg-error';
+                        msgBox.style.display = 'block';
+                    }
+                }
+            };
+
+            xhr.send(JSON.stringify({ username: username }));
+            show_loading();
+        });
+    </script>
+</body>
+</html>

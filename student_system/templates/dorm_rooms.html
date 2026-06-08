@@ -23,21 +23,18 @@
                         </div>
                     </div>
 
-                    <div class="search-box">
-                        <select id="buildingFilter" onchange="handleSearch()">
-                            <option value="">所有楼栋</option>
-                        </select>
-                        <select id="genderFilter" onchange="handleSearch()">
-                            <option value="">所有类型</option>
-                            <option value="男">男生宿舍</option>
-                            <option value="女">女生宿舍</option>
-                            <option value="不限">不限</option>
-                        </select>
-                        <select id="vacancyFilter" onchange="handleSearch()">
-                            <option value="">所有房间</option>
-                            <option value="1">有空床位</option>
-                        </select>
-                        <input type="text" id="searchInput" placeholder="搜索房间号..." onkeyup="handleSearch()">
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
                     </div>
 
                     <div class="permission-table-container">
@@ -104,13 +101,10 @@
         </div>
     </div>
 
+    <script src="/static/js/main.js"></script>
     <script>
         let currentPage = 1;
         let totalPages = 1;
-        let searchKeyword = '';
-        let buildingFilter = '';
-        let genderFilter = '';
-        let vacancyFilter = '';
         let buildings = [];
 
         // 加载楼栋列表
@@ -120,9 +114,6 @@
                 .then(data => {
                     if (data.code === 0) {
                         buildings = data.data;
-                        const buildingFilterSelect = document.getElementById('buildingFilter');
-                        const options = buildings.map(b => `<option value="${b}">${b}</option>`).join('');
-                        buildingFilterSelect.innerHTML = '<option value="">所有楼栋</option>' + options;
                     }
                 });
         }
@@ -131,9 +122,10 @@
         function loadRooms(page = 1) {
             currentPage = page;
             let url = `/api/dorm_rooms?page=${page}&page_size=10`;
-            if (buildingFilter) url += `&building=${encodeURIComponent(buildingFilter)}`;
-            if (genderFilter) url += `&gender_limit=${encodeURIComponent(genderFilter)}`;
-            if (vacancyFilter) url += `&has_vacancy=1`;
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
 
             fetch(url)
                 .then(res => res.json())
@@ -198,14 +190,6 @@
             }
             html += `<button class="page-btn" onclick="loadRooms(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
             pagination.innerHTML = html;
-        }
-
-        // 搜索处理
-        function handleSearch() {
-            buildingFilter = document.getElementById('buildingFilter').value;
-            genderFilter = document.getElementById('genderFilter').value;
-            vacancyFilter = document.getElementById('vacancyFilter').value;
-            loadRooms(1);
         }
 
         // 打开模态框
@@ -286,12 +270,24 @@
         window.onclick = function(e) {
             if (e.target.classList.contains('modal-overlay')) closeModal();
         }
+    </script>
 
-        // 初始化
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'building', label: '楼栋', type: 'text'},
+                {name: 'room_number', label: '房间号', type: 'text'},
+                {name: 'capacity', label: '容量', type: 'number'},
+                {name: 'occupied', label: '已住', type: 'number'},
+                {name: 'gender_limit', label: '性别限制', type: 'select', options: ['男', '女', '不限']},
+                {name: 'phone', label: '联系电话', type: 'text'}
+            ],
+            onApply: function(filters) { loadRooms(1); },
+            onReset: function(filters) { loadRooms(1); }
+        });
         loadBuildings();
         loadRooms();
     </script>
-
-    <script src="/static/js/main.js"></script>
 </body>
 </html>

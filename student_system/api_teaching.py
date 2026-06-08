@@ -3,10 +3,12 @@
 提供课程、学期、授课安排、选课、成绩管理接口
 """
 
+import json
+
 import pymysql
 from flask import Blueprint, jsonify, request, session
 
-from db_utils import execute, get_page_data, query
+from db_utils import build_filter_sql, execute, get_page_data, query
 
 api_teaching = Blueprint('api_teaching', __name__)
 
@@ -23,6 +25,7 @@ def get_courses():
     dept_id = request.args.get('dept_id', type=int)
     course_type = request.args.get('type', '').strip()
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = """
         SELECT c.*, d.dept_name
@@ -31,6 +34,22 @@ def get_courses():
         WHERE 1=1
     """
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'course_id': 'c.course_id',
+                'course_name': 'c.course_name',
+                'dept_name': 'd.dept_name',
+                'credits': 'c.credits',
+                'hours': 'c.hours',
+                'type': 'c.type'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if dept_id:
         base_sql += " AND c.dept_id = %s"

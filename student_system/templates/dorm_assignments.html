@@ -23,13 +23,18 @@
             </div>
         </div>
 
-        <div class="search-box">
-            <select id="statusFilter" onchange="handleSearch()">
-                <option value="">所有状态</option>
-                <option value="在住">在住</option>
-                <option value="已退">已退</option>
-            </select>
-            <input type="text" id="searchInput" placeholder="搜索学号或学生姓名..." onkeyup="handleSearch()">
+        <div id="filterModule" class="filter-builder">
+            <div class="filter-builder-header">
+                <h3>筛选条件</h3>
+                <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+            </div>
+            <div class="filter-rows-container">
+                <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+            </div>
+            <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                <button class="btn btn-primary btn-apply-filters">查询</button>
+                <button class="btn btn-secondary btn-reset-filters">重置</button>
+            </div>
         </div>
 
         <table>
@@ -110,18 +115,19 @@
         </div>
     </div>
 
+    <script src="/static/js/main.js"></script>
     <script>
         let currentPage = 1;
         let totalPages = 1;
-        let searchKeyword = '';
-        let statusFilter = '';
 
         // 加载住宿分配列表
         function loadAssignments(page = 1) {
             currentPage = page;
             let url = `/api/dorm_assignments?page=${page}&page_size=10`;
-            if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
-            if (searchKeyword) url += `&student_id=${encodeURIComponent(searchKeyword)}`;
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
 
             fetch(url)
                 .then(res => res.json())
@@ -151,7 +157,7 @@
                     <tr>
                         <td>${assign.student_id}</td>
                         <td>${assign.student_name}</td>
-                        <td>${assign.gender || '-'}</td>
+                        <td>${assign.gender === 'M' ? '男' : assign.gender === 'F' ? '女' : assign.gender || '-'}</td>
                         <td>${assign.building}</td>
                         <td>${assign.room_number}</td>
                         <td>${assign.bed_number || '-'}</td>
@@ -193,13 +199,6 @@
                         select.innerHTML = '<option value="">请选择房间</option>' + options;
                     }
                 });
-        }
-
-        // 搜索处理
-        function handleSearch() {
-            searchKeyword = document.getElementById('searchInput').value;
-            statusFilter = document.getElementById('statusFilter').value;
-            loadAssignments(1);
         }
 
         // 打开分配模态框
@@ -282,11 +281,25 @@
                 closeCheckoutModal();
             }
         }
-
-        // 初始化
-        loadAssignments();
     </script>
 
-    <script src="/static/js/main.js"></script>
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'student_id', label: '学号', type: 'text'},
+                {name: 'student_name', label: '姓名', type: 'text'},
+                {name: 'gender', label: '性别', type: 'select', options: ['男', '女']},
+                {name: 'building', label: '楼栋', type: 'text'},
+                {name: 'room_number', label: '房间号', type: 'text'},
+                {name: 'bed_number', label: '床位号', type: 'text'},
+                {name: 'check_in_date', label: '入住日期', type: 'text'},
+                {name: 'status', label: '状态', type: 'select', options: ['在住', '已退']}
+            ],
+            onApply: function(filters) { loadAssignments(1); },
+            onReset: function(filters) { loadAssignments(1); }
+        });
+        loadAssignments();
+    </script>
 </body>
 </html>

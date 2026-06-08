@@ -3,10 +3,12 @@
 提供院系、专业、班级、教师的增删改查接口
 """
 
+import json
+
 import pymysql
 from flask import Blueprint, jsonify, request
 
-from db_utils import execute, get_page_data, query
+from db_utils import build_filter_sql, execute, get_page_data, query
 
 api_basic = Blueprint('api_basic', __name__)
 
@@ -21,22 +23,37 @@ def get_departments():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = "SELECT * FROM departments WHERE 1=1"
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'dept_id': 'dept_id',
+                'dept_name': 'dept_name',
+                'dean': 'dean',
+                'phone': 'phone'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if keyword:
         base_sql += " AND dept_name LIKE %s"
         params.append(f"%{keyword}%")
 
-    base_sql += " ORDER BY dept_id"
-
     if page > 0:
+        base_sql += " ORDER BY dept_id"
         result = get_page_data(base_sql, page=page, page_size=page_size, params=params if params else None)
         return jsonify({'code': 0, 'data': result['data'], 'total': result['total'],
                        'page': result['page'], 'total_pages': result['total_pages']})
     else:
-        rows = query(base_sql + " ORDER BY dept_name", params if params else None)
+        base_sql += " ORDER BY dept_name"
+        rows = query(base_sql, params if params else None)
         return jsonify({'code': 0, 'data': rows})
 
 
@@ -105,6 +122,7 @@ def get_majors():
     page_size = request.args.get('page_size', 10, type=int)
     dept_id = request.args.get('dept_id', type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = """
         SELECT m.*, d.dept_name
@@ -113,6 +131,21 @@ def get_majors():
         WHERE 1=1
     """
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'major_id': 'm.major_id',
+                'major_name': 'm.major_name',
+                'dept_name': 'd.dept_name',
+                'duration': 'm.duration',
+                'degree_type': 'm.degree_type'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if dept_id:
         base_sql += " AND m.dept_id = %s"
@@ -208,6 +241,7 @@ def get_classes():
     dept_id = request.args.get('dept_id', type=int)
     enrollment_year = request.args.get('enrollment_year', type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = """
         SELECT c.*, m.major_name, d.dept_name
@@ -217,6 +251,23 @@ def get_classes():
         WHERE 1=1
     """
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'class_id': 'c.class_id',
+                'class_name': 'c.class_name',
+                'major_name': 'm.major_name',
+                'dept_name': 'd.dept_name',
+                'enrollment_year': 'c.enrollment_year',
+                'student_count': 'c.student_count',
+                'counselor': 'c.counselor'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if major_id:
         base_sql += " AND c.major_id = %s"
@@ -321,6 +372,7 @@ def get_teachers():
     page_size = request.args.get('page_size', 10, type=int)
     dept_id = request.args.get('dept_id', type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     base_sql = """
         SELECT t.*, d.dept_name
@@ -329,6 +381,22 @@ def get_teachers():
         WHERE 1=1
     """
     params = []
+
+    if filters_json:
+        try:
+            filters = json.loads(filters_json)
+            filter_clause, filter_params = build_filter_sql(filters, {
+                'teacher_id': 't.teacher_id',
+                'name': 't.name',
+                'gender': "CASE WHEN t.gender = 'M' THEN '男' WHEN t.gender = 'F' THEN '女' ELSE '' END",
+                'dept_name': 'd.dept_name',
+                'title': 't.title',
+                'phone': 't.phone'
+            })
+            base_sql += " " + filter_clause
+            params.extend(filter_params)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     if dept_id:
         base_sql += " AND t.dept_id = %s"

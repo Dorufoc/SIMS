@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if role == 'student' %}我的信息 - 学生{% else %}我的信息 - 教师{% endif %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* 无侧边栏布局 - 覆盖默认边距 */
+        .my-info-main {
+            margin-left: 0 !important;
+            max-width: 900px;
+            margin: 0 auto;
+            padding-top: 0;
+        }
+        .my-info-main .content-area {
+            padding: 32px 24px;
+        }
+        .info-section {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .info-section-header {
+            padding: 16px 24px;
+            background: #f7fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .info-section-header h2 {
+            margin: 0;
+            font-size: 15px;
+            color: #2d3748;
+            border: none;
+            padding: 0;
+        }
+        .info-section-header .badge {
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 4px;
+        }
+        .info-grid {
+            padding: 20px 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .info-grid.single-col {
+            grid-template-columns: 1fr;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .info-item .label {
+            font-size: 12px;
+            color: #a0aec0;
+            font-weight: 500;
+        }
+        .info-item .value {
+            font-size: 14px;
+            color: #2d3748;
+        }
+        .info-item .value.highlight {
+            color: #cc3336;
+            font-weight: 600;
+        }
+        /* 数据表格 */
+        .info-table-wrap {
+            padding: 0 24px 20px;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .info-table th {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 2px solid #e2e8f0;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .info-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #2d3748;
+        }
+        .info-table tr:last-child td {
+            border-bottom: none;
+        }
+        .info-table .empty-row {
+            text-align: center;
+            color: #a0aec0;
+            padding: 30px 8px;
+        }
+        /* 状态标签 */
+        .status-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status-tag.active {
+            background: #f0fff4;
+            color: #276749;
+            border: 1px solid #9ae6b4;
+        }
+        .status-tag.inactive {
+            background: #fff5f5;
+            color: #c53030;
+            border: 1px solid #feb2b2;
+        }
+        .status-tag.warning {
+            background: #fffaf0;
+            color: #c05621;
+            border: 1px solid #fbd38d;
+        }
+        .page-title-area {
+            margin-bottom: 24px;
+        }
+        .page-title-area h1 {
+            font-size: 22px;
+            color: #2d3748;
+            border: none;
+            padding: 0;
+            margin: 0 0 4px 0;
+        }
+        .page-title-area p {
+            font-size: 13px;
+            color: #a0aec0;
+            margin: 0;
+        }
+        @media (max-width: 640px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .my-info-main .content-area {
+                padding: 20px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% set active_page = 'my_info' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        <main class="main-wrapper my-info-main">
+            <div class="content-area">
+
+                <div class="page-title-area">
+                    <h1>{% if role == 'student' %}我的信息{% else %}教师信息{% endif %}</h1>
+                    <p>{% if role == 'student' %}欢迎进入学生信息中心，以下是与您相关的全部数据{% else %}欢迎进入教师信息中心，以下是与您相关的全部数据{% endif %}</p>
+                </div>
+
+                {% if role == 'student' and student %}
+                <!-- ====== 基本信息 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>基本信息</h2>
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <span class="status-tag {% if student.status == '在校' %}active{% elif student.status == '休学' %}warning{% else %}inactive{% endif %}">{{ student.status }}</span>
+                            {% if can_edit %}<button type="button" class="btn btn-sm btn-primary" onclick="open_edit_modal()">编辑</button>{% endif %}
+                        </div>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="label">姓名</span>
+                            <span class="value highlight">{{ student.name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">学号</span>
+                            <span class="value">{{ student.student_id }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">性别</span>
+                            <span class="value">{{ student.gender or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">出生日期</span>
+                            <span class="value">{{ student.birth_date or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">入学年份</span>
+                            <span class="value">{{ student.enrollment_year or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">院系</span>
+                            <span class="value">{{ student.dept_name or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">专业</span>
+                            <span class="value">{{ student.major_name or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">班级</span>
+                            <span class="value">{{ student.class_name or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">联系电话</span>
+                            <span class="value">{{ student.phone or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">电子邮箱</span>
+                            <span class="value">{{ student.email or '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== 选课记录 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>选课记录</h2>
+                        <span class="badge badge-student">{{ enrollments|length }} 门课程</span>
+                    </div>
+                    <div class="info-table-wrap">
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>课程名称</th>
+                                    <th>学分</th>
+                                    <th>授课教师</th>
+                                    <th>学期</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if enrollments %}
+                                {% for e in enrollments %}
+                                <tr>
+                                    <td>{{ e.course_name }}</td>
+                                    <td>{{ e.credits or '-' }}</td>
+                                    <td>{{ e.teacher_name or '-' }}</td>
+                                    <td>{{ e.semester_display or e.semester or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr><td colspan="4" class="empty-row">暂无选课记录</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ====== 成绩单 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>成绩单</h2>
+                        <span>GPA: <strong style="color:#cc3336">{{ gpa }}</strong> | 总学分: <strong>{{ total_credits }}</strong></span>
+                    </div>
+                    <div class="info-table-wrap">
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>课程</th>
+                                    <th>学分</th>
+                                    <th>成绩</th>
+                                    <th>绩点</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if scores %}
+                                {% for s in scores %}
+                                <tr>
+                                    <td>{{ s.course_name }}</td>
+                                    <td>{{ s.credits or '-' }}</td>
+                                    <td>{{ s.score or '-' }}</td>
+                                    <td>{{ s.grade_point or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr><td colspan="4" class="empty-row">暂无成绩记录</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ====== 奖惩记录 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>奖惩记录</h2>
+                        <span class="badge badge-student">{{ rewards|length }} 条</span>
+                    </div>
+                    <div class="info-table-wrap">
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>类型</th>
+                                    <th>内容</th>
+                                    <th>日期</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if rewards %}
+                                {% for r in rewards %}
+                                <tr>
+                                    <td><span class="status-tag {% if r.rp_type == '奖励' %}active{% else %}inactive{% endif %}">{{ r.rp_type }}</span></td>
+                                    <td>{{ r.title }}{% if r.reason %} - {{ r.reason }}{% endif %}</td>
+                                    <td>{{ r.date or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr><td colspan="3" class="empty-row">暂无奖惩记录</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ====== 培养计划 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>培养计划</h2>
+                        <span class="badge badge-student">{{ curriculum|length }} 门课程</span>
+                    </div>
+                    <div class="info-table-wrap">
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>课程名称</th>
+                                    <th>学分</th>
+                                    <th>学时</th>
+                                    <th>学期</th>
+                                    <th>是否必修</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if curriculum %}
+                                {% for cu in curriculum %}
+                                <tr>
+                                    <td>{{ cu.course_name }}</td>
+                                    <td>{{ cu.credits or '-' }}</td>
+                                    <td>{{ cu.hours or '-' }}</td>
+                                    <td>{{ cu.recommended_term or '-' }}</td>
+                                    <td>{% if cu.course_type == '必修' %}<span class="status-tag active">必修</span>{% else %}<span class="status-tag warning">{{ cu.course_type or '选修' }}</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr><td colspan="5" class="empty-row">暂无培养计划</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% elif role == 'teacher' and teacher %}
+                <!-- ====== 基本信息 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>基本信息</h2>
+                        {% if can_edit %}<button type="button" class="btn btn-sm btn-primary" onclick="open_edit_modal()">编辑</button>{% endif %}
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="label">姓名</span>
+                            <span class="value highlight">{{ teacher.name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">工号</span>
+                            <span class="value">{{ teacher.teacher_id }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">性别</span>
+                            <span class="value">{{ teacher.gender or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">职称</span>
+                            <span class="value">{{ teacher.title or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">所属院系</span>
+                            <span class="value">{{ teacher.dept_name or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">联系电话</span>
+                            <span class="value">{{ teacher.phone or '-' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">电子邮箱</span>
+                            <span class="value">{{ teacher.email or '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== 授课列表 ====== -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>授课列表</h2>
+                        <span class="badge badge-teacher">{{ teachings|length }} 门课程</span>
+                    </div>
+                    <div class="info-table-wrap">
+                        <table class="info-table">
+                            <thead>
+                                <tr>
+                                    <th>课程名称</th>
+                                    <th>学分</th>
+                                    <th>学时</th>
+                                    <th>学期</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if teachings %}
+                                {% for t in teachings %}
+                                <tr>
+                                    <td>{{ t.course_name }}</td>
+                                    <td>{{ t.credits or '-' }}</td>
+                                    <td>{{ t.hours or '-' }}</td>
+                                    <td>{{ t.semester_display or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr><td colspan="4" class="empty-row">暂无授课安排</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% else %}
+                <!-- 无数据提示 -->
+                <div class="info-section">
+                    <div class="info-section-header">
+                        <h2>提示</h2>
+                    </div>
+                    <div class="info-grid single-col">
+                        <div class="info-item" style="text-align:center;padding:40px 0">
+                            <span class="value" style="color:#a0aec0">
+                                {% if role == 'student' %}
+                                未找到您的学生信息，请联系管理员完善您的档案。
+                                {% elif role == 'teacher' %}
+                                未找到您的教师信息，请联系管理员完善您的档案。
+                                {% else %}
+                                无法加载信息。
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+
+    {% if role == 'student' and student %}
+    <!-- 学生编辑个人信息弹窗 -->
+    <div id="edit_profile_modal" class="modal-overlay">
+        <div class="modal-content" style="max-width:480px">
+            <div class="modal-header">
+                <h3>修改个人信息</h3>
+                <button type="button" class="modal-close" onclick="close_edit_modal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit_student_form">
+                    <div class="form-group">
+                        <label>联系电话</label>
+                        <input type="text" id="edit_phone" value="{{ student.phone or '' }}" placeholder="请输入联系电话">
+                    </div>
+                    <div class="form-group">
+                        <label>电子邮箱</label>
+                        <input type="email" id="edit_email" value="{{ student.email or '' }}" placeholder="请输入邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>家庭住址</label>
+                        <input type="text" id="edit_address" value="{{ student.address or '' }}" placeholder="请输入家庭住址">
+                    </div>
+                    <div class="modal-footer" style="border:none;padding:16px 0 0">
+                        <button type="button" class="btn btn-secondary" onclick="close_edit_modal()">取消</button>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </div>
+                </form>
+                <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var editModal = document.getElementById('edit_profile_modal');
+        var editForm = document.getElementById('edit_student_form');
+        var editMsg = document.getElementById('edit_msg_box');
+
+        function open_edit_modal() { editModal.classList.add('active'); editMsg.style.display = 'none'; }
+        function close_edit_modal() { editModal.classList.remove('active'); }
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            editMsg.style.display = 'none';
+            var params = new URLSearchParams();
+            params.append('phone', document.getElementById('edit_phone').value);
+            params.append('email', document.getElementById('edit_email').value);
+            params.append('address', document.getElementById('edit_address').value);
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/my/profile/student', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            editMsg.textContent = '修改成功！';
+                            editMsg.className = 'msg-box msg-success';
+                            editMsg.style.display = 'block';
+                            setTimeout(function() { window.location.reload(); }, 800);
+                        } else {
+                            editMsg.textContent = res.msg || '修改失败';
+                            editMsg.className = 'msg-box msg-error';
+                            editMsg.style.display = 'block';
+                        }
+                    } else {
+                        editMsg.textContent = '请求失败，状态码：' + xhr.status;
+                        editMsg.className = 'msg-box msg-error';
+                        editMsg.style.display = 'block';
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
+        });
+        editModal.addEventListener('click', function(e) { if (e.target === editModal) close_edit_modal(); });
+    </script>
+    {% elif role == 'teacher' and teacher %}
+    <!-- 教师编辑个人信息弹窗 -->
+    <div id="edit_profile_modal" class="modal-overlay">
+        <div class="modal-content" style="max-width:480px">
+            <div class="modal-header">
+                <h3>修改个人信息</h3>
+                <button type="button" class="modal-close" onclick="close_edit_modal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit_teacher_form">
+                    <div class="form-group">
+                        <label>联系电话</label>
+                        <input type="text" id="edit_phone" value="{{ teacher.phone or '' }}" placeholder="请输入联系电话">
+                    </div>
+                    <div class="form-group">
+                        <label>电子邮箱</label>
+                        <input type="email" id="edit_email" value="{{ teacher.email or '' }}" placeholder="请输入邮箱">
+                    </div>
+                    <div class="modal-footer" style="border:none;padding:16px 0 0">
+                        <button type="button" class="btn btn-secondary" onclick="close_edit_modal()">取消</button>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </div>
+                </form>
+                <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var editModal = document.getElementById('edit_profile_modal');
+        var editForm = document.getElementById('edit_teacher_form');
+        var editMsg = document.getElementById('edit_msg_box');
+
+        function open_edit_modal() { editModal.classList.add('active'); editMsg.style.display = 'none'; }
+        function close_edit_modal() { editModal.classList.remove('active'); }
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            editMsg.style.display = 'none';
+            var params = new URLSearchParams();
+            params.append('phone', document.getElementById('edit_phone').value);
+            params.append('email', document.getElementById('edit_email').value);
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/my/profile/teacher', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            editMsg.textContent = '修改成功！';
+                            editMsg.className = 'msg-box msg-success';
+                            editMsg.style.display = 'block';
+                            setTimeout(function() { window.location.reload(); }, 800);
+                        } else {
+                            editMsg.textContent = res.msg || '修改失败';
+                            editMsg.className = 'msg-box msg-error';
+                            editMsg.style.display = 'block';
+                        }
+                    } else {
+                        editMsg.textContent = '请求失败，状态码：' + xhr.status;
+                        editMsg.className = 'msg-box msg-error';
+                        editMsg.style.display = 'block';
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
+        });
+        editModal.addEventListener('click', function(e) { if (e.target === editModal) close_edit_modal(); });
+    </script>
+    {% endif %}
+</body>
+</html>

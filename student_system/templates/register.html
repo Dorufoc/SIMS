@@ -24,16 +24,46 @@
         <div class="error-msg" id="error-msg"></div>
         <form id="register-form">
             <div class="form-group">
-                <label for="username">用户名</label>
-                <input type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username">
+                <label>注册方式</label>
+                <div class="register-method-selector">
+                    <label class="method-option active" data-method="ref_id">
+                        <input type="radio" name="register_method" value="ref_id" checked hidden>
+                        <span>学号</span>
+                    </label>
+                    <label class="method-option" data-method="phone">
+                        <input type="radio" name="register_method" value="phone" hidden>
+                        <span>手机号</span>
+                    </label>
+                    <label class="method-option" data-method="email">
+                        <input type="radio" name="register_method" value="email" hidden>
+                        <span>邮箱</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group" id="register-value-group">
+                <label for="register_value">学号</label>
+                <input type="text" id="register_value" name="register_value" placeholder="请输入学号" autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="password">密码</label>
-                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="new-password">
+                <input type="password" id="password" name="password" placeholder="请输入密码（默认 123456）" autocomplete="new-password">
             </div>
             <div class="form-group">
                 <label for="real_name">真实姓名</label>
                 <input type="text" id="real_name" name="real_name" placeholder="请输入真实姓名">
+            </div>
+            <div class="form-group">
+                <label>身份</label>
+                <div class="role-selector">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="student" checked>
+                        <span>学生</span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="teacher">
+                        <span>教职工</span>
+                    </label>
+                </div>
             </div>
             <button type="submit" class="btn-primary">注 册</button>
         </form>
@@ -58,16 +88,41 @@
             error_msg.style.display = 'none';
         }
 
+        // 注册方式切换
+        var methodOptions = document.querySelectorAll('.method-option');
+        var registerValueLabel = document.querySelector('#register-value-group label');
+        var registerValueInput = document.getElementById('register_value');
+
+        methodOptions.forEach(function(opt) {
+            opt.addEventListener('click', function() {
+                methodOptions.forEach(function(o) { o.classList.remove('active'); });
+                this.classList.add('active');
+
+                var method = this.getAttribute('data-method');
+                if (method === 'ref_id') {
+                    registerValueLabel.textContent = '学号';
+                    registerValueInput.placeholder = '请输入学号';
+                } else if (method === 'phone') {
+                    registerValueLabel.textContent = '手机号';
+                    registerValueInput.placeholder = '请输入手机号';
+                } else if (method === 'email') {
+                    registerValueLabel.textContent = '邮箱';
+                    registerValueInput.placeholder = '请输入邮箱';
+                }
+            });
+        });
+
         register_form.addEventListener('submit', function(e) {
             e.preventDefault();
             hide_error();
 
-            var username = document.getElementById('username').value.trim();
+            var register_value = registerValueInput.value.trim();
             var password = document.getElementById('password').value.trim();
             var real_name = document.getElementById('real_name').value.trim();
+            var register_method = document.querySelector('input[name="register_method"]:checked').value;
 
-            if (!username) {
-                alert('用户名不能为空');
+            if (!register_value) {
+                alert('请输入注册信息');
                 return;
             }
             if (!password) {
@@ -79,6 +134,18 @@
                 return;
             }
 
+            // 根据注册方式做基本格式校验
+            if (register_method === 'phone' && !/^1\d{10}$/.test(register_value)) {
+                show_error('请输入正确的手机号（11位数字）');
+                return;
+            }
+            if (register_method === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(register_value)) {
+                show_error('请输入正确的邮箱格式');
+                return;
+            }
+
+            var role = document.querySelector('input[name="role"]:checked').value;
+
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/register', true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -89,6 +156,12 @@
                     if (xhr.status === 200) {
                         var res = JSON.parse(xhr.responseText);
                         if (res.code === 0) {
+                            // 注册成功，提示临时用户名并跳转到登录页
+                            var msg = '注册成功！';
+                            if (res.temp_username) {
+                                msg += ' 您的临时用户名为：' + res.temp_username + '，请尽快登录并设置自定义用户名。';
+                            }
+                            alert(msg);
                             window.location.href = '/login';
                         } else {
                             show_error(res.msg);
@@ -99,9 +172,11 @@
                 }
             };
 
-            xhr.send('username=' + encodeURIComponent(username)
+            xhr.send('register_method=' + encodeURIComponent(register_method)
+                + '&register_value=' + encodeURIComponent(register_value)
                 + '&password=' + encodeURIComponent(password)
-                + '&real_name=' + encodeURIComponent(real_name));
+                + '&real_name=' + encodeURIComponent(real_name)
+                + '&role=' + encodeURIComponent(role));
             show_loading();
         });
     </script>

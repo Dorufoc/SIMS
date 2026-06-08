@@ -158,15 +158,39 @@ def get_user_permissions(user_uuid):
     )
 
 
-def initialize_user_permissions(user_uuid):
+def initialize_user_permissions(user_uuid, role='student'):
     """
-    初始化新用户的权限（默认无权限）
+    初始化新用户的权限，根据角色设置默认权限
+    - student: 查看自己的信息、选课、成绩、培养计划、奖惩（可编辑联系方式）
+    - teacher: 查看自己的信息、授课安排（可编辑联系方式）
+    - admin: 统一无权限（通过角色绕过检查）
     """
-    tables = [
+    all_tables = [
         'departments', 'majors', 'classes', 'students', 'teachers', 'courses',
         'semesters', 'teaching', 'enrollments', 'grade_scale', 'rewards_punishments',
         'payments', 'dorm_rooms', 'dorm_assignments', 'curriculum', 'enroll_logs'
     ]
-    
-    for table in tables:
-        set_user_permission(user_uuid, table, '000')
+
+    if role == 'student':
+        # 学生默认权限：只读查看与自己相关的数据，自己的信息可编辑
+        perm_map = {
+            'students': '600',              # 读+写（可修改联系方式）
+            'enrollments': '400',           # 只读（选课和成绩）
+            'courses': '400',               # 只读
+            'curriculum': '400',            # 只读（培养计划）
+            'rewards_punishments': '400',   # 只读（奖惩记录）
+        }
+    elif role == 'teacher':
+        # 教师默认权限：只读查看与自己相关的数据，自己的信息可编辑
+        perm_map = {
+            'teachers': '600',              # 读+写（可修改联系方式）
+            'teaching': '400',              # 只读（授课安排）
+            'courses': '400',              # 只读
+        }
+    else:
+        # admin 或其他角色：全部无权限（admin 通过角色绕过检查）
+        perm_map = {}
+
+    for table in all_tables:
+        code = perm_map.get(table, '000')
+        set_user_permission(user_uuid, table, code)

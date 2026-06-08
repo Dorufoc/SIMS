@@ -25,11 +25,11 @@
         <form id="login-form">
             <div class="form-group">
                 <label for="username">账号</label>
-                <input type="text" id="username" name="username" placeholder="请输入账号" autocomplete="username">
+                <input type="text" id="username" name="username" placeholder="学号 / 工号 / 手机号 / 邮箱 / 用户名" autocomplete="username">
             </div>
             <div class="form-group">
                 <label for="password">密码</label>
-                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password">
+                <input type="password" id="password" name="password" placeholder="请输入密码（默认 123456）" autocomplete="current-password">
             </div>
             <button type="submit" class="btn-primary">登 录</button>
         </form>
@@ -76,7 +76,11 @@
                     if (xhr.status === 200) {
                         var res = JSON.parse(xhr.responseText);
                         if (res.code === 0) {
-                            window.location.href = '/';
+                            if (res.role === 'admin') {
+                                window.location.href = '/';
+                            } else {
+                                window.location.href = '/my';
+                            }
                         } else {
                             show_error(res.msg);
                         }

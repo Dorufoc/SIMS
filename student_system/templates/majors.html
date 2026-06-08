@@ -20,11 +20,18 @@
                         <button class="btn btn-primary" onclick="openModal()">新增专业</button>
                     </div>
 
-                    <div class="search-box">
-                        <select id="deptFilter" onchange="handleSearch()">
-                            <option value="">所有院系</option>
-                        </select>
-                        <input type="text" id="searchInput" placeholder="搜索专业名称..." onkeyup="handleSearch()">
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
                     </div>
 
                     <div class="permission-table-container">
@@ -91,11 +98,10 @@
         </div>
     </div>
 
+    <script src="/static/js/main.js"></script>
     <script>
         let currentPage = 1;
         let totalPages = 1;
-        let searchKeyword = '';
-        let deptFilter = '';
         let departments = [];
 
         // 加载院系列表
@@ -106,10 +112,8 @@
                     if (data.code === 0) {
                         departments = data.data;
                         const deptSelect = document.getElementById('deptId');
-                        const deptFilter = document.getElementById('deptFilter');
                         const options = departments.map(d => `<option value="${d.dept_id}">${d.dept_name}</option>`).join('');
                         deptSelect.innerHTML = '<option value="">请选择院系</option>' + options;
-                        deptFilter.innerHTML = '<option value="">所有院系</option>' + options;
                     }
                 });
         }
@@ -118,8 +122,10 @@
         function loadMajors(page = 1) {
             currentPage = page;
             let url = `/api/majors?page=${page}&page_size=10`;
-            if (searchKeyword) url += `&keyword=${encodeURIComponent(searchKeyword)}`;
-            if (deptFilter) url += `&dept_id=${deptFilter}`;
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
 
             fetch(url)
                 .then(res => res.json())
@@ -171,13 +177,6 @@
             }
             html += `<button class="page-btn" onclick="loadMajors(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
             pagination.innerHTML = html;
-        }
-
-        // 搜索处理
-        function handleSearch() {
-            searchKeyword = document.getElementById('searchInput').value;
-            deptFilter = document.getElementById('deptFilter').value;
-            loadMajors(1);
         }
 
         // 打开模态框
@@ -258,11 +257,22 @@
             if (e.target.classList.contains('modal-overlay')) closeModal();
         }
 
-        // 初始化
+        // 初始化筛选模块和加载数据
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'major_id', label: '专业编号', type: 'number'},
+                {name: 'major_name', label: '专业名称', type: 'text'},
+                {name: 'dept_name', label: '所属院系', type: 'text'},
+                {name: 'duration', label: '学制(年)', type: 'number'},
+                {name: 'degree_type', label: '学位类型', type: 'text'}
+            ],
+            onApply: function(filters) { loadMajors(1); },
+            onReset: function(filters) { loadMajors(1); }
+        });
         loadDepartments();
         loadMajors();
     </script>
 
-    <script src="/static/js/main.js"></script>
 </body>
 </html>

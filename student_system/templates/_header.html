@@ -9,9 +9,121 @@
         {% if session.get('user_name') %}
         <span class="user-role">{{ session.get('user_role') }}</span>
         <span>{{ session.get('user_name') }}</span>
+        <a href="javascript:void(0)" class="change-pwd-btn" onclick="openChangePwdModal()">修改密码</a>
+        <a href="/set-username" class="logout-btn">设置用户名</a>
         <a href="/logout" class="logout-btn">退出</a>
         {% else %}
         <a href="/login" class="logout-btn">登录</a>
         {% endif %}
     </div>
 </header>
+
+<!-- 修改密码弹窗 -->
+<div class="modal-overlay" id="change-pwd-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>修改密码</h3>
+            <span class="modal-close-btn" onclick="closeChangePwdModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="msg-box msg-error" id="change-pwd-error" style="display:none"></div>
+            <div class="msg-box msg-success" id="change-pwd-success" style="display:none"></div>
+            <div class="form-group">
+                <label>旧密码</label>
+                <input type="password" id="old-password" class="form-control" placeholder="请输入旧密码" style="width:100%">
+            </div>
+            <div class="form-group">
+                <label>新密码</label>
+                <input type="password" id="new-password" class="form-control" placeholder="请输入新密码" style="width:100%">
+            </div>
+            <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="confirm-password" class="form-control" placeholder="请再次输入新密码" style="width:100%">
+            </div>
+            <div class="form-group-actions">
+                <button class="btn btn-cancel" onclick="closeChangePwdModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitChangePwd()">确认修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openChangePwdModal() {
+    document.getElementById('change-pwd-modal').classList.add('active');
+    document.getElementById('change-pwd-error').style.display = 'none';
+    document.getElementById('change-pwd-success').style.display = 'none';
+    document.getElementById('old-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+}
+
+function closeChangePwdModal() {
+    document.getElementById('change-pwd-modal').classList.remove('active');
+}
+
+function submitChangePwd() {
+    var oldPwd = document.getElementById('old-password').value.trim();
+    var newPwd = document.getElementById('new-password').value.trim();
+    var confirmPwd = document.getElementById('confirm-password').value.trim();
+    var errorEl = document.getElementById('change-pwd-error');
+    var successEl = document.getElementById('change-pwd-success');
+
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    if (!oldPwd) {
+        errorEl.textContent = '请输入旧密码';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (!newPwd) {
+        errorEl.textContent = '请输入新密码';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (newPwd !== confirmPwd) {
+        errorEl.textContent = '两次输入的新密码不一致';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (newPwd.length < 6) {
+        errorEl.textContent = '新密码长度不能少于6位';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/change-password', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                var res = JSON.parse(xhr.responseText);
+                if (res.code === 0) {
+                    successEl.textContent = res.msg;
+                    successEl.style.display = 'block';
+                    errorEl.style.display = 'none';
+                    document.getElementById('old-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-password').value = '';
+                } else {
+                    errorEl.textContent = res.msg;
+                    errorEl.style.display = 'block';
+                    successEl.style.display = 'none';
+                }
+            } else {
+                errorEl.textContent = '请求失败，请稍后重试';
+                errorEl.style.display = 'block';
+                successEl.style.display = 'none';
+            }
+        }
+    };
+
+    xhr.send(JSON.stringify({
+        old_password: oldPwd,
+        new_password: newPwd
+    }));
+}
+</script>
