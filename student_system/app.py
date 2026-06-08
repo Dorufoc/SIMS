@@ -64,10 +64,10 @@ def login():
     identifier = request.form.get('username', '').strip()
     password = request.form.get('password', '').strip()
 
-    # 支持使用用户名、职工号/学号(ref_id)登录
+    # 支持使用用户名、职工号/学号(ref_id)、邮箱、手机号登录
     rows = query(
-        'SELECT user_id, username, role, ref_id, uuid, password_hash FROM users WHERE username=%s OR ref_id=%s',
-        (identifier, identifier)
+        'SELECT user_id, username, role, ref_id, uuid, password_hash FROM users WHERE username=%s OR ref_id=%s OR email=%s OR phone=%s',
+        (identifier, identifier, identifier, identifier)
     )
 
     if rows:
