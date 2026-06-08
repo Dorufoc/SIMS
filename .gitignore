@@ -1,6 +1,8 @@
 __pycache__/
 .trae/
 PLAN.MD
+.env
+student_system/.env
 student_system/__pycache__/
 student_system/.*/
 .*/

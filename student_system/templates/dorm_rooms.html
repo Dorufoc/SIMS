@@ -88,8 +88,8 @@
                     <label>性别限制</label>
                     <select id="genderLimit">
                         <option value="不限">不限</option>
-                        <option value="男">男生</option>
-                        <option value="女">女生</option>
+                        <option value="M">男生</option>
+                        <option value="F">女生</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -280,7 +280,7 @@
                 {name: 'room_number', label: '房间号', type: 'text'},
                 {name: 'capacity', label: '容量', type: 'number'},
                 {name: 'occupied', label: '已住', type: 'number'},
-                {name: 'gender_limit', label: '性别限制', type: 'select', options: ['男', '女', '不限']},
+                {name: 'gender_limit', label: '性别限制', type: 'select', options: ['M', 'F', '不限']},
                 {name: 'phone', label: '联系电话', type: 'text'}
             ],
             onApply: function(filters) { loadRooms(1); },

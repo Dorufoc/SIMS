@@ -1,36 +1,26 @@
 """
-数据库连接配置及Flask应用密钥配置
-从 db_config.xml 读取配置
+应用配置模块 - 从环境变量读取
 """
-
 import os
-import xml.etree.ElementTree as ET
+from dotenv import load_dotenv
 
+load_dotenv()
 
-def _load_config():
-    """从 db_config.xml 加载配置"""
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db_config.xml')
-    tree = ET.parse(config_path)
-    root = tree.getroot()
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 
-    db = root.find('database')
-    flask = root.find('flask')
+# SECRET_KEY 校验：生产环境必须从环境变量设置
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if FLASK_ENV == 'production':
+        raise RuntimeError('SECRET_KEY 环境变量未设置，生产环境必须提供 SECRET_KEY')
+    SECRET_KEY = 'dev-secret-key'
 
-    return {
-        'DB_HOST': db.findtext('host', ''),
-        'DB_PORT': int(db.findtext('port', '3306')),
-        'DB_USER': db.findtext('user', ''),
-        'DB_PASSWORD': db.findtext('password', ''),
-        'DB_NAME': db.findtext('name', ''),
-        'SECRET_KEY': flask.findtext('secret_key', '') if flask is not None else '',
-    }
+# DATABASE_URL 校验：生产环境不允许硬编码回退值
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    if FLASK_ENV == 'production':
+        raise RuntimeError('DATABASE_URL 环境变量未设置，生产环境必须提供 DATABASE_URL')
+    DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/student_manage'
 
-
-_cfg = _load_config()
-
-DB_HOST = _cfg['DB_HOST']
-DB_PORT = _cfg['DB_PORT']
-DB_USER = _cfg['DB_USER']
-DB_PASSWORD = _cfg['DB_PASSWORD']
-DB_NAME = _cfg['DB_NAME']
-SECRET_KEY = _cfg['SECRET_KEY']
+# 上传限制：最大 10MB
+MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB

@@ -76,7 +76,7 @@
                     </div>
                     <div class="form-group">
                         <label>密码 <span id="passwordHint">(创建时必填)</span></label>
-                        <input type="text" id="userPassword" class="form-control">
+                        <input type="password" id="userPassword" class="form-control">
                     </div>
                     <div class="form-group">
                         <label>角色 *</label>
@@ -247,7 +247,7 @@
         function deleteUser(userId, username) {
             if (!confirm(`确定要删除用户 "${username}" 吗？`)) return;
 
-            fetch(`/api/users/${userId}`, { method: 'DELETE' })
+            fetch(`/api/users/${userId}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrf_token } })
                 .then(res => res.json())
                 .then(data => {
                     alert(data.msg);

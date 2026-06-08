@@ -47,11 +47,13 @@ def display_banner():
 
 def run_app(port=5000):
     """启动Flask Web应用"""
-    from app import app
+    from main import app
+    from entity.base import init_db
+    init_db()
     display_banner()
     print(f"项目访问地址: http://127.0.0.1:{port}")
     print(f"按 Ctrl+C 停止服务")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=(os.getenv('FLASK_ENV', 'development') == 'development'))
 
 
 def run_tests():

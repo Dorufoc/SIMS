@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL COMMENT '加密密码',
   `role`          ENUM('admin','teacher','student') NOT NULL COMMENT '角色',
   `ref_id`        VARCHAR(20)  COMMENT '关联的学生学号或教师工号',
+  `real_name`     VARCHAR(50)  DEFAULT NULL COMMENT '真实姓名',
   `email`         VARCHAR(100) COMMENT '电子邮箱',
   `phone`         VARCHAR(20)  COMMENT '手机号码',
   `last_login`    DATETIME     COMMENT '最后登录时间',

@@ -18,12 +18,22 @@
         <div class="menu-section">教学管理</div>
         <a href="/courses" class="menu-item {% if active_page == 'courses' %}active{% endif %}"><span class="menu-text">课程管理</span></a>
         <a href="/dorm_rooms" class="menu-item {% if active_page == 'dorm' %}active{% endif %}"><span class="menu-text">宿舍管理</span></a>
+        <a href="/rewards" class="menu-item {% if active_page == 'rewards' %}active{% endif %}"><span class="menu-text">奖惩管理</span></a>
         <a href="/statistics" class="menu-item {% if active_page == 'statistics' %}active{% endif %}"><span class="menu-text">统计报表</span></a>
 
-        {% if session.get('user_role') == 'admin' %}
-        <div class="menu-divider"></div>
-        <div class="menu-section">系统</div>
-        <a href="/user_management" class="menu-item {% if active_page in ['user_management', 'permission'] %}active{% endif %}"><span class="menu-text">用户管理</span></a>
-        {% endif %}
+        <div class="menu-divider admin-only"></div>
+        <div class="menu-section admin-only">系统</div>
+        <a href="/user_management" class="menu-item admin-only {% if active_page in ['user_management', 'permission'] %}active{% endif %}"><span class="menu-text">用户管理</span></a>
     </nav>
 </aside>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 从 cookie 获取角色信息来控制侧边栏显示
+    var roleMeta = document.querySelector('meta[name="user-role"]');
+    if (!roleMeta) return;
+    var role = roleMeta.content;
+    var adminItems = document.querySelectorAll('.admin-only');
+    adminItems.forEach(function(el) { el.style.display = role === 'admin' ? '' : 'none'; });
+});
+</script>

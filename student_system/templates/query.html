@@ -18,14 +18,14 @@
 
         <!-- Tab 导航栏 -->
         <div class="tab-bar">
-            <button class="tab-item {% if active_tab == 'filter' %}tab-active{% endif %}" data-tab="filter">筛选查询</button>
-            <button class="tab-item {% if active_tab == 'stat' %}tab-active{% endif %}" data-tab="stat">分类统计</button>
-            <button class="tab-item {% if active_tab == 'sort' %}tab-active{% endif %}" data-tab="sort">排序浏览</button>
-            <button class="tab-item {% if active_tab == 'training' %}tab-active{% endif %}" data-tab="training">快查指令</button>
+            <button class="tab-item tab-active" data-tab="filter">筛选查询</button>
+            <button class="tab-item" data-tab="stat">分类统计</button>
+            <button class="tab-item" data-tab="sort">排序浏览</button>
+            <button class="tab-item" data-tab="training">快查指令</button>
         </div>
 
         <!-- 筛选查询面板（原高级筛选优化版） -->
-        <div class="query-panel {% if active_tab == 'filter' %}panel-active{% endif %}" id="panel-filter">
+        <div class="query-panel panel-active" id="panel-filter">
             <div class="filter-panel-header">
                 <p class="filter-panel-desc">通过直观的口语化条件筛选学生信息，支持多条件组合查询</p>
             </div>
@@ -90,7 +90,7 @@
         </div>
 
         <!-- 分类统计面板（原统计分析增强版） -->
-        <div class="query-panel {% if active_tab == 'stat' %}panel-active{% endif %}" id="panel-stat">
+        <div class="query-panel" id="panel-stat">
             <div class="stat-panel-header">
                 <p class="stat-panel-desc">选择统计场景，可自定义参数进行灵活的数据分析</p>
             </div>
@@ -226,7 +226,7 @@
         </div>
 
         <!-- 排序浏览面板 -->
-        <div class="query-panel {% if active_tab == 'sort' %}panel-active{% endif %}" id="panel-sort">
+        <div class="query-panel" id="panel-sort">
             <div class="sort-panel-header">
                 <p class="sort-panel-desc">添加多个排序字段，按优先级进行数据排序（最多5个字段）</p>
             </div>
@@ -278,7 +278,7 @@
         </div>
 
         <!-- 快查指令面板（原SQL实训） -->
-        <div class="query-panel {% if active_tab == 'training' %}panel-active{% endif %}" id="panel-training">
+        <div class="query-panel" id="panel-training">
             <!-- 使用指南区域 -->
             <div class="training-guide">
                 <h3 class="training-guide-title"> 快查指令使用指南</h3>
@@ -330,28 +330,6 @@
                             <li>使用关键词速查区快速了解SQL语法</li>
                         </ul>
                     </div>
-                </div>
-            </div>
-
-            <!-- 自定义SQL执行区 -->
-            <div class="quick-sql-exec">
-                <h3>SQL语句执行器</h3>
-                <div class="quick-sql-editor-wrapper">
-                    <textarea id="quick-sql-editor" class="sql-editor" spellcheck="false" placeholder="输入SQL语句并执行...">SELECT s.student_no, s.student_name, s.gender, s.age, c.class_name, c.grade, m.major_name, d.dept_name FROM students s LEFT JOIN classes c ON s.class_id = c.class_id LEFT JOIN majors m ON c.major_id = m.major_id LEFT JOIN departments d ON m.dept_id = d.dept_id LIMIT 10</textarea>
-                </div>
-                <div class="quick-sql-actions">
-                    <button class="btn btn-primary btn-sm" id="btn-quick-sql-run">执行</button>
-                    <button class="btn btn-sm" id="btn-quick-sql-clear">清空</button>
-                    <button class="btn btn-export btn-sm" id="btn-quick-sql-export">导出</button>
-                </div>
-                <div id="quick-sql-error" class="sql-error-msg" style="display:none;"></div>
-                <div class="sql-display-box" id="quick-sql-display"></div>
-                <div class="result-table-wrapper" id="quick-sql-result" style="display:none;">
-                    <table class="result-table" id="quick-sql-table">
-                        <thead id="quick-sql-thead"></thead>
-                        <tbody id="quick-sql-tbody"></tbody>
-                    </table>
-                    <div class="empty-result" id="quick-sql-empty">暂无匹配数据</div>
                 </div>
             </div>
 

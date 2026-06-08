@@ -79,8 +79,8 @@
                 <div class="form-group">
                     <label>性别</label>
                     <select id="gender">
-                        <option value="男">男</option>
-                        <option value="女">女</option>
+                        <option value="M">男</option>
+                        <option value="F">女</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -221,7 +221,7 @@
                         document.getElementById('teacherIdInput').value = teacher.teacher_id;
                         document.getElementById('teacherIdInput').disabled = true;
                         document.getElementById('name').value = teacher.name;
-                        document.getElementById('gender').value = teacher.gender || '男';
+                        document.getElementById('gender').value = teacher.gender || 'M';
                         document.getElementById('deptId').value = teacher.dept_id;
                         document.getElementById('title').value = teacher.title || '';
                         document.getElementById('phone').value = teacher.phone || '';
@@ -284,7 +284,7 @@
             fields: [
                 {name: 'teacher_id', label: '工号', type: 'text'},
                 {name: 'name', label: '姓名', type: 'text'},
-                {name: 'gender', label: '性别', type: 'select', options: ['男', '女']},
+                {name: 'gender', label: '性别', type: 'select', options: ['M', 'F']},
                 {name: 'dept_name', label: '所属院系', type: 'text'},
                 {name: 'title', label: '职称', type: 'select', options: ['教授', '副教授', '讲师', '助教']},
                 {name: 'phone', label: '联系电话', type: 'text'}

@@ -23,17 +23,15 @@
 
                     <!-- 用户信息卡片 -->
                     <div class="permission-user-info">
-                        <div class="user-avatar" id="user-avatar">
-                            {{ target_user.username[0]|upper if target_user else 'U' }}
-                        </div>
-                        <div class="user-details">
-                            <h3 id="user-name">{{ target_user.username if target_user else '加载中...' }}</h3>
-                            <p>
-                                角色: <span id="user-role">{{ target_user.role if target_user else '-' }}</span> |
-                                用户ID: <span id="user-id">{{ target_user.user_id if target_user else '-' }}</span> |
-                                关联ID: <span id="user-ref">{{ target_user.ref_id if target_user and target_user.ref_id else '无' }}</span>
-                            </p>
-                        </div>
+                        <div class="user-avatar" id="user-avatar">U</div>
+                    <div class="user-details">
+                        <h3 id="user-name">加载中...</h3>
+                        <p>
+                            角色: <span id="user-role">-</span> |
+                            用户ID: <span id="user-id">-</span> |
+                            关联ID: <span id="user-ref">无</span>
+                        </p>
+                    </div>
                     </div>
 
                     <!-- 权限配置表格 -->
@@ -78,7 +76,12 @@
         // 全局变量
         let allTables = [];
         let currentPermissions = {};
-        let userId = {{ target_user.user_id if target_user else 'null' }};
+        let userId = null;
+        // 从 URL 路径中提取 userId，例如 /user_management/permissions/3
+        (function() {
+            var m = window.location.pathname.match(/\/permissions\/(\d+)/);
+            userId = m ? parseInt(m[1]) : null;
+        })();
 
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -86,8 +89,30 @@
                 showMessage('用户ID无效', 'error');
                 return;
             }
+            loadUserInfo();
             loadTablesAndPermissions();
         });
+
+        // 加载用户基本信息
+        function loadUserInfo() {
+            fetch('/api/users?page=-1&page_size=1000')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        var user = data.data.find(function(u) { return u.user_id === userId; });
+                        if (user) {
+                            document.getElementById('user-avatar').textContent = (user.username || 'U').charAt(0).toUpperCase();
+                            document.getElementById('user-name').textContent = user.username || '-';
+                            document.getElementById('user-role').textContent = user.role || '-';
+                            document.getElementById('user-id').textContent = user.user_id || '-';
+                            document.getElementById('user-ref').textContent = user.ref_id || '无';
+                        }
+                    }
+                })
+                .catch(function(err) {
+                    console.error('加载用户信息失败:', err);
+                });
+        }
 
         // 加载表列表和权限数据
         function loadTablesAndPermissions() {

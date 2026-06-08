@@ -217,7 +217,7 @@
                 ctx.moveTo(centerX, centerY);
                 ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + angle);
                 ctx.closePath();
-                ctx.fillStyle = item.gender === '男' ? '#cc3336' : (item.gender === '女' ? '#e83e8c' : '#718096');
+                ctx.fillStyle = item.gender === 'M' ? '#cc3336' : (item.gender === 'F' ? '#e83e8c' : '#718096');
                 ctx.fill();
 
                 // 绘制标签

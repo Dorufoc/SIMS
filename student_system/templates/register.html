@@ -21,7 +21,7 @@
 <body>
     <div class="register-container">
         <h1>学生信息管理系统</h1>
-        <div class="error-msg" id="error-msg"></div>
+        <div class="error-msg" id="error-msg" style="display:none;"></div>
         <form id="register-form">
             <div class="form-group">
                 <label>注册方式</label>
@@ -46,7 +46,7 @@
             </div>
             <div class="form-group">
                 <label for="password">密码</label>
-                <input type="password" id="password" name="password" placeholder="请输入密码（默认 123456）" autocomplete="new-password">
+                <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="new-password">
             </div>
             <div class="form-group">
                 <label for="real_name">真实姓名</label>
@@ -149,6 +149,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/register', true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
 
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
@@ -156,13 +157,13 @@
                     if (xhr.status === 200) {
                         var res = JSON.parse(xhr.responseText);
                         if (res.code === 0) {
-                            // 注册成功，提示临时用户名并跳转到登录页
-                            var msg = '注册成功！';
-                            if (res.temp_username) {
-                                msg += ' 您的临时用户名为：' + res.temp_username + '，请尽快登录并设置自定义用户名。';
+                            // 注册成功，自动登录
+                            if (res.need_set_username) {
+                                // 非管理员，需要先设置用户名
+                                window.location.href = '/set-username?force=1';
+                            } else {
+                                window.location.href = res.redirect_url || '/my';
                             }
-                            alert(msg);
-                            window.location.href = '/login';
                         } else {
                             show_error(res.msg);
                         }

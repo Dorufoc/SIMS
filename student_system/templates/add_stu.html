@@ -20,7 +20,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="student_no">学号</label>
-                        <input type="text" id="student_no" name="student_no" required placeholder="请输入学号">
+                        <input type="text" id="student_no" name="student_id" required placeholder="请输入学号">
                     </div>
                     <div class="form-group">
                         <label for="student_name">姓名</label>
@@ -32,13 +32,13 @@
                         <label for="gender">性别</label>
                         <select id="gender" name="gender" required>
                             <option value="">请选择</option>
-                            <option value="男">男</option>
-                            <option value="女">女</option>
+                            <option value="M">男</option>
+                            <option value="F">女</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="age">年龄</label>
-                        <input type="number" id="age" name="age" min="1" max="150" placeholder="请输入年龄">
+                        <input type="date" id="age" name="birth_date" placeholder="请输入出生日期">
                     </div>
                 </div>
                 <div class="form-row">
@@ -104,13 +104,14 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/add', true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
                     if (xhr.status === 200) {
                         try {
                             var res = JSON.parse(xhr.responseText);
-                            if (res.success) {
+                            if (res.code === 0) {
                                 show_msg('新增成功！', true);
                                 var go_next = confirm('学生信息已成功添加，是否继续新增？');
                                 if (go_next) {
@@ -119,7 +120,7 @@
                                     window.location.href = '/manage';
                                 }
                             } else {
-                                show_msg(res.message || '新增失败', false);
+                                show_msg(res.msg || '新增失败', false);
                             }
                         } catch (err) {
                             show_msg('服务器响应异常', false);
@@ -204,7 +205,7 @@
                         classes.forEach(function(c) {
                             var opt = document.createElement('option');
                             opt.value = c.class_id;
-                            opt.textContent = c.class_name + ' (' + c.grade + '年)';
+                            opt.textContent = c.class_name + ' (' + c.enrollment_year + '年)';
                             class_select.appendChild(opt);
                         });
                         class_select.disabled = false;

@@ -42,9 +42,9 @@
                                 <th>学号</th>
                                 <th>姓名</th>
                                 <th>性别</th>
-                                <th>年龄</th>
+                                <th>出生日期</th>
                                 <th>专业</th>
-                                <th>年级</th>
+                                <th>入学年份</th>
                                 <th>班级</th>
                             </tr>
                         </thead>
@@ -95,56 +95,16 @@
                             <th>操作</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for stu in data %}
+                    <tbody id="student-table-body">
                         <tr>
-                            <td>{{ loop.index + (page - 1) * 10 }}</td>
-                            <td>{{ stu.student_no }}</td>
-                            <td>{{ stu.student_name }}</td>
-                            <td>{{ stu.gender or '' }}</td>
-                            <td>{{ stu.age or '' }}</td>
-                            <td>{{ stu.class_name or '' }}</td>
-                            <td>{{ stu.grade or '' }}</td>
-                            <td>{{ stu.major_name or '' }}</td>
-                            <td>{{ stu.dept_name or '' }}</td>
-                            <td class="action-cell">
-                                <button type="button" class="btn btn-sm btn-primary" onclick="open_edit_modal({{ stu.student_id }}, '{{ stu.student_no }}', '{{ stu.student_name }}', '{{ stu.gender or '' }}', {{ stu.age or 'null' }}, {{ stu.class_id or 'null' }})">编辑</button>
-                                <button type="button" class="btn btn-sm btn-danger" onclick="delete_student({{ stu.student_id }}, '{{ stu.student_name }}')">删除</button>
-                            </td>
+                            <td colspan="10" class="empty-row">加载中...</td>
                         </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="10" class="empty-row">暂无数据</td>
-                        </tr>
-                        {% endfor %}
                     </tbody>
                 </table>
             </div>
 
             <!-- 分页导航 -->
-            {% if total_pages > 0 %}
-            <nav class="page-nav">
-                {% if page > 1 %}
-                <a href="/manage?page={{ page - 1 }}" class="page-link">上一页</a>
-                {% else %}
-                <span class="page-link page-link-disabled">上一页</span>
-                {% endif %}
-
-                {% for p in range(1, total_pages + 1) %}
-                    {% if p == page %}
-                    <span class="page-link page-link-active">{{ p }}</span>
-                    {% else %}
-                    <a href="/manage?page={{ p }}" class="page-link">{{ p }}</a>
-                    {% endif %}
-                {% endfor %}
-
-                {% if page < total_pages %}
-                <a href="/manage?page={{ page + 1 }}" class="page-link">下一页</a>
-                {% else %}
-                <span class="page-link page-link-disabled">下一页</span>
-                {% endif %}
-            </nav>
-            {% endif %}
+            <nav class="page-nav" id="pagination"></nav>
                 </div>
             </section>
         </div>
@@ -162,7 +122,7 @@
                 <input type="hidden" id="edit_id" name="id">
                 <div class="form-group">
                     <label for="edit_student_no">学号</label>
-                    <input type="text" id="edit_student_no" name="student_no" required>
+                    <input type="text" id="edit_student_no" name="student_id" required>
                 </div>
                 <div class="form-group">
                     <label for="edit_student_name">姓名</label>
@@ -172,13 +132,13 @@
                     <label for="edit_gender">性别</label>
                     <select id="edit_gender" name="gender" required>
                         <option value="">请选择</option>
-                        <option value="男">男</option>
-                        <option value="女">女</option>
+                        <option value="M">男</option>
+                        <option value="F">女</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="edit_age">年龄</label>
-                    <input type="number" id="edit_age" name="age" min="1" max="150">
+                    <input type="date" id="edit_age" name="birth_date">
                 </div>
                 <div class="form-group">
                     <label for="edit_class_id">班级</label>
@@ -219,8 +179,8 @@
                             <label>性别</label>
                             <select id="add_gender" name="gender">
                                 <option value="">请选择</option>
-                                <option value="男">男</option>
-                                <option value="女">女</option>
+                                <option value="M">男</option>
+                                <option value="F">女</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -352,17 +312,18 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/csv/import', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
                     if (xhr.status === 200) {
                         try {
                             var res = JSON.parse(xhr.responseText);
-                            if (res.success) {
+                            if (res.code === 0) {
                                 alert('导入成功，共导入 ' + (res.count || 0) + ' 条数据');
                                 window.location.reload();
                             } else {
-                                alert('导入失败：' + (res.message || '未知错误'));
+                                alert('导入失败：' + (res.msg || '未知错误'));
                             }
                         } catch (err) {
                             alert('导入响应解析失败');
@@ -392,17 +353,18 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/delete/' + stu_id, true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
                     if (xhr.status === 200) {
                         try {
                             var res = JSON.parse(xhr.responseText);
-                            if (res.success) {
+                            if (res.code === 0) {
                                 alert('删除成功');
-                                window.location.reload();
+                                loadStudents(1);
                             } else {
-                                alert('删除失败：' + (res.message || '未知错误'));
+                                alert('删除失败：' + (res.msg || '未知错误'));
                             }
                         } catch (err) {
                             alert('删除响应解析失败');
@@ -442,7 +404,7 @@
                         classes.forEach(function(c) {
                             var opt = document.createElement('option');
                             opt.value = c.class_id;
-                            opt.textContent = c.class_name + ' (' + c.grade + ')';
+                            opt.textContent = c.class_name + ' (' + c.enrollment_year + ')';
                             if (c.class_id == class_id) opt.selected = true;
                             classSelect.appendChild(opt);
                         });
@@ -472,17 +434,18 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/edit/' + document.getElementById('edit_id').value, true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
                     if (xhr.status === 200) {
                         try {
                             var res = JSON.parse(xhr.responseText);
-                            if (res.success) {
+                            if (res.code === 0) {
                                 close_edit_modal();
-                                window.location.reload();
+                                loadStudents(1);
                             } else {
-                                edit_msg_box.textContent = res.message || '编辑失败';
+                                edit_msg_box.textContent = res.msg || '编辑失败';
                                 edit_msg_box.className = 'msg-box msg-error';
                                 edit_msg_box.style.display = 'block';
                             }
@@ -634,6 +597,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/add', true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
@@ -646,7 +610,7 @@
                                 add_msg_box.style.display = 'block';
                                 setTimeout(function() {
                                     close_add_modal();
-                                    window.location.reload();
+                                    loadStudents(1);
                                 }, 800);
                             } else {
                                 add_msg_box.textContent = res.msg || '新增失败';
@@ -676,61 +640,144 @@
             }
         });
 
+        /* ========== 学生表格渲染 ========== */
+        var currentStudentPage = 1;
+
+        function loadStudents(page) {
+            currentStudentPage = page || 1;
+            var url = '/api/students?page=' + currentStudentPage;
+            var filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.code === 0) {
+                    renderStudentTable(d.data);
+                    renderStudentPagination(d.page, d.total_pages);
+                }
+            });
+        }
+
+        function renderStudentTable(students) {
+            var tbody = document.getElementById('student-table-body');
+            if (!tbody) return;
+            if (!students || students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-row">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = '';
+            students.forEach(function(s, i) {
+                var rowIdx = (currentStudentPage - 1) * 10 + i + 1;
+                var gender = s.gender || '';
+                var birthDate = (s.birth_date !== null && s.birth_date !== undefined) ? s.birth_date : '';
+                var className = s.class_name || '';
+                var enrollmentYear = s.enrollment_year || '';
+                var majorName = s.major_name || '';
+                var deptName = s.dept_name || '';
+                var classId = (s.class_id !== null && s.class_id !== undefined) ? s.class_id : 'null';
+
+                var tr = document.createElement('tr');
+                var cells = [
+                    rowIdx, s.student_id || '', s.student_name || '',
+                    gender, birthDate, className, enrollmentYear, majorName, deptName
+                ];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var td = document.createElement('td');
+                    td.textContent = String(cells[ci]);
+                    tr.appendChild(td);
+                }
+
+                var actionTd = document.createElement('td');
+                actionTd.className = 'action-cell';
+
+                var editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'btn btn-sm btn-primary';
+                editBtn.textContent = '编辑';
+                editBtn.setAttribute('data-stu-id', s.student_id);
+                editBtn.setAttribute('data-stu-no', s.student_id || '');
+                editBtn.setAttribute('data-stu-name', s.student_name || '');
+                editBtn.setAttribute('data-stu-gender', gender || '');
+                editBtn.setAttribute('data-stu-birth', s.birth_date || '');
+                editBtn.setAttribute('data-stu-class-id', classId);
+                editBtn.addEventListener('click', function() {
+                    open_edit_modal(
+                        this.getAttribute('data-stu-id'),
+                        this.getAttribute('data-stu-no'),
+                        this.getAttribute('data-stu-name'),
+                        this.getAttribute('data-stu-gender'),
+                        this.getAttribute('data-stu-birth'),
+                        this.getAttribute('data-stu-class-id')
+                    );
+                });
+                actionTd.appendChild(editBtn);
+
+                actionTd.appendChild(document.createTextNode(' '));
+
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'btn btn-sm btn-danger';
+                delBtn.textContent = '删除';
+                delBtn.addEventListener('click', function() {
+                    delete_student(s.student_id, s.student_name || '');
+                });
+                actionTd.appendChild(delBtn);
+
+                tr.appendChild(actionTd);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderStudentPagination(page, totalPages) {
+            var container = document.getElementById('pagination');
+            if (!container) return;
+            if (!totalPages || totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            var html = '';
+            if (page > 1) {
+                html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + (page - 1) + ')">上一页</a>';
+            } else {
+                html += '<span class="page-link page-link-disabled">上一页</span>';
+            }
+            for (var i = 1; i <= totalPages; i++) {
+                if (i === page) {
+                    html += '<span class="page-link page-link-active">' + i + '</span>';
+                } else {
+                    html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + i + ')">' + i + '</a>';
+                }
+            }
+            if (page < totalPages) {
+                html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + (page + 1) + ')">下一页</a>';
+            } else {
+                html += '<span class="page-link page-link-disabled">下一页</span>';
+            }
+            container.innerHTML = html;
+        }
+
         /* ========== 筛选模块初始化（使用main.js中的统一函数） ========== */
         initFilterModule({
             containerId: 'filterModule',
             fields: [
-                {name: 'student_no', label: '学号', type: 'text'},
+                {name: 'student_id', label: '学号', type: 'text'},
                 {name: 'student_name', label: '姓名', type: 'text'},
-                {name: 'gender', label: '性别', type: 'select', options: ['男', '女']},
-                {name: 'age', label: '年龄', type: 'number'},
+                {name: 'gender', label: '性别', type: 'select', options: ['M', 'F']},
+                {name: 'birth_date', label: '出生日期', type: 'text'},
                 {name: 'class_name', label: '班级', type: 'text'},
-                {name: 'grade', label: '年级', type: 'text'},
+                {name: 'enrollment_year', label: '入学年份', type: 'text'},
                 {name: 'major_name', label: '专业', type: 'text'},
                 {name: 'dept_name', label: '学院', type: 'text'}
             ],
             onApply: function(filters) {
-                if (filters.length > 0) {
-                    window.location.href = '/manage?page=1&' + encodeFilters(filters);
-                } else {
-                    window.location.href = '/manage';
-                }
+                loadStudents(1);
             },
             onReset: function() {
-                window.location.href = '/manage';
+                loadStudents(1);
             }
         });
-
-        // 从URL恢复筛选条件状态
-        (function() {
-            var urlParams = new URLSearchParams(window.location.search);
-            var filtersParam = urlParams.get('filters');
-            if (!filtersParam) return;
-            try {
-                var savedFilters = JSON.parse(filtersParam);
-                if (!savedFilters || savedFilters.length === 0) return;
-                // 等main.js初始化完成后恢复
-                var waitCount = 0;
-                var waitTimer = setInterval(function() {
-                    if (window._filterModules && window._filterModules['filterModule']) {
-                        clearInterval(waitTimer);
-                        var module = window._filterModules['filterModule'];
-                        savedFilters.forEach(function(f, idx) {
-                            addFilterRow('filterModule');
-                            var row = document.getElementById('filter-row-filterModule-' + idx);
-                            if (row) {
-                                row.querySelector('.filter-row-field').value = f.field || '';
-                                row.querySelector('.filter-row-operator').value = f.op || 'contains';
-                                var valueInput = row.querySelector('.filter-row-value');
-                                if (valueInput) valueInput.value = f.value || '';
-                            }
-                        });
-                    }
-                    waitCount++;
-                    if (waitCount > 50) clearInterval(waitTimer);
-                }, 100);
-            } catch(e) {}
-        })();
+        loadStudents(1);
     </script>
 </body>
 </html>

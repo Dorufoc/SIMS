@@ -6,15 +6,11 @@
     </div>
     
     <div class="header-user">
-        {% if session.get('user_name') %}
-        <span class="user-role">{{ session.get('user_role') }}</span>
-        <span>{{ session.get('user_name') }}</span>
+        <span class="user-role" id="header-role"></span>
+        <span id="header-username">用户</span>
         <a href="javascript:void(0)" class="change-pwd-btn" onclick="openChangePwdModal()">修改密码</a>
         <a href="/set-username" class="logout-btn">设置用户名</a>
         <a href="/logout" class="logout-btn">退出</a>
-        {% else %}
-        <a href="/login" class="logout-btn">登录</a>
-        {% endif %}
     </div>
 </header>
 
@@ -49,6 +45,23 @@
 </div>
 
 <script>
+var _csrf_token = '';
+
+// 获取 CSRF token
+(function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/csrf-token', true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.code === 0) _csrf_token = resp.token;
+            } catch(e) {}
+        }
+    };
+    xhr.send();
+})();
+
 function openChangePwdModal() {
     document.getElementById('change-pwd-modal').classList.add('active');
     document.getElementById('change-pwd-error').style.display = 'none';
@@ -96,6 +109,7 @@ function submitChangePwd() {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/change-password', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
 
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
@@ -126,4 +140,189 @@ function submitChangePwd() {
         new_password: newPwd
     }));
 }
+</script>
+
+<!-- 强制修改用户名模态窗口（不可关闭） -->
+<div class="modal-overlay" id="force-username-modal" style="background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div class="modal-content force-username-modal-content">
+        <div class="modal-header force-username-header">
+            <h3>请设置您的用户名</h3>
+        </div>
+        <div class="modal-body">
+            <p class="force-username-tip">您当前使用的是系统分配的临时用户名，为保障账户安全，请设置一个自定义用户名后继续使用系统。</p>
+            <div class="current-info" style="margin-bottom:16px">
+                当前用户名：<strong id="force-current-username">--</strong>
+            </div>
+            <div class="msg-box msg-error" id="force-username-error" style="display:none"></div>
+            <div class="form-group">
+                <label>新用户名</label>
+                <input type="text" id="force-username-input" class="form-control" 
+                       placeholder="8-20位，字母开头，可包含字母、数字、下划线" 
+                       maxlength="20" autocomplete="off" style="width:100%">
+                <div class="hint" id="force-username-hint">
+                    格式要求：字母开头，8-20位，支持字母、数字、下划线
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="force-username-submit" onclick="submitForceUsername()">确认修改</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF token & user info loading
+document.addEventListener('DOMContentLoaded', function() {
+    // 从 API 获取用户信息，检查是否需要强制修改用户名
+    fetch('/api/user/me').then(r => r.json()).then(d => {
+        if (d.code === 0) {
+            document.getElementById('header-username').textContent = d.data.username || '用户';
+            document.getElementById('header-role').textContent = d.data.role || '';
+            
+            // 检查是否需要强制修改用户名
+            if (d.data.need_set_username) {
+                document.getElementById('force-current-username').textContent = d.data.username || '--';
+                document.getElementById('force-username-input').value = '';
+                showForceUsernameModal();
+            }
+        }
+    }).catch(() => {});
+});
+
+function showForceUsernameModal() {
+    var modal = document.getElementById('force-username-modal');
+    if (modal) {
+        modal.classList.add('active');
+        document.getElementById('force-username-error').style.display = 'none';
+        document.getElementById('force-username-input').focus();
+    }
+}
+
+function hideForceUsernameModal() {
+    var modal = document.getElementById('force-username-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// 实时输入验证
+document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('force-username-input');
+    if (input) {
+        input.addEventListener('input', function() {
+            validateForceUsername(this.value.trim());
+        });
+    }
+});
+
+function validateForceUsername(val) {
+    var hintEl = document.getElementById('force-username-hint');
+    var errorEl = document.getElementById('force-username-error');
+    var submitBtn = document.getElementById('force-username-submit');
+    
+    if (!val) {
+        if (hintEl) hintEl.textContent = '格式要求：字母开头，8-20位，支持字母、数字、下划线';
+        if (hintEl) hintEl.style.color = '#a0aec0';
+        if (submitBtn) submitBtn.disabled = false;
+        return true;
+    }
+    
+    if (val.length < 8 || val.length > 20) {
+        if (hintEl) hintEl.textContent = '✗ 用户名长度需在8-20个字符之间（当前：' + val.length + '位）';
+        if (hintEl) hintEl.style.color = '#e53e3e';
+        if (submitBtn) submitBtn.disabled = true;
+        return false;
+    }
+    
+    if (!/^[a-zA-Z]/.test(val)) {
+        if (hintEl) hintEl.textContent = '✗ 用户名必须以字母开头';
+        if (hintEl) hintEl.style.color = '#e53e3e';
+        if (submitBtn) submitBtn.disabled = true;
+        return false;
+    }
+    
+    if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(val)) {
+        if (hintEl) hintEl.textContent = '✗ 用户名只能包含字母、数字和下划线';
+        if (hintEl) hintEl.style.color = '#e53e3e';
+        if (submitBtn) submitBtn.disabled = true;
+        return false;
+    }
+    
+    if (hintEl) hintEl.textContent = '✓ 用户名格式正确';
+    if (hintEl) hintEl.style.color = '#38a169';
+    if (submitBtn) submitBtn.disabled = false;
+    if (errorEl) errorEl.style.display = 'none';
+    return true;
+}
+
+function submitForceUsername() {
+    var input = document.getElementById('force-username-input');
+    var errorEl = document.getElementById('force-username-error');
+    var newUsername = input.value.trim();
+    
+    errorEl.style.display = 'none';
+    
+    if (!newUsername) {
+        errorEl.textContent = '用户名不能为空';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    if (!validateForceUsername(newUsername)) {
+        errorEl.textContent = '请按照格式要求输入用户名';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    var submitBtn = document.getElementById('force-username-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/set-username', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '确认修改';
+            
+            if (xhr.status === 200) {
+                var res = JSON.parse(xhr.responseText);
+                if (res.code === 0) {
+                    // 更新页面上的用户名显示
+                    document.getElementById('header-username').textContent = newUsername;
+                    document.getElementById('force-current-username').textContent = newUsername;
+                    
+                    // 更新 session username_changed 状态
+                    fetch('/api/user/me').then(r => r.json()).then(d => {
+                        if (d.code === 0 && !d.data.need_set_username) {
+                            hideForceUsernameModal();
+                        }
+                    }).catch(() => {
+                        hideForceUsernameModal();
+                    });
+                } else {
+                    errorEl.textContent = res.msg;
+                    errorEl.style.display = 'block';
+                }
+            } else {
+                errorEl.textContent = '请求失败，请稍后重试';
+                errorEl.style.display = 'block';
+            }
+        }
+    };
+    
+    xhr.send(JSON.stringify({ username: newUsername }));
+}
+
+// 阻止 ESC 键关闭强制用户名模态窗口
+document.addEventListener('keydown', function(e) {
+    var modal = document.getElementById('force-username-modal');
+    if (modal && modal.classList.contains('active') && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+});
 </script>

@@ -1,0 +1,159 @@
+"""学生服务"""
+import re
+from datetime import datetime
+from repository.student_repo import StudentRepo
+from repository.base import escape_like
+from entity.student import Student
+from sqlalchemy.orm import joinedload
+
+
+def validate_phone(phone):
+    """验证手机号格式 (中国大陆)"""
+    if phone and not re.match(r'^1[3-9]\d{9}$', phone):
+        return False, '手机号格式不正确'
+    return True, ''
+
+
+def validate_email(email):
+    """验证邮箱格式"""
+    if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return False, '邮箱格式不正确'
+    return True, ''
+
+
+def validate_birth_date(date_str):
+    """验证日期格式 YYYY-MM-DD"""
+    if not date_str:
+        return True, ''
+    try:
+        datetime.strptime(str(date_str)[:10], '%Y-%m-%d')
+        return True, ''
+    except ValueError:
+        return False, '出生日期格式不正确'
+
+
+class StudentService:
+    def __init__(self):
+        self.repo = StudentRepo()
+
+    def close(self):
+        self.repo.close()
+
+    def get_list(self, page=1, page_size=10, filters=None, keyword=None):
+        """获取学生列表（带筛选和搜索）"""
+        from entity.class_ import Class
+        from entity.major import Major
+        from entity.department import Department
+
+        q = self.repo.db.query(Student).options(
+            joinedload(Student.class_).joinedload(Class.major).joinedload(Major.department)
+        )
+
+        if filters:
+            # 手动构建筛选条件以保持 joinedload
+            from sqlalchemy import and_
+            for k, v in filters.items():
+                if v is not None:
+                    col = getattr(Student, k, None)
+                    if col is not None:
+                        q = q.filter(col == v)
+
+        if keyword:
+            escaped = escape_like(keyword)
+            q = q.filter(
+                (Student.student_id.like(f'%{escaped}%', escape='\\')) |
+                (Student.name.like(f'%{escaped}%', escape='\\')) |
+                (Student.phone.like(f'%{escaped}%', escape='\\'))
+            )
+
+        q = q.order_by(Student.student_id)
+        return self.repo.paginate(page, page_size, q)
+
+    def get_full_info(self, student_id):
+        """获取学生完整信息包含关联"""
+        from entity.class_ import Class
+        from entity.major import Major
+        from entity.department import Department
+
+        return self.repo.db.query(Student).options(
+            joinedload(Student.class_).joinedload(Class.major).joinedload(Major.department)
+        ).filter(Student.student_id == student_id).first()
+
+    def create(self, data: dict):
+        """创建学生"""
+        # 验证
+        phone = data.get('phone', '')
+        email = data.get('email', '')
+        birth_date = data.get('birth_date', '')
+        ok, err = validate_phone(phone)
+        if not ok: raise ValueError(err)
+        ok, err = validate_email(email)
+        if not ok: raise ValueError(err)
+        ok, err = validate_birth_date(str(birth_date) if birth_date else '')
+        if not ok: raise ValueError(err)
+
+        student = Student(**data)
+        return self.repo.create(student)
+
+    def update(self, student_id: str, data: dict):
+        """更新学生"""
+        ALLOWED_FIELDS = {'name', 'gender', 'birth_date', 'enrollment_year',
+                         'dept_id', 'class_id', 'phone', 'email', 'address', 'status'}
+        filtered_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
+        
+        # 验证
+        phone = filtered_data.get('phone', '')
+        email = filtered_data.get('email', '')
+        birth_date = filtered_data.get('birth_date', '')
+        if phone:
+            ok, err = validate_phone(str(phone))
+            if not ok: raise ValueError(err)
+        if email:
+            ok, err = validate_email(str(email))
+            if not ok: raise ValueError(err)
+        if birth_date:
+            ok, err = validate_birth_date(str(birth_date))
+            if not ok: raise ValueError(err)
+        
+        student = self.repo.get_by_id(student_id)
+        if not student:
+            return None
+        for key, value in filtered_data.items():
+            if value is not None and hasattr(student, key):
+                setattr(student, key, value)
+        self.repo.db.commit()
+        return student
+
+    def delete(self, student_id: str):
+        """删除学生"""
+        student = self.repo.get_by_id(student_id)
+        if student:
+            self.repo.delete(student)
+            return True
+        return False
+
+    def get_gpa(self, student_id):
+        """计算学生 GPA"""
+        from entity.enrollment import Enrollment
+        from entity.teaching import Teaching
+        from entity.course import Course
+
+        enrollments = self.repo.db.query(Enrollment).join(
+            Teaching, Enrollment.teaching_id == Teaching.teaching_id
+        ).join(
+            Course, Teaching.course_id == Course.course_id
+        ).filter(
+            Enrollment.student_id == student_id,
+            Enrollment.score.isnot(None)
+        ).all()
+
+        total_credits = 0
+        weighted_gp = 0
+        for e in enrollments:
+            credit = float(e.teaching.course.credits or 0) if e.teaching and e.teaching.course else 0
+            gp = float(e.grade_point or 0)
+            total_credits += credit
+            weighted_gp += credit * gp
+
+        gpa = round(weighted_gp / total_credits, 2) if total_credits > 0 else 0
+        return {'gpa': gpa, 'total_credits': total_credits}

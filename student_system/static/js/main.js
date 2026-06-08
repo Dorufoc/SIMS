@@ -1,3 +1,25 @@
+/* ========== CSRF Token 管理 ========== */
+var _csrf_token = '';
+
+function fetch_csrf_token() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/csrf-token', true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.code === 0 && resp.token) {
+                    _csrf_token = resp.token;
+                }
+            } catch(e) {}
+        }
+    };
+    xhr.send();
+}
+
+// 页面加载时获取 token
+fetch_csrf_token();
+
 /* ========== 侧边栏折叠/展开 ========== */
 
 function toggleSidebar() {
@@ -35,6 +57,7 @@ function ajax_post(url, data, callback, is_json) {
   show_loading();
   var xhr = new XMLHttpRequest();
   xhr.open("POST", url, true);
+  xhr.setRequestHeader("X-CSRF-Token", _csrf_token);
 
   if (is_json) {
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -950,6 +973,7 @@ function validate_csv_data(rows) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/query/filter', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
                 hide_loading();
@@ -1117,6 +1141,7 @@ function validate_csv_data(rows) {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/query/filter', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.responseType = 'blob';
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
@@ -1331,6 +1356,7 @@ function validate_csv_data(rows) {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/query/stat-with-params', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     hide_loading();
@@ -1688,6 +1714,7 @@ if (scene_select) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/query/scene', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
                 hide_loading();
@@ -1773,6 +1800,7 @@ if (scene_select) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/query/scene', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
         xhr.responseType = 'blob';
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -2033,6 +2061,7 @@ if (scene_select) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/query/sort', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
                 hide_loading();
@@ -2142,316 +2171,45 @@ if (scene_select) {
     }
 })();
 
-/* ========== 自定义SQL输入 ========== */
+
+
+/* ========== 快查指令 - 展示功能 ========== */
 (function() {
-    var btn_toggle = document.getElementById('btn-sql-toggle');
-    var sql_content = document.getElementById('custom-sql-content');
-    var sql_editor = document.getElementById('sql-editor');
-    var btn_format = document.getElementById('btn-sql-format');
-    var btn_execute = document.getElementById('btn-sql-execute');
-    var btn_export = document.getElementById('btn-sql-export');
-    var sql_error = document.getElementById('sql-error-msg');
-    
-    if (!btn_toggle) return;
-
-    // 切换显示隐藏
-    btn_toggle.addEventListener('click', function() {
-        var is_hidden = sql_content.classList.contains('hidden');
-        if (is_hidden) {
-            sql_content.classList.remove('hidden');
-        } else {
-            sql_content.classList.add('hidden');
-        }
-        btn_toggle.textContent = is_hidden ? '收起自定义SQL查询 ▴' : '切换到自定义SQL查询 ▾';
-    });
-
-    // 常用语句模板
-    var sql_hint_btns = document.querySelectorAll('.sql-hint-btn');
-    sql_hint_btns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            if (sql_editor) {
-                sql_editor.value = this.getAttribute('data-sql');
-            }
-        });
-    });
-
-    // 格式化
-    if (btn_format) {
-        btn_format.addEventListener('click', function() {
-            if (!sql_editor) return;
-            try {
-                var sql = sql_editor.value.trim();
-                // 简单格式化：将关键词转大写
-                var keywords = ['select', 'from', 'where', 'and', 'or', 'not', 'in', 'like', 'between', 
-                    'is null', 'is not null', 'order by', 'group by', 'having', 'limit', 'asc', 'desc',
-                    'insert into', 'values', 'update', 'set', 'delete from', 'create table', 'alter table',
-                    'drop table', 'count', 'sum', 'avg', 'max', 'min', 'distinct', 'as', 'on', 'inner join',
-                    'left join', 'right join'];
-                var formatted = sql;
-                keywords.forEach(function(kw) {
-                    var regex = new RegExp('\\b' + kw + '\\b', 'gi');
-                    formatted = formatted.replace(regex, kw.toUpperCase());
-                });
-                sql_editor.value = formatted;
-                hide_sql_error();
-            } catch(e) {
-                show_sql_error('格式化出错');
-            }
-        });
-    }
-
-    // 执行
-    if (btn_execute) {
-        btn_execute.addEventListener('click', function() {
-            execute_custom_sql(false);
-        });
-    }
-
-    // 导出
-    if (btn_export) {
-        btn_export.addEventListener('click', function() {
-            execute_custom_sql(true);
-        });
-    }
-
-    function show_sql_error(msg) {
-        if (sql_error) {
-            sql_error.textContent = msg;
-            sql_error.classList.remove('hidden');
-            sql_error.removeAttribute('style');
-        }
-    }
-
-    function hide_sql_error() {
-        if (sql_error) {
-            sql_error.classList.add('hidden');
-        }
-    }
-
-    function execute_custom_sql(is_export) {
-        if (!sql_editor) return;
-        var sql = sql_editor.value.trim();
-        if (!sql) {
-            show_sql_error('请输入SQL语句');
-            return;
-        }
-        
-        hide_sql_error();
-        show_loading();
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/custom-sql', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        
-        if (is_export) {
-            xhr.responseType = 'blob';
-        }
-        
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (is_export && xhr.status === 200) {
-                    var blob = new Blob([xhr.response], {type: 'text/csv'});
-                    var link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'custom_query_result.csv';
-                    link.click();
-                    return;
-                }
-                
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            render_custom_sql_result(res);
-                        } else {
-                            show_sql_error(res.message || '执行失败');
-                        }
-                    } catch(err) {
-                        show_sql_error('响应解析失败');
-                    }
-                } else {
-                    show_sql_error('请求失败，状态码：' + xhr.status);
-                }
-            }
-        };
-        
-        xhr.send(JSON.stringify({sql: sql, export: is_export}));
-    }
-
-    function render_custom_sql_result(res) {
-        var resultDiv = document.getElementById('condition-result');
-        var sqlDisplay = document.getElementById('condition-sql');
-        
-        if (sqlDisplay) {
-            sqlDisplay.innerHTML = '<div class="sql-label">执行SQL：</div><div class="sql-text">' + highlight_sql(escape_html(res.sql)) + '</div>';
-            sqlDisplay.classList.remove('hidden');
-            sqlDisplay.removeAttribute('style');
-        }
-        
-        if (res.data && res.data.length > 0) {
-            var thead = document.getElementById('condition-thead');
-            var tbody = document.getElementById('condition-tbody');
-            if (thead) thead.innerHTML = '';
-            if (tbody) tbody.innerHTML = '';
-            
-            var tr = document.createElement('tr');
-            res.columns.forEach(function(col) {
-                var th = document.createElement('th');
-                th.textContent = col;
-                tr.appendChild(th);
-            });
-            if (thead) thead.appendChild(tr);
-            
-            res.data.forEach(function(row) {
-                var tr2 = document.createElement('tr');
-                res.columns.forEach(function(col) {
-                    var td = document.createElement('td');
-                    td.textContent = row[col] !== null ? row[col] : '';
-                    tr2.appendChild(td);
-                });
-                if (tbody) tbody.appendChild(tr2);
-            });
-            
-            if (resultDiv) {
-                resultDiv.classList.remove('hidden');
-            }
-            var emptyEl = document.getElementById('condition-empty');
-            if (emptyEl) emptyEl.classList.add('hidden');
-        } else {
-            if (resultDiv) {
-                resultDiv.classList.remove('hidden');
-            }
-            var tableEl = document.getElementById('condition-table');
-            if (tableEl) tableEl.classList.add('hidden');
-            var emptyEl = document.getElementById('condition-empty');
-            if (emptyEl) emptyEl.classList.remove('hidden');
-        }
-    }
-})();
-
-/* ========== 快查指令 - SQL执行器 ========== */
-(function() {
-    var editor = document.getElementById('quick-sql-editor');
-    var btn_run = document.getElementById('btn-quick-sql-run');
-    var btn_clear = document.getElementById('btn-quick-sql-clear');
-    var btn_export = document.getElementById('btn-quick-sql-export');
-    var error_div = document.getElementById('quick-sql-error');
-    var display_div = document.getElementById('quick-sql-display');
-    var result_div = document.getElementById('quick-sql-result');
-    var table_head = document.getElementById('quick-sql-thead');
-    var table_body = document.getElementById('quick-sql-tbody');
-    var empty_div = document.getElementById('quick-sql-empty');
-
-    if (!editor) return;
-
-    function show_err(msg) {
-        if (error_div) {
-            error_div.textContent = msg;
-            error_div.classList.remove('hidden');
-            error_div.removeAttribute('style');
-        }
-    }
-
-    function hide_err() {
-        if (error_div) error_div.classList.add('hidden');
-    }
-
-    function run_sql(is_export) {
-        var sql = editor.value.trim();
-        if (!sql) {
-            show_err('请输入SQL语句');
-            return;
-        }
-        hide_err();
-        show_loading();
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/custom-sql', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-
-        if (is_export) {
-            xhr.responseType = 'blob';
-        }
-
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (is_export && xhr.status === 200) {
-                    var blob = new Blob([xhr.response], {type: 'text/csv'});
-                    var link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'quick_sql_result.csv';
-                    link.click();
-                    return;
-                }
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            if (display_div) {
-                                display_div.innerHTML = '<div class="sql-label">执行SQL：</div><div class="sql-text">' + highlight_sql(escape_html(res.sql)) + '</div>';
-                                display_div.classList.remove('hidden');
-                                display_div.removeAttribute('style');
-                            }
-                            if (res.data && res.data.length > 0 && table_head && table_body) {
-                                table_head.innerHTML = '';
-                                table_body.innerHTML = '';
-                                var tr = document.createElement('tr');
-                                res.columns.forEach(function(col) {
-                                    var th = document.createElement('th');
-                                    th.textContent = col;
-                                    tr.appendChild(th);
-                                });
-                                table_head.appendChild(tr);
-                                res.data.forEach(function(row) {
-                                    var tr2 = document.createElement('tr');
-                                    res.columns.forEach(function(col) {
-                                        var td = document.createElement('td');
-                                        td.textContent = row[col] !== null ? row[col] : '';
-                                        tr2.appendChild(td);
-                                    });
-                                    table_body.appendChild(tr2);
-                                });
-                                if (result_div) { result_div.classList.remove('hidden'); result_div.removeAttribute('style'); }
-                                if (empty_div) empty_div.classList.add('hidden');
-                            } else {
-                                if (result_div) { result_div.classList.remove('hidden'); result_div.removeAttribute('style'); }
-                                if (empty_div) empty_div.classList.remove('hidden');
-                            }
-                        } else {
-                            show_err(res.message || '执行失败');
-                        }
-                    } catch(err) {
-                        show_err('响应解析失败');
-                    }
-                } else {
-                    show_err('请求失败，状态码：' + xhr.status);
-                }
-            }
-        };
-        xhr.send(JSON.stringify({sql: sql, export: is_export}));
-    }
-
-    if (btn_run) btn_run.addEventListener('click', function() { run_sql(false); });
-    if (btn_export) btn_export.addEventListener('click', function() { run_sql(true); });
-    if (btn_clear) btn_clear.addEventListener('click', function() { editor.value = ''; hide_err(); if(display_div) display_div.classList.add('hidden'); if(result_div) result_div.classList.add('hidden'); });
-
-    // 复制按钮
+    // SQL 复制按钮
     document.querySelectorAll('.btn-sql-copy').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var pre = this.parentElement.querySelector('pre.ref-sql');
             if (pre) {
                 var text = pre.textContent.trim();
-                // 复制到编辑器
-                if (editor) {
-                    editor.value = text;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        show_copy_feedback(btn);
+                    }).catch(function() {
+                        fallback_copy(text);
+                        show_copy_feedback(btn);
+                    });
+                } else {
+                    fallback_copy(text);
+                    show_copy_feedback(btn);
                 }
-                this.textContent = '已复制!';
-                var self = this;
-                setTimeout(function() { self.textContent = '复制'; }, 1500);
             }
         });
+
+        function show_copy_feedback(btn) {
+            btn.textContent = '已复制!';
+            setTimeout(function() { btn.textContent = '复制'; }, 1500);
+        }
+
+        function fallback_copy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
     });
 
     // ref-card 点击展开
@@ -2462,13 +2220,26 @@ if (scene_select) {
         });
     });
 
-    // keyword 网格项点击
+    // keyword 网格项点击 -- 复制关键词到剪贴板
     document.querySelectorAll('.kw-item').forEach(function(item) {
         item.addEventListener('click', function() {
             var kw = this.getAttribute('data-keyword');
-            if (kw && editor) {
-                editor.value = editor.value + ' ' + kw + ' ';
-                editor.focus();
+            if (kw) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(kw + ' ');
+                } else {
+                    var ta = document.createElement('textarea');
+                    ta.value = kw + ' ';
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                this.style.background = '#e8f4fd';
+                var self = this;
+                setTimeout(function() { self.style.background = ''; }, 600);
             }
         });
     });
@@ -2778,5 +2549,21 @@ function initFilterModule(config) {
         });
     }
 }
+
+/* ========== 全局错误处理 ========== */
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.message, 'at', e.filename, 'line', e.lineno);
+    // 忽略网络资源加载失败的噪音（如 CDN 引用）
+    if (e.target !== window) return;
+    // 开发环境可在这里添加错误上报
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    // 防止未处理的 Promise 导致静默失败
+    if (e.reason && e.reason.message) {
+        console.error('Rejection reason:', e.reason.message);
+    }
+});
 
 

@@ -124,13 +124,12 @@
 
     <div class="set-username-container">
         <h1>设置用户名</h1>
-        <p class="subtitle">设置一个自定义用户名，方便您后续登录</p>
+        <p class="subtitle" id="force-subtitle" style="color:#cc3336;display:none">您当前使用的是临时用户名，请设置一个自定义用户名后继续使用系统</p>
+        <p class="subtitle" id="normal-subtitle">设置一个自定义用户名，方便您后续登录</p>
         <div class="msg-box" id="msg-box"></div>
         <div class="current-info">
-            当前用户名：<strong id="current-username">{{ current_username }}</strong>
-            {% if current_username and current_username.startswith('tmp_') %}
-            <span style="color:#cc3336;margin-left:8px">（临时用户名，请设置您的自定义用户名）</span>
-            {% endif %}
+            当前用户名：<strong id="current-username"></strong>
+            <span id="tmp-username-warning" style="color:#cc3336;margin-left:8px;display:none">（临时用户名，请设置您的自定义用户名）</span>
         </div>
         <form id="set-username-form">
             <div class="form-group">
@@ -140,7 +139,7 @@
             </div>
             <button type="submit" class="btn-primary">保存用户名</button>
         </form>
-        <div class="skip-link">
+        <div class="skip-link" id="skip-link-section">
             <a href="/my">暂时跳过，稍后设置</a>
         </div>
     </div>
@@ -181,6 +180,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/set-username', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
 
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
@@ -210,6 +210,27 @@
 
             xhr.send(JSON.stringify({ username: username }));
             show_loading();
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var params = new URLSearchParams(window.location.search);
+            var force = params.get('force');
+            if (force === '1') {
+                alert('请先设置自定义用户名再继续使用系统');
+                document.getElementById('force-subtitle').style.display = '';
+                document.getElementById('normal-subtitle').style.display = 'none';
+                document.getElementById('skip-link-section').style.display = 'none';
+            }
+            // 从 session 获取当前用户名（通过后端 API）
+            fetch('/api/user/me').then(function(r) { return r.json(); }).then(function(d) {
+                if (d.code === 0) {
+                    document.getElementById('current-username').textContent = d.data.username || '';
+                    if (d.data.username && d.data.username.startsWith('tmp_')) {
+                        document.getElementById('tmp-username-warning').style.display = '';
+                    }
+                }
+            }).catch(function() {});
         });
     </script>
 </body>
