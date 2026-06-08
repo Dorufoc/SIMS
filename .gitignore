@@ -7,3 +7,4 @@ student_system/__pycache__/
 student_system/.*/
 .*/
 student_system/tests/__pycache__/
+student_system/__pypackages__/

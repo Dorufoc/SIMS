@@ -21,7 +21,8 @@ class TestAuthAPI:
         })
         data = json.loads(resp.data)
         assert data['code'] == 0
-        assert 'temp_username' in data
+        assert 'need_set_username' in data
+        assert data['need_set_username'] is True
 
     def test_login_invalid(self, client):
         resp = client.post('/login', data={
