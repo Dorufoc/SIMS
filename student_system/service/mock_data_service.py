@@ -744,6 +744,9 @@ class MockDataService:
             return 0
 
         existing = {(a.student_id,) for a in self.db.query(DormAssignment.student_id).filter(DormAssignment.status == '在住').all()}
+        occupied = {(a.room_id, a.bed_number) for a in self.db.query(
+            DormAssignment.room_id, DormAssignment.bed_number
+        ).filter(DormAssignment.status == '在住').all()}
         bed_numbers = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
         added = 0
@@ -753,8 +756,16 @@ class MockDataService:
                 continue
             if added >= count:
                 break
-            room = random.choice(rooms)
-            bed = random.choice(bed_numbers[:room.capacity])
+            # 找一个未被占用的床位
+            available = []
+            for room in rooms:
+                for bed in bed_numbers[:room.capacity]:
+                    if (room.room_id, bed) not in occupied:
+                        available.append((room, bed))
+            if not available:
+                break
+            room, bed = random.choice(available)
+            occupied.add((room.room_id, bed))
             check_in = date(random.randint(2022, 2025), 9, random.randint(1, 10))
             batch.append(DormAssignment(
                 student_id=stu.student_id,
