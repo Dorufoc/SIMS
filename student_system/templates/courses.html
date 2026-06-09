@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增课程</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -155,23 +158,54 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(course => {
+            tbody.innerHTML = '';
+            data.forEach(course => {
                 const dept = departments.find(d => d.dept_id === course.dept_id);
-                return `
-                    <tr>
-                        <td>${course.course_id}</td>
-                        <td>${course.course_name}</td>
-                        <td>${dept ? dept.dept_name : '-'}</td>
-                        <td>${course.credits}</td>
-                        <td>${course.hours}</td>
-                        <td>${course.type || '-'}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning" onclick="editCourse('${course.course_id}')">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteCourse('${course.course_id}', '${course.course_name}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = course.course_id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = course.course_name;
+                tr.appendChild(tdName);
+
+                const tdDept = document.createElement('td');
+                tdDept.textContent = dept ? dept.dept_name : '-';
+                tr.appendChild(tdDept);
+
+                const tdCredits = document.createElement('td');
+                tdCredits.textContent = course.credits;
+                tr.appendChild(tdCredits);
+
+                const tdHours = document.createElement('td');
+                tdHours.textContent = course.hours;
+                tr.appendChild(tdHours);
+
+                const tdType = document.createElement('td');
+                tdType.textContent = course.type || '-';
+                tr.appendChild(tdType);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editCourse(course.course_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteCourse(course.course_id, course.course_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -290,6 +324,14 @@
         });
         loadDepartments();
         loadCourses();
+
+        initBatchImport({
+            entityType: 'course',
+            previewColumns: ['课程代码', '课程名称', '学分', '学时', '类型'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '课程代码',
+            onImportSuccess: function() { loadCourses(1); }
+        });
     </script>
 </body>
 </html>

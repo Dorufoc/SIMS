@@ -16,6 +16,7 @@ def rewards_page():
 
 # ---- 奖惩 ----
 @reward_bp.route('/api/rewards_punishments', methods=['GET'])
+@require_login
 def api_rewards():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
@@ -80,6 +81,7 @@ def api_delete_reward(rp_id):
 
 
 @reward_bp.route('/api/students/<student_id>/rewards_punishments', methods=['GET'])
+@require_login
 def api_student_rewards(student_id):
     svc = RewardService()
     try:
@@ -93,6 +95,7 @@ def api_student_rewards(student_id):
 
 # ---- 成绩 ----
 @reward_bp.route('/api/teaching/<int:teaching_id>/students', methods=['GET'])
+@require_login
 def api_teaching_students(teaching_id):
     svc = GradeService()
     try:
@@ -138,6 +141,7 @@ def api_batch_score():
 
 
 @reward_bp.route('/api/students/<student_id>/scores', methods=['GET'])
+@require_login
 def api_student_scores(student_id):
     svc = GradeService()
     try:
@@ -150,6 +154,7 @@ def api_student_scores(student_id):
 
 
 @reward_bp.route('/api/teaching/<int:teaching_id>/score_stats', methods=['GET'])
+@require_login
 def api_score_stats(teaching_id):
     svc = GradeService()
     try:

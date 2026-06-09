@@ -50,6 +50,7 @@ def api_drop(enroll_id):
 
 
 @enrollment_bp.route('/api/students/<student_id>/enrollment', methods=['GET'])
+@enrollment_bp.route('/api/students/<student_id>/enrollments', methods=['GET'])
 @require_login
 def api_student_enrollments(student_id):
     svc = EnrollmentService()

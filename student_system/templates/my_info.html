@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="user-role" content="{{ session.get('user_role', '') }}">
     <meta name="user-ref-id" content="{{ session.get('user_ref_id', '') }}">
-    <title>我的信息</title>
+    <title>个人档案</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        /* 无侧边栏布局 - 覆盖默认边距 */
         .my-info-main {
             margin-left: 0 !important;
             max-width: 900px;
@@ -64,15 +63,6 @@
             color: #a0aec0;
             font-weight: 500;
         }
-        .info-item .value {
-            font-size: 14px;
-            color: #2d3748;
-        }
-        .info-item .value.highlight {
-            color: #cc3336;
-            font-weight: 600;
-        }
-        /* 表单输入框在 info-grid 中的样式 */
         .info-item input.form-control,
         .info-item select.form-control {
             font-size: 14px;
@@ -85,17 +75,35 @@
             width: 100%;
             box-sizing: border-box;
         }
-        .info-item input.form-control:focus,
-        .info-item select.form-control:focus {
+        .info-item input.form-control:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
         }
         .info-item input.form-control:disabled {
-            background: #f7fafc;
-            color: #a0aec0;
+            background: #f1f5f9;
+            color: #64748b;
             cursor: not-allowed;
             border-color: #e2e8f0;
+        }
+        .info-item input.form-control.editable {
+            background: #fff;
+            color: #2d3748;
+            border-color: #cbd5e1;
+        }
+        .info-item input.form-control.editable:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+        }
+        .info-section-footer {
+            padding: 0 24px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .info-section-footer .msg-box {
+            margin: 0;
+            flex: 1;
         }
         /* 数据表格 */
         .info-table-wrap {
@@ -127,7 +135,6 @@
             color: #a0aec0;
             padding: 30px 8px;
         }
-        /* 状态标签 */
         .status-tag {
             display: inline-block;
             padding: 2px 10px;
@@ -174,6 +181,13 @@
             margin: 0;
             flex: 1;
         }
+        /* 空状态提示 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 24px;
+            color: #a0aec0;
+            font-size: 14px;
+        }
         @media (max-width: 640px) {
             .info-grid {
                 grid-template-columns: 1fr;
@@ -197,17 +211,29 @@
                     <p id="page-subtitle">正在加载个人信息...</p>
                 </div>
 
-                <!-- ====== 基本信息 ====== -->
+                <!-- ====== 基本信息（学生/教师共用，动态渲染） ====== -->
                 <div class="info-section" id="basic-info-section" style="display:none;">
                     <div class="info-section-header">
                         <h2>基本信息</h2>
-                        <div style="display:flex;align-items:center;gap:12px">
-                            <span class="status-tag" id="info-status-tag" style="display:none;"></span>
-                            <button type="button" class="btn btn-sm btn-primary" id="btn-edit-profile" style="display:none;" onclick="open_edit_modal()">编辑</button>
-                        </div>
+                        <span class="status-tag" id="info-status-tag" style="display:none;"></span>
                     </div>
                     <div class="info-grid" id="basic-info-grid">
                     </div>
+                    <div class="info-section-footer" id="basic-info-footer" style="display:none;">
+                        <button type="button" class="btn btn-primary" id="btn-save-profile" onclick="saveProfile()">保存修改</button>
+                        <div class="msg-box" id="profile-save-msg" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- ====== 宿舍信息（学生） ====== -->
+                <div class="info-section" id="dorm-section" style="display:none;">
+                    <div class="info-section-header">
+                        <h2>宿舍信息</h2>
+                        <span class="badge badge-student" id="dorm-status">--</span>
+                    </div>
+                    <div class="info-grid" id="dorm-info-grid">
+                    </div>
+                    <div class="empty-state" id="dorm-empty" style="display:none;">暂无宿舍分配信息</div>
                 </div>
 
                 <!-- ====== 选课记录（学生） ====== -->
@@ -325,108 +351,12 @@
                     </div>
                 </div>
 
-                <!-- ====== 学生无数据 - 显示所有字段表单 ====== -->
-                <div class="info-section" id="no-data-student-section" style="display:none;">
+                <!-- ====== 学生无关联数据提示 ====== -->
+                <div class="info-section" id="no-data-section" style="display:none;">
                     <div class="info-section-header">
-                        <h2>基本信息</h2>
-                        <span class="status-tag inactive">未完善</span>
+                        <h2>提示</h2>
                     </div>
-                    <form id="no_data_student_form">
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">姓名</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">学号</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">性别</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">出生日期</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">入学年份</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">院系</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">专业</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">班级</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">联系电话</span>
-                                <input type="text" id="no_data_phone" class="form-control" placeholder="请输入联系电话">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">电子邮箱</span>
-                                <input type="email" id="no_data_email" class="form-control" placeholder="请输入邮箱">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">家庭住址</span>
-                                <input type="text" id="no_data_address" class="form-control" placeholder="请输入家庭住址">
-                            </div>
-                        </div>
-                        <div class="no-data-form-footer">
-                            <button type="submit" class="btn btn-primary">保存信息</button>
-                            <div id="no_data_student_msg" class="msg-box" style="display:none;"></div>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- ====== 教师无数据 - 显示所有字段表单 ====== -->
-                <div class="info-section" id="no-data-teacher-section" style="display:none;">
-                    <div class="info-section-header">
-                        <h2>基本信息</h2>
-                        <span class="status-tag inactive">未完善</span>
-                    </div>
-                    <form id="no_data_teacher_form">
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">姓名</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">工号</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">性别</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">职称</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">所属院系</span>
-                                <input type="text" class="form-control" disabled placeholder="由管理员统一管理">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">联系电话</span>
-                                <input type="text" id="no_data_phone" class="form-control" placeholder="请输入联系电话">
-                            </div>
-                            <div class="info-item">
-                                <span class="label">电子邮箱</span>
-                                <input type="email" id="no_data_email" class="form-control" placeholder="请输入邮箱">
-                            </div>
-                        </div>
-                        <div class="no-data-form-footer">
-                            <button type="submit" class="btn btn-primary">保存信息</button>
-                            <div id="no_data_teacher_msg" class="msg-box" style="display:none;"></div>
-                        </div>
-                    </form>
+                    <div class="empty-state" id="no-data-msg">尚未关联学生信息，请联系管理员</div>
                 </div>
 
                 <!-- 未知角色提示 -->
@@ -434,11 +364,7 @@
                     <div class="info-section-header">
                         <h2>提示</h2>
                     </div>
-                    <div class="info-grid single-col">
-                        <div class="info-item" style="text-align:center;padding:40px 0">
-                            <span class="value" style="color:#a0aec0">无法加载信息。</span>
-                        </div>
-                    </div>
+                    <div class="empty-state">无法加载信息。</div>
                 </div>
 
             </div>
@@ -447,43 +373,9 @@
 
     <script src="/static/js/main.js"></script>
 
-    <!-- 学生编辑个人信息弹窗 -->
-    <div id="edit_profile_modal" class="modal-overlay">
-        <div class="modal-content" style="max-width:480px">
-            <div class="modal-header">
-                <h3>修改个人信息</h3>
-                <button type="button" class="modal-close" onclick="close_edit_modal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="edit_student_form">
-                    <div class="form-group">
-                        <label>联系电话</label>
-                        <input type="text" id="edit_phone" placeholder="请输入联系电话">
-                    </div>
-                    <div class="form-group">
-                        <label>电子邮箱</label>
-                        <input type="email" id="edit_email" placeholder="请输入邮箱">
-                    </div>
-                    <div class="form-group" id="edit-address-group">
-                        <label>家庭住址</label>
-                        <input type="text" id="edit_address" placeholder="请输入家庭住址">
-                    </div>
-                    <div class="modal-footer" style="border:none;padding:16px 0 0">
-                        <button type="button" class="btn btn-secondary" onclick="close_edit_modal()">取消</button>
-                        <button type="submit" class="btn btn-primary">保存修改</button>
-                    </div>
-                </form>
-                <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-
     <script>
         var role = document.querySelector('meta[name="user-role"]').content;
         var refId = document.querySelector('meta[name="user-ref-id"]').content;
-        var editModal = document.getElementById('edit_profile_modal');
-        var editForm = document.getElementById('edit_student_form');
-        var editMsg = document.getElementById('edit_msg_box');
 
         // 存储当前个人信息数据
         var currentProfileData = null;
@@ -491,19 +383,7 @@
         function showSection(id) { var el = document.getElementById(id); if (el) el.style.display = ''; }
         function hideSection(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; }
 
-        function open_edit_modal() {
-            editModal.classList.add('active');
-            editMsg.style.display = 'none';
-            if (currentProfileData) {
-                document.getElementById('edit_phone').value = currentProfileData.phone || '';
-                document.getElementById('edit_email').value = currentProfileData.email || '';
-                var addrEl = document.getElementById('edit_address');
-                if (addrEl && currentProfileData.address !== undefined) addrEl.value = currentProfileData.address || '';
-            }
-        }
-
-        function close_edit_modal() { editModal.classList.remove('active'); }
-
+        // ====== 页面初始化 ======
         document.addEventListener('DOMContentLoaded', function() {
             if (!role) {
                 showSection('unknown-role-section');
@@ -513,20 +393,20 @@
             }
 
             if (role === 'student') {
-                document.getElementById('page-title').textContent = '我的信息';
-                document.getElementById('page-subtitle').textContent = '欢迎进入学生信息中心，以下是与您相关的全部数据';
+                document.getElementById('page-title').textContent = '个人档案';
+                document.getElementById('page-subtitle').textContent = '以下是与您相关的全部个人信息';
                 if (refId) {
                     loadStudentInfo(refId);
                 } else {
-                    showNoDataStudentForm();
+                    showNoData('尚未关联学生信息，请联系管理员');
                 }
             } else if (role === 'teacher') {
-                document.getElementById('page-title').textContent = '教师信息';
-                document.getElementById('page-subtitle').textContent = '欢迎进入教师信息中心，以下是与您相关的全部数据';
+                document.getElementById('page-title').textContent = '个人档案';
+                document.getElementById('page-subtitle').textContent = '以下是与您相关的全部个人信息';
                 if (refId) {
                     loadTeacherInfo(refId);
                 } else {
-                    showNoDataTeacherForm();
+                    showNoData('尚未关联教师信息，请联系管理员');
                 }
             } else {
                 showSection('unknown-role-section');
@@ -535,28 +415,99 @@
             }
         });
 
-        function showNoDataStudentForm() {
+        function showNoData(msg) {
             hideAllDataSections();
-            showSection('no-data-student-section');
-            initNoDataStudentForm();
-        }
-
-        function showNoDataTeacherForm() {
-            hideAllDataSections();
-            showSection('no-data-teacher-section');
-            initNoDataTeacherForm();
+            document.getElementById('no-data-msg').textContent = msg;
+            showSection('no-data-section');
         }
 
         function hideAllDataSections() {
             hideSection('basic-info-section');
+            hideSection('dorm-section');
             hideSection('enrollments-section');
             hideSection('scores-section');
             hideSection('rewards-section');
             hideSection('curriculum-section');
             hideSection('teachings-section');
-            hideSection('no-data-student-section');
-            hideSection('no-data-teacher-section');
+            hideSection('no-data-section');
             hideSection('unknown-role-section');
+        }
+
+        // ====== 输入框辅助 ======
+        function inputField(label, id, value, editable, placeholder) {
+            var container = document.createElement('div');
+            container.className = 'info-item';
+
+            var labelSpan = document.createElement('span');
+            labelSpan.className = 'label';
+            labelSpan.textContent = label;
+            container.appendChild(labelSpan);
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.id = id;
+            input.className = editable ? 'form-control editable' : 'form-control';
+            input.value = value || (editable ? '' : '-');
+            if (!editable) {
+                input.disabled = true;
+            }
+            if (placeholder) {
+                input.placeholder = placeholder;
+            }
+            container.appendChild(input);
+
+            return container;
+        }
+
+        // ====== 保存修改 ======
+        function saveProfile() {
+            var msgEl = document.getElementById('profile-save-msg');
+            msgEl.style.display = 'none';
+
+            var apiUrl, params;
+            if (role === 'student') {
+                apiUrl = '/api/my/profile/student';
+                params = new URLSearchParams();
+                params.append('phone', document.getElementById('input_phone').value.trim());
+                params.append('email', document.getElementById('input_email').value.trim());
+                params.append('address', document.getElementById('input_address').value.trim());
+            } else if (role === 'teacher') {
+                apiUrl = '/api/my/profile/teacher';
+                params = new URLSearchParams();
+                params.append('phone', document.getElementById('input_phone').value.trim());
+                params.append('email', document.getElementById('input_email').value.trim());
+            } else {
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', apiUrl, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            msgEl.textContent = '保存成功！';
+                            msgEl.className = 'msg-box msg-success';
+                            msgEl.style.display = 'block';
+                            setTimeout(function() { msgEl.style.display = 'none'; }, 2000);
+                        } else {
+                            msgEl.textContent = res.msg || '保存失败';
+                            msgEl.className = 'msg-box msg-error';
+                            msgEl.style.display = 'block';
+                        }
+                    } else {
+                        msgEl.textContent = '请求失败，状态码：' + xhr.status;
+                        msgEl.className = 'msg-box msg-error';
+                        msgEl.style.display = 'block';
+                    }
+                }
+            };
+            xhr.send(params.toString());
+            show_loading();
         }
 
         // ========== 加载学生信息 ==========
@@ -568,16 +519,18 @@
                         currentProfileData = d.data;
                         renderStudentBasicInfo(d.data);
                         showSection('basic-info-section');
+                        document.getElementById('basic-info-footer').style.display = '';
                         loadStudentEnrollments(studentId);
                         loadStudentScores(studentId);
                         loadStudentRewards(studentId);
                         loadStudentCurriculum(studentId);
+                        loadStudentDorm();
                     } else {
-                        showNoDataStudentForm();
+                        showNoData('尚未关联学生信息，请联系管理员');
                     }
                 })
                 .catch(function() {
-                    showNoDataStudentForm();
+                    showNoData('尚未关联学生信息，请联系管理员');
                 });
         }
 
@@ -590,25 +543,55 @@
                 statusTag.className = 'status-tag ' + (status === '在校' ? 'active' : (status === '休学' ? 'warning' : 'inactive'));
                 statusTag.style.display = '';
             }
-            document.getElementById('btn-edit-profile').style.display = '';
 
-            var fields = [
-                {label: '姓名', value: data.name, highlight: true},
-                {label: '学号', value: data.student_id},
-                {label: '性别', value: data.gender || '-'},
-                {label: '出生日期', value: data.birth_date || '-'},
-                {label: '入学年份', value: data.enrollment_year || '-'},
-                {label: '院系', value: data.dept_name || '-'},
-                {label: '专业', value: data.major_name || '-'},
-                {label: '班级', value: data.class_name || '-'},
-                {label: '联系电话', value: data.phone || '-'},
-                {label: '电子邮箱', value: data.email || '-'}
-            ];
+            grid.innerHTML = '';
+            grid.appendChild(inputField('姓名', 'input_name', data.name, false));
+            grid.appendChild(inputField('学号', 'input_student_id', data.student_id, false));
+            grid.appendChild(inputField('性别', 'input_gender', data.gender, false));
+            grid.appendChild(inputField('出生日期', 'input_birth_date', data.birth_date, false));
+            grid.appendChild(inputField('入学年份', 'input_enrollment_year', data.enrollment_year, false));
+            grid.appendChild(inputField('院系', 'input_dept', data.dept_name, false));
+            grid.appendChild(inputField('专业', 'input_major', data.major_name, false));
+            grid.appendChild(inputField('班级', 'input_class', data.class_name, false));
+            grid.appendChild(inputField('联系电话', 'input_phone', data.phone, true, '请输入联系电话'));
+            grid.appendChild(inputField('电子邮箱', 'input_email', data.email, true, '请输入邮箱'));
+            grid.appendChild(inputField('家庭住址', 'input_address', data.address, true, '请输入家庭住址'));
+        }
 
-            grid.innerHTML = fields.map(function(f) {
-                var cls = f.highlight ? 'value highlight' : 'value';
-                return '<div class="info-item"><span class="label">' + f.label + '</span><span class="' + cls + '">' + (f.value || '-') + '</span></div>';
-            }).join('');
+        // ====== 加载宿舍信息 ======
+        function loadStudentDorm() {
+            fetch('/api/my/dorm')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.code === 0) {
+                        var dormData = d.data || [];
+                        if (dormData.length === 0) {
+                            showSection('dorm-section');
+                            document.getElementById('dorm-info-grid').style.display = 'none';
+                            document.getElementById('dorm-empty').style.display = '';
+                            document.getElementById('dorm-status').textContent = '未分配';
+                            return;
+                        }
+                        // 取最新一条（已在后端按 check_in_date desc 排序）
+                        var dorm = dormData[0];
+                        document.getElementById('dorm-status').textContent = dorm.status || '-';
+                        document.getElementById('dorm-status').className = 'status-tag ' + (dorm.status === '在住' ? 'active' : 'inactive');
+
+                        var grid = document.getElementById('dorm-info-grid');
+                        grid.innerHTML = '';
+                        grid.appendChild(inputField('楼栋', 'dorm_building', dorm.building, false));
+                        grid.appendChild(inputField('房间号', 'dorm_room_number', dorm.room_number, false));
+                        grid.appendChild(inputField('床位号', 'dorm_bed_number', dorm.bed_number, false));
+                        grid.appendChild(inputField('入住日期', 'dorm_check_in', dorm.check_in_date, false));
+                        grid.appendChild(inputField('退宿日期', 'dorm_check_out', dorm.check_out_date || '-', false));
+                        grid.appendChild(inputField('状态', 'dorm_status', dorm.status, false));
+
+                        grid.style.display = '';
+                        document.getElementById('dorm-empty').style.display = 'none';
+                        showSection('dorm-section');
+                    }
+                })
+                .catch(function() { /* 静默处理 */ });
         }
 
         function loadStudentEnrollments(studentId) {
@@ -709,35 +692,29 @@
                         currentProfileData = d.data;
                         renderTeacherBasicInfo(d.data);
                         showSection('basic-info-section');
+                        document.getElementById('basic-info-footer').style.display = '';
                         loadTeacherTeachings(teacherId);
                     } else {
-                        showNoDataTeacherForm();
+                        showNoData('尚未关联教师信息，请联系管理员');
                     }
                 })
                 .catch(function() {
-                    showNoDataTeacherForm();
+                    showNoData('尚未关联教师信息，请联系管理员');
                 });
         }
 
         function renderTeacherBasicInfo(data) {
             var grid = document.getElementById('basic-info-grid');
             document.getElementById('info-status-tag').style.display = 'none';
-            document.getElementById('btn-edit-profile').style.display = '';
 
-            var fields = [
-                {label: '姓名', value: data.name, highlight: true},
-                {label: '工号', value: data.teacher_id},
-                {label: '性别', value: data.gender || '-'},
-                {label: '职称', value: data.title || '-'},
-                {label: '所属院系', value: data.dept_name || '-'},
-                {label: '联系电话', value: data.phone || '-'},
-                {label: '电子邮箱', value: data.email || '-'}
-            ];
-
-            grid.innerHTML = fields.map(function(f) {
-                var cls = f.highlight ? 'value highlight' : 'value';
-                return '<div class="info-item"><span class="label">' + f.label + '</span><span class="' + cls + '">' + (f.value || '-') + '</span></div>';
-            }).join('');
+            grid.innerHTML = '';
+            grid.appendChild(inputField('姓名', 'input_name', data.name, false));
+            grid.appendChild(inputField('工号', 'input_teacher_id', data.teacher_id, false));
+            grid.appendChild(inputField('性别', 'input_gender', data.gender, false));
+            grid.appendChild(inputField('职称', 'input_title', data.title, false));
+            grid.appendChild(inputField('所属院系', 'input_dept', data.dept_name, false));
+            grid.appendChild(inputField('联系电话', 'input_phone', data.phone, true, '请输入联系电话'));
+            grid.appendChild(inputField('电子邮箱', 'input_email', data.email, true, '请输入邮箱'));
         }
 
         function loadTeacherTeachings(teacherId) {
@@ -760,138 +737,6 @@
                 })
                 .catch(function() { showSection('teachings-section'); });
         }
-
-        // ========== 编辑弹窗提交 ==========
-        editForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            editMsg.style.display = 'none';
-            var params = new URLSearchParams();
-            params.append('phone', document.getElementById('edit_phone').value);
-            params.append('email', document.getElementById('edit_email').value);
-            var addrEl = document.getElementById('edit_address');
-            if (addrEl) params.append('address', addrEl.value);
-
-            var apiUrl = role === 'student' ? '/api/my/profile/student' : '/api/my/profile/teacher';
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', apiUrl, true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    hide_loading();
-                    if (xhr.status === 200) {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.code === 0) {
-                            editMsg.textContent = '修改成功！';
-                            editMsg.className = 'msg-box msg-success';
-                            editMsg.style.display = 'block';
-                            setTimeout(function() { window.location.reload(); }, 800);
-                        } else {
-                            editMsg.textContent = res.msg || '修改失败';
-                            editMsg.className = 'msg-box msg-error';
-                            editMsg.style.display = 'block';
-                        }
-                    } else {
-                        editMsg.textContent = '请求失败，状态码：' + xhr.status;
-                        editMsg.className = 'msg-box msg-error';
-                        editMsg.style.display = 'block';
-                    }
-                }
-            };
-            xhr.send(params.toString());
-            show_loading();
-        });
-        editModal.addEventListener('click', function(e) { if (e.target === editModal) close_edit_modal(); });
-
-        // ========== 学生无数据表单提交 ==========
-        function initNoDataStudentForm() {
-            var form = document.getElementById('no_data_student_form');
-            if (!form || form._initialized) return;
-            form._initialized = true;
-            var msgBox = document.getElementById('no_data_student_msg');
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                msgBox.style.display = 'none';
-                var params = new URLSearchParams();
-                params.append('phone', document.getElementById('no_data_phone').value);
-                params.append('email', document.getElementById('no_data_email').value);
-                params.append('address', document.getElementById('no_data_address').value);
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/my/profile/student', true);
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        hide_loading();
-                        if (xhr.status === 200) {
-                            var res = JSON.parse(xhr.responseText);
-                            if (res.code === 0) {
-                                msgBox.textContent = '保存成功！';
-                                msgBox.className = 'msg-box msg-success';
-                                msgBox.style.display = 'block';
-                                setTimeout(function() { window.location.reload(); }, 800);
-                            } else {
-                                msgBox.textContent = res.msg || '保存失败';
-                                msgBox.className = 'msg-box msg-error';
-                                msgBox.style.display = 'block';
-                            }
-                        } else {
-                            msgBox.textContent = '请求失败，状态码：' + xhr.status;
-                            msgBox.className = 'msg-box msg-error';
-                            msgBox.style.display = 'block';
-                        }
-                    }
-                };
-                xhr.send(params.toString());
-                show_loading();
-            });
-        }
-
-        // ========== 教师无数据表单提交 ==========
-        function initNoDataTeacherForm() {
-            var form = document.getElementById('no_data_teacher_form');
-            if (!form || form._initialized) return;
-            form._initialized = true;
-            var msgBox = document.getElementById('no_data_teacher_msg');
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                msgBox.style.display = 'none';
-                var params = new URLSearchParams();
-                params.append('phone', document.getElementById('no_data_phone').value);
-                params.append('email', document.getElementById('no_data_email').value);
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/my/profile/teacher', true);
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        hide_loading();
-                        if (xhr.status === 200) {
-                            var res = JSON.parse(xhr.responseText);
-                            if (res.code === 0) {
-                                msgBox.textContent = '保存成功！';
-                                msgBox.className = 'msg-box msg-success';
-                                msgBox.style.display = 'block';
-                                setTimeout(function() { window.location.reload(); }, 800);
-                            } else {
-                                msgBox.textContent = res.msg || '保存失败';
-                                msgBox.className = 'msg-box msg-error';
-                                msgBox.style.display = 'block';
-                            }
-                        } else {
-                            msgBox.textContent = '请求失败，状态码：' + xhr.status;
-                            msgBox.className = 'msg-box msg-error';
-                            msgBox.style.display = 'block';
-                        }
-                    }
-                };
-                xhr.send(params.toString());
-                show_loading();
-            });
-        }
-
-        initNoDataStudentForm();
-        initNoDataTeacherForm();
     </script>
 </body>
 </html>

@@ -58,23 +58,32 @@ class DormService:
                                                     DormAssignment.assign_id.desc())
 
     def assign(self, data: dict):
-        """分配宿舍"""
-        room = self.room_repo.get_by_id(data.get('room_id'))
+        """分配宿舍（使用行级锁防止并发超卖）"""
+        from sqlalchemy import select
+        room_id = data.get('room_id')
+        student_id = data.get('student_id', '')
+
+        # 使用 SELECT FOR UPDATE 锁定房间行，防止并发分配导致超卖
+        room = self._session.execute(
+            select(DormRoom).where(DormRoom.room_id == room_id).with_for_update()
+        ).scalar_one_or_none()
+
         if not room:
             return False, '房间不存在'
         if room.occupied >= room.capacity:
             return False, '房间已满'
 
-        # No14 fix: 检查性别限制
-        student_id = data.get('student_id', '')
+        # 检查性别限制
         gender_limit = room.gender_limit or ''
         if gender_limit and gender_limit != '不限':
             from entity.student import Student
             student = self._session.query(Student).filter(Student.student_id == student_id).first()
             if student and student.gender and student.gender != gender_limit:
-                return False, f'该房间仅限{gender_limit}性别入住'
+                gender_map = {'M': '男', 'F': '女'}
+                limit_display = gender_map.get(gender_limit, gender_limit)
+                return False, f'该房间仅限{limit_display}生入住'
 
-        # No14 fix: 检查学生是否已分配
+        # 检查学生是否已分配
         existing = self._session.query(DormAssignment).filter(
             DormAssignment.student_id == student_id,
             DormAssignment.status == '在住'
@@ -85,7 +94,7 @@ class DormService:
         try:
             assignment = DormAssignment(
                 student_id=student_id,
-                room_id=data['room_id'],
+                room_id=room_id,
                 bed_number=data.get('bed_number', ''),
                 check_in_date=data.get('check_in_date', date.today()),
                 status='在住'
@@ -95,7 +104,7 @@ class DormService:
             # 更新房间入住人数
             room.occupied = (room.occupied or 0) + 1
 
-            self.room_repo.db.commit()  # single shared session commit
+            self.room_repo.db.commit()
             return True, '分配成功'
         except Exception:
             self.room_repo.db.rollback()

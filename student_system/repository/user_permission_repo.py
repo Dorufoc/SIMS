@@ -29,3 +29,6 @@ class UserPermissionRepo(BaseRepo):
             )
             self.create(perm)
             return perm
+    def delete_by_user_uuid(self, user_uuid: str):
+        self.db.query(UserPermission).filter_by(user_uuid=user_uuid).delete()
+        self.db.commit()

@@ -3,6 +3,10 @@
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-toggle" onclick="toggleSidebar()"></div>
     <nav class="sidebar-menu">
+        {% if offline_mode %}
+        <div class="menu-section">系统</div>
+        <a href="/settings" class="menu-item {% if active_page == 'settings' %}active{% endif %}"><span class="menu-text">系统设置</span></a>
+        {% else %}
         <div class="menu-section">主菜单</div>
         <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}"><span class="menu-text">仪表盘</span></a>
         <a href="/manage" class="menu-item {% if active_page in ['manage', 'add_stu'] %}active{% endif %}"><span class="menu-text">学生管理</span></a>
@@ -24,16 +28,20 @@
         <div class="menu-divider admin-only"></div>
         <div class="menu-section admin-only">系统</div>
         <a href="/user_management" class="menu-item admin-only {% if active_page in ['user_management', 'permission'] %}active{% endif %}"><span class="menu-text">用户管理</span></a>
+        <a href="/settings" class="menu-item admin-only {% if active_page == 'settings' %}active{% endif %}"><span class="menu-text">系统设置</span></a>
+        {% endif %}
     </nav>
 </aside>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    {% if not offline_mode %}
     // 从 cookie 获取角色信息来控制侧边栏显示
     var roleMeta = document.querySelector('meta[name="user-role"]');
     if (!roleMeta) return;
     var role = roleMeta.content;
     var adminItems = document.querySelectorAll('.admin-only');
     adminItems.forEach(function(el) { el.style.display = role === 'admin' ? '' : 'none'; });
+    {% endif %}
 });
 </script>

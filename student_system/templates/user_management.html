@@ -132,33 +132,73 @@
                 return;
             }
 
-            tbody.innerHTML = users.map(user => {
-                let roleBadge = '';
-                if (user.role === 'admin') {
-                    roleBadge = '<span class="badge badge-admin">管理员</span>';
-                } else if (user.role === 'teacher') {
-                    roleBadge = '<span class="badge badge-teacher">教师</span>';
-                } else {
-                    roleBadge = '<span class="badge badge-student">学生</span>';
-                }
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                const tr = document.createElement('tr');
 
-                return `
-                    <tr>
-                        <td>${user.user_id}</td>
-                        <td><code>${user.uuid.substring(0, 20)}...</code></td>
-                        <td>${user.username}</td>
-                        <td>${roleBadge}</td>
-                        <td>${user.ref_id || '-'}</td>
-                        <td>${user.last_login || '-'}</td>
-                        <td>${user.created_at}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning btn-sm" onclick="editUser(${user.user_id})">编辑</button>
-                            <button class="btn btn-success btn-sm" onclick="editPermissions(${user.user_id}, '${user.username}')">权限</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.user_id}, '${user.username}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                const tdId = document.createElement('td');
+                tdId.textContent = user.user_id;
+                tr.appendChild(tdId);
+
+                const tdUuid = document.createElement('td');
+                const code = document.createElement('code');
+                code.textContent = user.uuid.substring(0, 20) + '...';
+                tdUuid.appendChild(code);
+                tr.appendChild(tdUuid);
+
+                const tdUsername = document.createElement('td');
+                tdUsername.textContent = user.username;
+                tr.appendChild(tdUsername);
+
+                const tdRole = document.createElement('td');
+                const roleSpan = document.createElement('span');
+                roleSpan.className = 'badge badge-' + user.role;
+                if (user.role === 'admin') {
+                    roleSpan.textContent = '管理员';
+                } else if (user.role === 'teacher') {
+                    roleSpan.textContent = '教师';
+                } else {
+                    roleSpan.textContent = '学生';
+                }
+                tdRole.appendChild(roleSpan);
+                tr.appendChild(tdRole);
+
+                const tdRef = document.createElement('td');
+                tdRef.textContent = user.ref_id || '-';
+                tr.appendChild(tdRef);
+
+                const tdLastLogin = document.createElement('td');
+                tdLastLogin.textContent = user.last_login || '-';
+                tr.appendChild(tdLastLogin);
+
+                const tdCreated = document.createElement('td');
+                tdCreated.textContent = user.created_at;
+                tr.appendChild(tdCreated);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning btn-sm';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editUser(user.user_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnPerm = document.createElement('button');
+                btnPerm.className = 'btn btn-success btn-sm';
+                btnPerm.textContent = '权限';
+                btnPerm.onclick = function() { editPermissions(user.user_id, user.username); };
+                tdActions.appendChild(btnPerm);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger btn-sm';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteUser(user.user_id, user.username); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -230,7 +270,7 @@
 
             fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
                 body: JSON.stringify(data)
             })
                 .then(res => res.json())

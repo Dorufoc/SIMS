@@ -146,46 +146,82 @@
                 return;
             }
 
-            tbody.innerHTML = allTables.map(table => {
+            tbody.innerHTML = '';
+            allTables.forEach(table => {
                 const permCode = currentPermissions[table.name] || '000';
                 const permNum = parseInt(permCode.substring(0, 1));
                 const canRead = (permNum & 4) === 4;
                 const canWrite = (permNum & 2) === 2;
                 const canAdmin = (permNum & 1) === 1;
 
-                return `
-                    <tr data-table="${table.name}">
-                        <td>
-                            <strong>${table.label}</strong>
-                            <br><small>${table.name}</small>
-                        </td>
-                        <td>
-                            <label class="perm-check">
-                                <input type="checkbox" class="perm-read" ${canRead ? 'checked' : ''}
-                                       onchange="updatePermissionCode('${table.name}')">
-                                <span>读取</span>
-                            </label>
-                        </td>
-                        <td>
-                            <label class="perm-check">
-                                <input type="checkbox" class="perm-write" ${canWrite ? 'checked' : ''}
-                                       onchange="updatePermissionCode('${table.name}')">
-                                <span>写入</span>
-                            </label>
-                        </td>
-                        <td>
-                            <label class="perm-check">
-                                <input type="checkbox" class="perm-admin" ${canAdmin ? 'checked' : ''}
-                                       onchange="updatePermissionCode('${table.name}')">
-                                <span>管理</span>
-                            </label>
-                        </td>
-                        <td>
-                            <code class="perm-code" id="code-${table.name}">${permCode}</code>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-table', table.name);
+
+                const tdName = document.createElement('td');
+                const strong = document.createElement('strong');
+                strong.textContent = table.label;
+                tdName.appendChild(strong);
+                tdName.appendChild(document.createElement('br'));
+                const small = document.createElement('small');
+                small.textContent = table.name;
+                tdName.appendChild(small);
+                tr.appendChild(tdName);
+
+                const tdRead = document.createElement('td');
+                const labelRead = document.createElement('label');
+                labelRead.className = 'perm-check';
+                const inputRead = document.createElement('input');
+                inputRead.type = 'checkbox';
+                inputRead.className = 'perm-read';
+                inputRead.checked = canRead;
+                inputRead.onchange = function() { updatePermissionCode(table.name); };
+                labelRead.appendChild(inputRead);
+                const spanRead = document.createElement('span');
+                spanRead.textContent = '读取';
+                labelRead.appendChild(spanRead);
+                tdRead.appendChild(labelRead);
+                tr.appendChild(tdRead);
+
+                const tdWrite = document.createElement('td');
+                const labelWrite = document.createElement('label');
+                labelWrite.className = 'perm-check';
+                const inputWrite = document.createElement('input');
+                inputWrite.type = 'checkbox';
+                inputWrite.className = 'perm-write';
+                inputWrite.checked = canWrite;
+                inputWrite.onchange = function() { updatePermissionCode(table.name); };
+                labelWrite.appendChild(inputWrite);
+                const spanWrite = document.createElement('span');
+                spanWrite.textContent = '写入';
+                labelWrite.appendChild(spanWrite);
+                tdWrite.appendChild(labelWrite);
+                tr.appendChild(tdWrite);
+
+                const tdAdmin = document.createElement('td');
+                const labelAdmin = document.createElement('label');
+                labelAdmin.className = 'perm-check';
+                const inputAdmin = document.createElement('input');
+                inputAdmin.type = 'checkbox';
+                inputAdmin.className = 'perm-admin';
+                inputAdmin.checked = canAdmin;
+                inputAdmin.onchange = function() { updatePermissionCode(table.name); };
+                labelAdmin.appendChild(inputAdmin);
+                const spanAdmin = document.createElement('span');
+                spanAdmin.textContent = '管理';
+                labelAdmin.appendChild(spanAdmin);
+                tdAdmin.appendChild(labelAdmin);
+                tr.appendChild(tdAdmin);
+
+                const tdCode = document.createElement('td');
+                const codeEl = document.createElement('code');
+                codeEl.className = 'perm-code';
+                codeEl.id = 'code-' + table.name;
+                codeEl.textContent = permCode;
+                tdCode.appendChild(codeEl);
+                tr.appendChild(tdCode);
+
+                tbody.appendChild(tr);
+            });
         }
 
         // 更新权限码显示
@@ -254,7 +290,7 @@
 
             fetch(`/api/users/${userId}/permissions`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
                 body: JSON.stringify({ permissions })
             })
             .then(res => res.json())

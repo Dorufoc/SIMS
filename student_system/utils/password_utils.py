@@ -5,7 +5,13 @@
 import hashlib
 import secrets
 import base64
-import bcrypt
+# bcrypt 是 PyO3 模块，在 Python 3.14+ 上可能与其他 PyO3 模块冲突
+# 如果不可用则自动回退到 SHA-256 哈希方案
+_HAS_BCRYPT = True
+try:
+    import bcrypt
+except ImportError:
+    _HAS_BCRYPT = False
 
 
 # ==================== 旧格式兼容函数（内部使用） ====================
@@ -74,8 +80,13 @@ def encrypt_password(password):
     :param password: 原始密码
     :return: bcrypt 哈希字符串（自带盐值）
     """
-    password_bytes = password.encode('utf-8')
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode('utf-8')
+    if _HAS_BCRYPT:
+        password_bytes = password.encode('utf-8')
+        return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode('utf-8')
+    else:
+        # 无 bcrypt 时回退到 SHA-256
+        salt, hashed = hash_password(password)
+        return encode_password_storage(salt, hashed)
 
 
 def verify_password(password, stored_password):

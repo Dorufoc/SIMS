@@ -1,5 +1,6 @@
 """高级查询服务"""
 from repository.student_repo import StudentRepo
+from repository.base import escape_like
 from entity.student import Student
 from entity.class_ import Class
 from entity.major import Major
@@ -58,7 +59,7 @@ class QueryService:
                 continue
 
             if operator == 'LIKE':
-                condition = col.like(f'%{value}%')
+                condition = col.like(f'%{escape_like(value)}%', escape='\\')
             elif operator == '=':
                 condition = col == value
             elif operator == '!=':

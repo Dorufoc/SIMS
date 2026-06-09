@@ -13,6 +13,7 @@ def teachers_page():
 
 
 @teacher_bp.route('/api/teachers', methods=['GET'])
+@require_login
 def api_teachers():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
@@ -39,14 +40,15 @@ def api_teachers():
 
 
 @teacher_bp.route('/api/teachers/<teacher_id>', methods=['GET'])
+@require_login
 def api_teacher_detail(teacher_id):
     svc = TeacherService()
     try:
         t = svc.get_by_id(teacher_id)
         if not t:
-            return jsonify({})
-        return jsonify({'teacher_id': t.teacher_id, 'name': t.name, 'gender': t.gender,
-                        'title': t.title, 'dept_id': t.dept_id, 'phone': t.phone or '', 'email': t.email or ''})
+            return jsonify({'code': 1, 'msg': '教师不存在'})
+        return jsonify({'code': 0, 'data': {'teacher_id': t.teacher_id, 'name': t.name, 'gender': t.gender,
+                        'title': t.title, 'dept_id': t.dept_id, 'phone': t.phone or '', 'email': t.email or ''}})
     finally:
         svc.close()
 
@@ -99,6 +101,7 @@ def api_delete_teacher(teacher_id):
 
 
 @teacher_bp.route('/api/my/profile/teacher', methods=['POST'])
+@csrf_protect
 def update_my_teacher_profile():
     if session.get('user_role') != 'teacher':
         return jsonify({'code': 1, 'msg': '仅教师可操作'}), 403

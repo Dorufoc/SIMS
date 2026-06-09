@@ -18,8 +18,15 @@
             <div class="content-area">
                 <!-- 仪表盘头部 -->
                 <div class="dashboard-header">
-                    <h1>仪表盘</h1>
-                    <p class="dashboard-subtitle">欢迎使用学生信息管理系统，以下是系统数据概览</p>
+                    <div class="dashboard-header-inner">
+                        <div>
+                            <h1>仪表盘</h1>
+                            <p class="dashboard-subtitle">欢迎使用学生信息管理系统，以下是系统数据概览</p>
+                        </div>
+                        {% if session.get('user_role') == 'admin' and show_mock_data %}
+                        <button class="btn btn-mock-data" onclick="openMockDataModal()">写入模拟数据</button>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <!-- 统计卡片网格 -->
@@ -79,6 +86,65 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- 模拟数据填充弹窗 -->
+    <div class="modal-overlay" id="mock-data-modal">
+        <div class="modal-content mock-data-modal-content">
+            <div class="modal-header">
+                <h3>写入模拟数据</h3>
+                <span class="modal-close-btn" onclick="closeMockDataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="mock-data-desc">选择要填充模拟数据的表，每次生成的数据随机不重复。</p>
+                <div class="mock-data-msg msg-error" id="mock-data-msg" style="display:none"></div>
+                <div class="mock-data-msg msg-success" id="mock-data-success" style="display:none"></div>
+                <div class="table-select-all">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="mock-select-all" onchange="toggleMockSelectAll()">
+                        <span>全选</span>
+                    </label>
+                </div>
+                <div class="table-checkbox-grid">
+                    <div class="table-group">
+                        <div class="table-group-title">基础数据</div>
+                        <div class="table-group-items">
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="departments"><span>院系 (departments)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="majors"><span>专业 (majors)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="classes"><span>班级 (classes)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="students"><span>学生 (students)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="teachers"><span>教师 (teachers)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="courses"><span>课程 (courses)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="semesters"><span>学期 (semesters)</span></label>
+                        </div>
+                    </div>
+                    <div class="table-group">
+                        <div class="table-group-title">业务数据</div>
+                        <div class="table-group-items">
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="teaching"><span>授课 (teaching)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="enrollments"><span>选课成绩 (enrollments)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="rewards_punishments"><span>奖惩 (rewards_punishments)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="payments"><span>缴费 (payments)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="dorm_rooms"><span>宿舍房间 (dorm_rooms)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="dorm_assignments"><span>住宿分配 (dorm_assignments)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="curriculum"><span>培养计划 (curriculum)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="enroll_logs"><span>选课日志 (enroll_logs)</span></label>
+                        </div>
+                    </div>
+                    <div class="table-group">
+                        <div class="table-group-title">用户数据</div>
+                        <div class="table-group-items">
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="users"><span>用户账号 (users)</span></label>
+                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="user_permissions"><span>用户权限 (user_permissions)</span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeMockDataModal()">取消</button>
+                <button class="btn btn-primary" id="mock-data-submit-btn" onclick="submitMockData()">确认生成</button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/main.js"></script>

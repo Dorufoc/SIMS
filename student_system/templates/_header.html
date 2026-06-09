@@ -8,8 +8,10 @@
     <div class="header-user">
         <span class="user-role" id="header-role"></span>
         <span id="header-username">用户</span>
+        {% if not offline_mode %}
         <a href="javascript:void(0)" class="change-pwd-btn" onclick="openChangePwdModal()">修改密码</a>
         <a href="/set-username" class="logout-btn">设置用户名</a>
+        {% endif %}
         <a href="/logout" class="logout-btn">退出</a>
     </div>
 </header>
@@ -179,8 +181,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('header-username').textContent = d.data.username || '用户';
             document.getElementById('header-role').textContent = d.data.role || '';
             
-            // 检查是否需要强制修改用户名
-            if (d.data.need_set_username) {
+            // 检查是否需要强制修改用户名（已在 /set-username 页面则不弹窗）
+            if (d.data.need_set_username && window.location.pathname !== '/set-username') {
                 document.getElementById('force-current-username').textContent = d.data.username || '--';
                 document.getElementById('force-username-input').value = '';
                 showForceUsernameModal();

@@ -56,3 +56,28 @@ def build_permission_code(can_read, can_write, can_admin):
     if can_admin:
         perm |= PERM_ADMIN
     return str(perm)
+
+
+def init_user_permissions(perm_repo, user_uuid, role):
+    """初始化新用户权限（公共逻辑，供 AuthService / UserService 共用）"""
+    all_tables = [
+        'departments', 'majors', 'classes', 'students', 'teachers', 'courses',
+        'semesters', 'teaching', 'enrollments', 'grade_scale', 'rewards_punishments',
+        'payments', 'dorm_rooms', 'dorm_assignments', 'curriculum', 'enroll_logs'
+    ]
+
+    if role == 'student':
+        perm_map = {
+            'students': '600', 'enrollments': '400', 'courses': '400',
+            'curriculum': '400', 'rewards_punishments': '400',
+        }
+    elif role == 'teacher':
+        perm_map = {
+            'teachers': '600', 'teaching': '400', 'courses': '400',
+        }
+    else:
+        perm_map = {}
+
+    for table in all_tables:
+        code = perm_map.get(table, '000')
+        perm_repo.upsert(user_uuid, table, code)

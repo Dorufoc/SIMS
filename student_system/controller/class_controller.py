@@ -14,6 +14,7 @@ def classes_page():
 
 
 @class_bp.route('/api/classes', methods=['GET'])
+@require_login
 def api_classes():
     major_id = request.args.get('major_id', type=int)
     page = request.args.get('page', 1, type=int)

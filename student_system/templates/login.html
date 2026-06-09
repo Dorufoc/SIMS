@@ -96,7 +96,9 @@
                         if (res.code === 0) {
                             // 登录成功，跳转到主页面
                             // 如需修改用户名，主页面的模态窗口会自动弹出
-                            if (res.role === 'admin') {
+                            if (res.offline) {
+                                window.location.href = '/settings';
+                            } else if (res.role === 'admin') {
                                 window.location.href = '/';
                             } else {
                                 window.location.href = '/my';

@@ -14,6 +14,7 @@ def courses_page():
 
 
 @course_bp.route('/api/courses', methods=['GET'])
+@require_login
 def api_courses():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)

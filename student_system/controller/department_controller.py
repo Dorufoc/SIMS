@@ -30,7 +30,7 @@ def api_departments():
 
         if keyword:
             from entity.department import Department
-            q = svc.repo.db.query(Department).filter(Department.dept_name.like(f'%{keyword}%'))
+            q = svc.repo.db.query(Department).filter(Department.dept_name.like(f'%{escape_like(keyword)}%', escape='\\'))
             items, total = svc.repo.paginate(page, page_size, q)
         else:
             items, total = svc.get_list(page, page_size)

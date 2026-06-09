@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .settings-page {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        .settings-page-header {
+            margin-bottom: 24px;
+        }
+        .settings-page-header h1 {
+            margin-bottom: 4px;
+        }
+        .settings-page-header .subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .settings-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 28px 32px;
+            margin-bottom: 20px;
+        }
+        .settings-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 6px 0;
+        }
+        .settings-card .card-desc {
+            font-size: 13px;
+            color: #94a3b8;
+            margin: 0 0 20px 0;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .form-group label .required {
+            color: #cc3336;
+        }
+        .form-group input {
+            width: 100%;
+            height: 38px;
+            padding: 0 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #1e293b;
+            background: #fff;
+            transition: border-color 0.15s;
+        }
+        .form-group input:focus {
+            border-color: #cc3336;
+            box-shadow: 0 0 0 3px rgba(204, 51, 54, 0.1);
+        }
+        .form-group input::placeholder {
+            color: #cbd5e1;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .msg-bar {
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .msg-bar.success {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+            display: block;
+        }
+        .msg-bar.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+        .msg-bar.info {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+            display: block;
+        }
+
+        /* 确认弹窗 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-dialog {
+            background: #fff;
+            border-radius: 10px;
+            padding: 28px 32px;
+            width: 440px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal-dialog h3 {
+            font-size: 17px;
+            color: #cc3336;
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-dialog .warn-icon {
+            font-size: 22px;
+        }
+        .modal-dialog .warn-content {
+            color: #475569;
+            font-size: 14px;
+            line-height: 1.7;
+            margin-bottom: 4px;
+        }
+        .modal-dialog .warn-list {
+            margin: 12px 0;
+            padding: 12px 16px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #92400e;
+            line-height: 1.8;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        /* 开关样式 */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        .toggle-row .toggle-label {
+            font-size: 14px;
+            color: #1e293b;
+            font-weight: 500;
+        }
+        .toggle-row .toggle-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle-switch input {
+            display: none;
+        }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: #cbd5e1;
+            border-radius: 12px;
+            transition: background 0.2s;
+        }
+        .toggle-slider::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background: #cc3336;
+        }
+        .toggle-switch input:checked + .toggle-slider::after {
+            transform: translateX(20px);
+        }
+    </style>
+</head>
+<body>
+    {% set active_page = 'settings' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="settings-page">
+                    <div class="settings-page-header">
+                        <h1>系统设置</h1>
+                        <p class="subtitle">管理数据库连接等全局配置，修改后将自动重启服务</p>
+                        {% if offline_mode %}
+                        <p style="color:#e53e3e;font-size:13px;margin-top:8px;">&#9888; 当前处于离线模式，数据库不可用。请配置正确的数据库连接后保存。</p>
+                        {% endif %}
+                    </div>
+
+                    <div id="msgBar" class="msg-bar"></div>
+
+                    <div class="settings-card">
+                        <h3>数据库连接配置</h3>
+                        <p class="card-desc">配置 PostgreSQL 数据库连接参数，修改后整个服务器全局生效</p>
+
+                        <form id="dbConfigForm" onsubmit="return false;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label><span class="required">*</span> 服务器地址</label>
+                                    <input type="text" id="dbHost" placeholder="例如：localhost 或 192.168.1.100" required>
+                                </div>
+                                <div class="form-group">
+                                    <label><span class="required">*</span> 端口</label>
+                                    <input type="text" id="dbPort" placeholder="默认：5432" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label><span class="required">*</span> 数据库账号</label>
+                                    <input type="text" id="dbUsername" placeholder="例如：postgres" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>密码</label>
+                                    <input type="password" id="dbPassword" placeholder="数据库密码（可为空）">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label><span class="required">*</span> 基础数据库名称</label>
+                                <input type="text" id="dbDatabase" placeholder="例如：student_manage" required>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="testConnection()">测试连接</button>
+                                <button type="button" class="btn btn-primary" onclick="confirmSave()">保存配置</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {% if not offline_mode %}
+                    <div class="settings-card">
+                        <h3>仪表盘设置</h3>
+                        <p class="card-desc">控制仪表盘页面显示的辅助功能</p>
+
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">显示"写入模拟数据"按钮</div>
+                                <div class="toggle-desc">开启后，仪表盘右上角将显示模拟数据填充按钮，方便快速生成测试数据</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="mockDataToggle" onchange="onMockDataToggle()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 警告确认弹窗 -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-dialog">
+            <h3><span class="warn-icon">&#9888;</span> 警告：确认修改数据库配置</h3>
+            <p class="warn-content">您即将修改数据库连接配置，此操作将：</p>
+            <div class="warn-list">
+                <div>1. 立即保存新的数据库连接参数到配置文件</div>
+                <div>2. 自动重启服务器使配置生效</div>
+                <div>3. 所有当前在线用户将被断开</div>
+            </div>
+            <p class="warn-content" style="margin-top:12px;">请务必确认<strong>服务器地址、端口、账号、密码、基础数据库名称</strong>填写正确，错误的配置将导致系统无法启动。系统会在下次启动时自动检测配置可用性，如不可用将自动回滚。</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmSave">确认保存并重启</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+    var csrfToken = '';
+
+    // 初始化：获取 CSRF Token 并加载当前配置
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCurrentConfig();
+        {% if not offline_mode %}
+        loadMockDataToggle();
+        {% endif %}
+        fetchCsrfToken();
+    });
+
+    function fetchCsrfToken() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/csrf-token', true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var resp = JSON.parse(xhr.responseText);
+                csrfToken = resp.csrf_token || resp.token || '';
+            }
+        };
+        xhr.send();
+    }
+
+    function loadCurrentConfig() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/settings/database', true);
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.code === 0 && resp.data) {
+                    document.getElementById('dbHost').value = resp.data.host || '';
+                    document.getElementById('dbPort').value = resp.data.port || '';
+                    document.getElementById('dbUsername').value = resp.data.username || '';
+                    document.getElementById('dbPassword').value = resp.data.password || '';
+                    document.getElementById('dbDatabase').value = resp.data.database || '';
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function showMsg(type, text) {
+        var bar = document.getElementById('msgBar');
+        bar.className = 'msg-bar ' + type;
+        bar.textContent = text;
+    }
+
+    function hideMsg() {
+        var bar = document.getElementById('msgBar');
+        bar.className = 'msg-bar';
+        bar.textContent = '';
+    }
+
+    function collectFormData() {
+        return {
+            host: document.getElementById('dbHost').value.trim(),
+            port: document.getElementById('dbPort').value.trim(),
+            username: document.getElementById('dbUsername').value.trim(),
+            password: document.getElementById('dbPassword').value,
+            database: document.getElementById('dbDatabase').value.trim()
+        };
+    }
+
+    function testConnection() {
+        hideMsg();
+        var data = collectFormData();
+        if (!data.host || !data.port || !data.username || !data.database) {
+            showMsg('error', '请填写完整的数据库连接信息');
+            return;
+        }
+
+        showMsg('info', '正在测试数据库连接...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/settings/database/test', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+        xhr.onload = function() {
+            var resp = JSON.parse(xhr.responseText);
+            if (resp.code === 0) {
+                showMsg('success', resp.msg);
+            } else {
+                showMsg('error', resp.msg);
+            }
+        };
+        xhr.onerror = function() {
+            showMsg('error', '网络请求失败，请稍后重试');
+        };
+        xhr.send(JSON.stringify(data));
+    }
+
+    function loadMockDataToggle() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/settings/mock-data-toggle', true);
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.code === 0 && resp.data) {
+                    document.getElementById('mockDataToggle').checked = resp.data.enabled;
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function onMockDataToggle() {
+        var enabled = document.getElementById('mockDataToggle').checked;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/settings/mock-data-toggle', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+        xhr.onload = function() {
+            var resp = JSON.parse(xhr.responseText);
+            if (resp.code === 0) {
+                showMsg('success', resp.msg);
+            } else {
+                showMsg('error', resp.msg);
+                // 恢复原状态
+                document.getElementById('mockDataToggle').checked = !enabled;
+            }
+        };
+        xhr.onerror = function() {
+            showMsg('error', '网络请求失败');
+            document.getElementById('mockDataToggle').checked = !enabled;
+        };
+        xhr.send(JSON.stringify({enabled: enabled}));
+    }
+
+    function confirmSave() {
+        hideMsg();
+        var data = collectFormData();
+        if (!data.host || !data.port || !data.username || !data.database) {
+            showMsg('error', '服务器地址、端口、账号、基础数据库为必填项');
+            return;
+        }
+        if (!/^\d+$/.test(data.port)) {
+            showMsg('error', '端口必须是数字');
+            return;
+        }
+        // 显示确认弹窗
+        document.getElementById('confirmModal').classList.add('show');
+        document.getElementById('btnConfirmSave').onclick = function() { saveConfig(data); };
+    }
+
+    function closeModal() {
+        document.getElementById('confirmModal').classList.remove('show');
+    }
+
+    function saveConfig(data) {
+        closeModal();
+        showMsg('info', '正在保存配置...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/settings/database', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+        xhr.onload = function() {
+            var resp = JSON.parse(xhr.responseText);
+            if (resp.code === 0) {
+                showMsg('success', resp.msg);
+                if (resp.restart) {
+                    // 延迟调用重启接口
+                    setTimeout(function() {
+                        var xhr2 = new XMLHttpRequest();
+                        xhr2.open('POST', '/api/settings/restart', true);
+                        xhr2.setRequestHeader('Content-Type', 'application/json');
+                        xhr2.setRequestHeader('X-CSRF-Token', csrfToken);
+                        xhr2.send('{}');
+                        // 显示倒计时提示
+                        var count = 5;
+                        var timer = setInterval(function() {
+                            showMsg('info', '服务器重启中，页面将在 ' + count + ' 秒后自动刷新...');
+                            count--;
+                            if (count < 0) {
+                                clearInterval(timer);
+                                window.location.reload();
+                            }
+                        }, 1000);
+                    }, 500);
+                }
+            } else {
+                showMsg('error', resp.msg);
+            }
+        };
+        xhr.onerror = function() {
+            showMsg('error', '网络请求失败，请稍后重试');
+        };
+        xhr.send(JSON.stringify(data));
+    }
+    </script>
+</body>
+</html>

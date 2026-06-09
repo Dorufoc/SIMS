@@ -2550,6 +2550,230 @@ function initFilterModule(config) {
     }
 }
 
+/* ========== 通用批量导入模块 ========== */
+
+/**
+ * 初始化批量导入组件
+ * @param {object} config
+ * @param {string} config.entityType    - 实体类型，如 'student', 'teacher', 'course'
+ * @param {string[]} config.previewColumns - 预览表表头列名（从 CSV 表头映射到显示名称）
+ * @param {number} [config.requiredFieldIndex] - 必填字段的列索引
+ * @param {string} [config.requiredFieldName]  - 必填字段名称（用于错误提示）
+ * @param {function} [config.onImportSuccess]  - 导入成功后的回调（如重新加载表格）
+ * @param {string} [config.containerId]        - 组件容器 ID，默认 'batch_import_area'
+ */
+function initBatchImport(config) {
+    if (!config || !config.entityType) {
+        console.error('initBatchImport: entityType is required');
+        return;
+    }
+
+    var containerId = config.containerId || 'batch_import_area';
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    var entityType = config.entityType;
+    var previewColumns = config.previewColumns || [];
+    var requiredFieldIndex = config.requiredFieldIndex;
+    var requiredFieldName = config.requiredFieldName || '';
+    var onImportSuccess = config.onImportSuccess || function() { window.location.reload(); };
+
+    // ── 元素引用 ──
+    var templateLink = container.querySelector('#batch_import_template_link');
+    var exportLink = container.querySelector('#batch_export_link');
+    var fileInput = container.querySelector('#batch_import_file_input');
+    var previewBtn = container.querySelector('#batch_import_preview_btn');
+    var previewArea = container.querySelector('#batch_import_preview_area');
+    var previewThead = container.querySelector('#batch_import_preview_thead');
+    var previewTbody = container.querySelector('#batch_import_preview_tbody');
+    var previewErrors = container.querySelector('#batch_import_preview_errors');
+    var confirmBtn = container.querySelector('#batch_import_confirm_btn');
+    var cancelBtn = container.querySelector('#batch_import_cancel_btn');
+
+    var pendingData = null;
+
+    // 设置模板下载和导出链接
+    if (templateLink) {
+        templateLink.href = '/api/import/' + entityType + '/template';
+    }
+    if (exportLink) {
+        exportLink.href = '/api/import/' + entityType + '/export';
+    }
+
+    // ── 预览按钮 ──
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                alert('请先选择 CSV 文件');
+                return;
+            }
+            var file = fileInput.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result;
+                var parsed = parse_csv_content(text);
+                var validated = validate_batch_csv_data(parsed.rows, requiredFieldIndex, requiredFieldName);
+                render_batch_preview(validated, previewColumns);
+                pendingData = validated.valid_data;
+                hide_loading();
+            };
+            reader.onerror = function() {
+                alert('文件读取失败');
+                hide_loading();
+            };
+            show_loading();
+            reader.readAsText(file);
+        });
+    }
+
+    // ── 渲染预览 ──
+    function render_batch_preview(res, columns) {
+        if (!previewTbody || !previewThead) return;
+        previewTbody.innerHTML = '';
+        previewThead.innerHTML = '';
+
+        // 渲染表头
+        var headerRow = document.createElement('tr');
+        for (var i = 0; i < columns.length; i++) {
+            var th = document.createElement('th');
+            th.textContent = columns[i];
+            headerRow.appendChild(th);
+        }
+        previewThead.appendChild(headerRow);
+
+        // 渲染错误
+        if (previewErrors) {
+            if (res.errors && res.errors.length > 0) {
+                previewErrors.textContent = res.errors.join('；');
+                previewErrors.style.display = 'block';
+            } else {
+                previewErrors.style.display = 'none';
+            }
+        }
+
+        // 渲染数据行
+        if (res.valid_data && res.valid_data.length > 0) {
+            for (var r = 0; r < res.valid_data.length; r++) {
+                var row = res.valid_data[r];
+                var tr = document.createElement('tr');
+                for (var c = 0; c < columns.length; c++) {
+                    var td = document.createElement('td');
+                    td.textContent = (row[c] !== null && row[c] !== undefined) ? String(row[c]) : '';
+                    tr.appendChild(td);
+                }
+                previewTbody.appendChild(tr);
+            }
+            if (confirmBtn) confirmBtn.style.display = '';
+        } else {
+            var tr = document.createElement('tr');
+            var td = document.createElement('td');
+            td.colSpan = columns.length || 1;
+            td.textContent = '无有效数据';
+            td.className = 'empty-row';
+            tr.appendChild(td);
+            previewTbody.appendChild(tr);
+            if (confirmBtn) confirmBtn.style.display = 'none';
+        }
+
+        if (previewArea) previewArea.style.display = 'block';
+    }
+
+    // ── 确认导入 ──
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (!pendingData || pendingData.length === 0) {
+                alert('没有有效数据可导入');
+                return;
+            }
+
+            show_loading();
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/import/' + entityType + '/import', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    hide_loading();
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.code === 0) {
+                                alert('导入成功，共导入 ' + (res.count || 0) + ' 条数据');
+                                cancel_batch_preview();
+                                if (typeof onImportSuccess === 'function') {
+                                    onImportSuccess();
+                                }
+                            } else {
+                                alert('导入失败：' + (res.msg || '未知错误'));
+                            }
+                        } catch (err) {
+                            alert('导入响应解析失败');
+                        }
+                    } else {
+                        alert('导入请求失败，状态码：' + xhr.status);
+                    }
+                }
+            };
+            xhr.send(JSON.stringify({data: pendingData}));
+        });
+    }
+
+    // ── 取消 ──
+    function cancel_batch_preview() {
+        if (previewArea) previewArea.style.display = 'none';
+        if (previewTbody) previewTbody.innerHTML = '';
+        if (previewThead) previewThead.innerHTML = '';
+        if (previewErrors) { previewErrors.style.display = 'none'; previewErrors.textContent = ''; }
+        pendingData = null;
+        if (fileInput) fileInput.value = '';
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancel_batch_preview);
+    }
+}
+
+/**
+ * 验证批量导入的 CSV 数据行
+ * @param {string[][]} rows - 数据行数组
+ * @param {number} requiredFieldIndex - 必填字段的列索引（可选）
+ * @param {string} requiredFieldName - 必填字段名称（可选）
+ * @returns {{valid_data: string[][], errors: string[]}}
+ */
+function validate_batch_csv_data(rows, requiredFieldIndex, requiredFieldName) {
+    var valid_data = [];
+    var errors = [];
+    var seen = {};
+
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var row_num = i + 2; // header is row 1
+        var row_errors = [];
+
+        // 必填字段校验
+        if (requiredFieldIndex !== undefined && requiredFieldIndex !== null) {
+            var fieldVal = row[requiredFieldIndex];
+            if (!fieldVal || String(fieldVal).trim() === '') {
+                var fname = requiredFieldName || ('第' + (requiredFieldIndex + 1) + '列');
+                row_errors.push('第' + row_num + '行：' + fname + '不能为空');
+            } else if (seen[String(fieldVal).trim()]) {
+                row_errors.push('第' + row_num + '行：' + fname + ' "' + String(fieldVal).trim() + '" 在文件中重复');
+            }
+        }
+
+        if (row_errors.length === 0) {
+            if (requiredFieldIndex !== undefined && requiredFieldIndex !== null && row[requiredFieldIndex]) {
+                seen[String(row[requiredFieldIndex]).trim()] = true;
+            }
+            valid_data.push(row);
+        } else {
+            errors = errors.concat(row_errors);
+        }
+    }
+
+    return {valid_data: valid_data, errors: errors};
+}
+
 /* ========== 全局错误处理 ========== */
 window.addEventListener('error', function(e) {
     console.error('Global error:', e.message, 'at', e.filename, 'line', e.lineno);
@@ -2565,5 +2789,109 @@ window.addEventListener('unhandledrejection', function(e) {
         console.error('Rejection reason:', e.reason.message);
     }
 });
+
+/* ========== 模拟数据填充 ========== */
+
+function openMockDataModal() {
+    var modal = document.getElementById('mock-data-modal');
+    if (modal) modal.classList.add('active');
+    // 重置状态
+    var selectAll = document.getElementById('mock-select-all');
+    if (selectAll) selectAll.checked = false;
+    var cbs = document.querySelectorAll('.mock-table-cb');
+    for (var i = 0; i < cbs.length; i++) cbs[i].checked = false;
+    var msg = document.getElementById('mock-data-msg');
+    var success = document.getElementById('mock-data-success');
+    if (msg) msg.style.display = 'none';
+    if (success) success.style.display = 'none';
+    var btn = document.getElementById('mock-data-submit-btn');
+    if (btn) btn.disabled = false;
+}
+
+function closeMockDataModal() {
+    var modal = document.getElementById('mock-data-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+// 点击遮罩层关闭
+document.addEventListener('DOMContentLoaded', function() {
+    var mockModal = document.getElementById('mock-data-modal');
+    if (mockModal) {
+        mockModal.addEventListener('click', function(e) {
+            if (e.target === mockModal) closeMockDataModal();
+        });
+    }
+});
+
+function toggleMockSelectAll() {
+    var selectAll = document.getElementById('mock-select-all');
+    if (!selectAll) return;
+    var checked = selectAll.checked;
+    var cbs = document.querySelectorAll('.mock-table-cb');
+    for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = checked;
+    }
+}
+
+// 单个复选框变化时更新全选状态
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('mock-table-cb')) return;
+        var cbs = document.querySelectorAll('.mock-table-cb');
+        var allChecked = true;
+        for (var i = 0; i < cbs.length; i++) {
+            if (!cbs[i].checked) { allChecked = false; break; }
+        }
+        var selectAll = document.getElementById('mock-select-all');
+        if (selectAll) selectAll.checked = allChecked;
+    });
+});
+
+function submitMockData() {
+    var cbs = document.querySelectorAll('.mock-table-cb');
+    var tables = [];
+    for (var i = 0; i < cbs.length; i++) {
+        if (cbs[i].checked) tables.push(cbs[i].value);
+    }
+    if (tables.length === 0) {
+        var msg = document.getElementById('mock-data-msg');
+        if (msg) { msg.textContent = '请至少选择一个数据表'; msg.style.display = 'block'; }
+        return;
+    }
+
+    var btn = document.getElementById('mock-data-submit-btn');
+    var msg = document.getElementById('mock-data-msg');
+    var success = document.getElementById('mock-data-success');
+    if (msg) msg.style.display = 'none';
+    if (success) success.style.display = 'none';
+    if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/mock-data/generate', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (btn) { btn.disabled = false; btn.textContent = '确认生成'; }
+            var resp;
+            try { resp = JSON.parse(xhr.responseText); } catch(e) { resp = {}; }
+            if (resp.code === 0) {
+                if (success) {
+                    success.textContent = resp.msg + ' (' + (resp.data && resp.data.detail || '') + ')';
+                    success.style.display = 'block';
+                }
+                // 刷新仪表盘统计
+                setTimeout(function() {
+                    if (typeof loadDashboardStats === 'function') {
+                        loadDashboardStats();
+                    }
+                }, 500);
+            } else {
+                if (msg) { msg.textContent = resp.msg || '生成失败'; msg.style.display = 'block'; }
+            }
+        }
+    };
+    xhr.send(JSON.stringify({ tables: tables }));
+}
 
 

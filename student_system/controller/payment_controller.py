@@ -8,6 +8,7 @@ payment_bp = Blueprint('payment', __name__)
 
 
 @payment_bp.route('/api/payments', methods=['GET'])
+@require_login
 def api_payments():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
@@ -60,6 +61,7 @@ def api_pay(payment_id):
 
 
 @payment_bp.route('/api/payments/overdue', methods=['GET'])
+@require_login
 def api_overdue():
     svc = PaymentService()
     try:
@@ -73,6 +75,7 @@ def api_overdue():
 
 
 @payment_bp.route('/api/payments/stats', methods=['GET'])
+@require_login
 def api_payment_stats():
     svc = PaymentService()
     try:

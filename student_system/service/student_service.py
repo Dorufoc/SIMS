@@ -157,3 +157,26 @@ class StudentService:
 
         gpa = round(weighted_gp / total_credits, 2) if total_credits > 0 else 0
         return {'gpa': gpa, 'total_credits': total_credits}
+
+    def get_my_dorm(self, student_id):
+        """获取学生的宿舍分配信息"""
+        from entity.dorm_assignment import DormAssignment
+        from entity.dorm_room import DormRoom
+
+        assignments = self.repo.db.query(DormAssignment).join(
+            DormRoom, DormAssignment.room_id == DormRoom.room_id
+        ).filter(
+            DormAssignment.student_id == student_id
+        ).order_by(DormAssignment.check_in_date.desc()).all()
+
+        data = []
+        for a in assignments:
+            data.append({
+                'building': a.room.building if a.room else '',
+                'room_number': a.room.room_number if a.room else '',
+                'bed_number': a.bed_number or '',
+                'check_in_date': str(a.check_in_date) if a.check_in_date else '',
+                'check_out_date': str(a.check_out_date) if a.check_out_date else '',
+                'status': a.status or '',
+            })
+        return data

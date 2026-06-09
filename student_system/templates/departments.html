@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增院系</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -118,18 +121,44 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(dept => `
-                <tr>
-                    <td>${dept.dept_id}</td>
-                    <td>${dept.dept_name}</td>
-                    <td>${dept.dean || '-'}</td>
-                    <td>${dept.phone || '-'}</td>
-                    <td class="actions">
-                        <button class="btn btn-warning" onclick="editDept(${dept.dept_id}, '${dept.dept_name}', '${dept.dean || ''}', '${dept.phone || ''}')">编辑</button>
-                        <button class="btn btn-danger" onclick="deleteDept(${dept.dept_id}, '${dept.dept_name}')">删除</button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = '';
+            data.forEach(dept => {
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = dept.dept_id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = dept.dept_name;
+                tr.appendChild(tdName);
+
+                const tdDean = document.createElement('td');
+                tdDean.textContent = dept.dean || '-';
+                tr.appendChild(tdDean);
+
+                const tdPhone = document.createElement('td');
+                tdPhone.textContent = dept.phone || '-';
+                tr.appendChild(tdPhone);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editDept(dept.dept_id, dept.dept_name, dept.dean || '', dept.phone || ''); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteDept(dept.dept_id, dept.dept_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -237,6 +266,14 @@
             onReset: function(filters) { loadDepartments(1); }
         });
         loadDepartments();
+
+        initBatchImport({
+            entityType: 'department',
+            previewColumns: ['院系名称', '院长/主任', '联系电话'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '院系名称',
+            onImportSuccess: function() { loadDepartments(1); }
+        });
     </script>
 
 </body>

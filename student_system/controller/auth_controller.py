@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session, redirect, render_template
 from middleware.auth_middleware import require_login, csrf_protect
 from service.auth_service import AuthService
+from config import is_db_available
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -40,6 +41,23 @@ def login():
     identifier = request.form.get('username', '').strip()
     password = request.form.get('password', '').strip()
 
+    # 离线模式：使用本地校验
+    if not is_db_available():
+        success, msg, user = AuthService.local_login(identifier, password)
+        if success:
+            session['user_id'] = user['user_id']
+            session['user_name'] = user['username']
+            session['user_role'] = user['role']
+            session['user_ref_id'] = user['ref_id']
+            session['user_uuid'] = user['uuid']
+            session['username_changed'] = user['username_changed']
+            session['offline_mode'] = True
+            return jsonify({'code': 0, 'msg': msg, 'role': user['role'],
+                            'need_set_username': user['need_set_username'],
+                            'username_changed': user['username_changed'],
+                            'offline': True})
+        return jsonify({'code': 1, 'msg': msg})
+
     svc = AuthService()
     try:
         success, msg, user = svc.login(identifier, password)
@@ -63,6 +81,10 @@ def login():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
+
+    # 离线模式下禁止注册
+    if not is_db_available():
+        return jsonify({'code': 1, 'msg': '离线模式下不支持注册，请先配置数据库连接'}), 403
 
     password = request.form.get('password', '').strip()
     if not password:

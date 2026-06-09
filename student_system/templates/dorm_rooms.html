@@ -23,6 +23,9 @@
                         </div>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -146,7 +149,8 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(room => {
+            tbody.innerHTML = '';
+            data.forEach(room => {
                 const occupied = room.occupied || 0;
                 const capacity = room.capacity;
                 const rate = Math.round((occupied / capacity) * 100);
@@ -154,27 +158,62 @@
                 if (rate >= 100) fillClass = 'high';
                 else if (rate >= 75) fillClass = 'medium';
 
-                return `
-                    <tr>
-                        <td>${room.building}</td>
-                        <td>${room.room_number}</td>
-                        <td>${capacity}</td>
-                        <td>${occupied}</td>
-                        <td>
-                            <div class="occupancy-bar">
-                                <div class="occupancy-fill ${fillClass}"></div>
-                            </div>
-                            <small>${rate}%</small>
-                        </td>
-                        <td>${room.gender_limit || '不限'}</td>
-                        <td>${room.phone || '-'}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning" onclick="editRoom(${room.room_id})">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteRoom(${room.room_id}, '${room.building}${room.room_number}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                const tr = document.createElement('tr');
+
+                const tdBuilding = document.createElement('td');
+                tdBuilding.textContent = room.building;
+                tr.appendChild(tdBuilding);
+
+                const tdRoom = document.createElement('td');
+                tdRoom.textContent = room.room_number;
+                tr.appendChild(tdRoom);
+
+                const tdCapacity = document.createElement('td');
+                tdCapacity.textContent = capacity;
+                tr.appendChild(tdCapacity);
+
+                const tdOccupied = document.createElement('td');
+                tdOccupied.textContent = occupied;
+                tr.appendChild(tdOccupied);
+
+                const tdRate = document.createElement('td');
+                const bar = document.createElement('div');
+                bar.className = 'occupancy-bar';
+                const fill = document.createElement('div');
+                fill.className = 'occupancy-fill ' + fillClass;
+                bar.appendChild(fill);
+                tdRate.appendChild(bar);
+                const small = document.createElement('small');
+                small.textContent = rate + '%';
+                tdRate.appendChild(small);
+                tr.appendChild(tdRate);
+
+                const tdGender = document.createElement('td');
+                tdGender.textContent = room.gender_limit || '不限';
+                tr.appendChild(tdGender);
+
+                const tdPhone = document.createElement('td');
+                tdPhone.textContent = room.phone || '-';
+                tr.appendChild(tdPhone);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editRoom(room.room_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteRoom(room.room_id, room.building + room.room_number); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -288,6 +327,14 @@
         });
         loadBuildings();
         loadRooms();
+
+        initBatchImport({
+            entityType: 'dorm_room',
+            previewColumns: ['楼栋', '房间号', '容量', '性别限制'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '楼栋',
+            onImportSuccess: function() { loadRooms(1); }
+        });
     </script>
 </body>
 </html>

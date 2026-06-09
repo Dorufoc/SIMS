@@ -76,11 +76,15 @@ class BaseRepo:
 
     def paginate(self, page: int = 1, page_size: int = 10, query=None) -> Tuple[List, int]:
         """分页查询
+        page <= 0 时返回全部记录，不做分页
         Returns: (items, total)
         """
         q = query if query is not None else self.db.query(self.model)
         total = q.count()
-        items = q.offset((page - 1) * page_size).limit(page_size).all()
+        if page <= 0:
+            items = q.all()
+        else:
+            items = q.offset((page - 1) * page_size).limit(page_size).all()
         return items, total
 
     def filter_paginate(self, filters: List[Dict], page: int = 1, page_size: int = 10,

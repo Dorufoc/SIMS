@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, render_template, send_file, session
 from service.query_service import QueryService
 from service.csv_service import CSVService
+from repository.base import escape_like
 from middleware.auth_middleware import require_login, csrf_protect
 import io
 
@@ -84,11 +85,11 @@ def query_filter():
 
         cond = {'field': internal_field, 'operator': internal_op, 'value': value}
         if operator == 'startswith':
-            cond['value'] = f'{value}%'
+            cond['value'] = f'{escape_like(value)}%'
         elif operator == 'endswith':
-            cond['value'] = f'%{value}'
+            cond['value'] = f'%{escape_like(value)}'
         elif operator == 'contains':
-            cond['value'] = f'%{value}%'
+            cond['value'] = f'%{escape_like(value)}%'
         conditions.append(cond)
 
     svc = QueryService()
@@ -128,27 +129,25 @@ def query_scene():
             conditions.append({'field': 'name', 'operator': '=', 'value': params['val1']})
     elif scene == 'by_major':
         if params.get('val1'):
-            conditions.append({'field': 'major_name', 'operator': 'LIKE', 'value': f'%{params["val1"]}%'})
+            conditions.append({'field': 'major_name', 'operator': 'LIKE', 'value': f'%{escape_like(params["val1"])}%'})
     elif scene == 'by_dept':
         if params.get('val1'):
-            conditions.append({'field': 'dept_name', 'operator': 'LIKE', 'value': f'%{params["val1"]}%'})
+            conditions.append({'field': 'dept_name', 'operator': 'LIKE', 'value': f'%{escape_like(params["val1"])}%'})
     elif scene == 'by_grade':
         if params.get('val1'):
             conditions.append({'field': 'enrollment_year', 'operator': '=', 'value': params['val1']})
     elif scene == 'by_age_range':
-        if params.get('val1') and params.get('val2'):
-            conditions.append({'field': 'birth_date', 'operator': 'BETWEEN', 'value': '', 'value_to': ''})
-            # Between on birth_date needs date calculation - skip for now
-            pass
+        # Between on birth_date needs date calculation - skip for now
+        pass
     elif scene == 'by_gender':
         if params.get('val1'):
             conditions.append({'field': 'gender', 'operator': '=', 'value': 'M' if params['val1'] == '男' else 'F'})
     elif scene == 'by_class':
         if params.get('val1'):
-            conditions.append({'field': 'class_name', 'operator': 'LIKE', 'value': f'%{params["val1"]}%'})
+            conditions.append({'field': 'class_name', 'operator': 'LIKE', 'value': f'%{escape_like(params["val1"])}%'})
     elif scene == 'by_name_like':
         if params.get('val1'):
-            conditions.append({'field': 'name', 'operator': 'LIKE', 'value': f'%{params["val1"]}%'})
+            conditions.append({'field': 'name', 'operator': 'LIKE', 'value': f'%{escape_like(params["val1"])}%'})
     elif scene == 'not_dept':
         if params.get('val1'):
             conditions.append({'field': 'dept_name', 'operator': '!=', 'value': params['val1']})
@@ -203,20 +202,6 @@ def query_keyword_detail():
     info = keywords_info.get(keyword, {'description': '暂未收录该关键词', 'sql': '', 'executable': False})
     info['keyword'] = keyword
     return jsonify(info)
-
-
-@query_bp.route('/query/keyword/execute', methods=['POST'])
-def query_keyword_execute():
-    """执行关键词对应的 SQL 示例"""
-    data = request.get_json()
-    keyword = data.get('keyword', '')
-    
-    # 只有管理员可以执行危险操作
-    dangerous = ['DROP_TABLE', 'DROP_DATABASE']
-    if keyword in dangerous and session.get('user_role') != 'admin':
-        return jsonify({'success': False, 'message': '仅管理员可执行此操作'})
-    
-    return jsonify({'success': True, 'message': f'关键词 {keyword} 的操作已记录'})
 
 
 @query_bp.route('/query/stat', methods=['POST'])

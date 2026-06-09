@@ -21,11 +21,15 @@ def require_login(f):
 
 
 def require_admin(f):
-    """要求管理员权限的装饰器"""
+    """要求管理员权限的装饰器（离线模式下允许任何已登录用户访问）"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return jsonify({'code': 1, 'msg': '请先登录'}), 401
+        # 离线模式：数据库不可用时，允许任何已登录用户访问管理功能
+        from config import is_db_available
+        if not is_db_available():
+            return f(*args, **kwargs)
         if session.get('user_role') != 'admin':
             return jsonify({'code': 1, 'msg': '仅超级管理员可访问'}), 403
         return f(*args, **kwargs)
@@ -116,6 +120,30 @@ def register_global_interceptor(app):
         if path in white_list or path.startswith('/static'):
             return None
 
+        # ── 离线模式全局拦截 ──
+        from config import is_db_available
+        if not is_db_available():
+            # 未登录 → 重定向到登录页
+            if 'user_id' not in session:
+                if path.startswith('/api/'):
+                    return jsonify({'code': 1, 'msg': '请先登录'}), 401
+                return redirect('/login')
+
+            # 已登录 → 仅允许访问 /settings 和基础 API
+            offline_allowed_pages = ['/settings', '/login', '/register', '/logout']
+            offline_allowed_api_prefixes = ['/api/settings', '/api/csrf-token', '/api/user/me']
+            offline_allowed_apis = ['/api/csrf-token', '/api/user/me']
+
+            if path.startswith('/api/'):
+                if path in offline_allowed_apis or any(path.startswith(p) for p in offline_allowed_api_prefixes):
+                    return None
+                return jsonify({'code': 1, 'msg': '离线模式下仅支持设置页面功能'}), 403
+
+            # 非 API 页面请求
+            if path not in offline_allowed_pages and not path.startswith('/static'):
+                return redirect('/settings')
+            return None
+
         # API 路径：未登录返回 JSON 401（不重定向）
         if path.startswith('/api/') and 'user_id' not in session:
             return jsonify({'code': 1, 'msg': '请先登录'}), 401
@@ -131,3 +159,36 @@ def register_global_interceptor(app):
         if user_role != 'admin' and not session.get('username_changed', True):
             if path.startswith('/api/') and path not in ('/api/set-username', '/api/csrf-token', '/api/user/me'):
                 return jsonify({'code': 1, 'msg': '请先设置用户名', 'need_set_username': True}), 403
+
+        # ===== 非管理员全局路由拦截 =====
+        # 学生和教职工仅能访问个人档案页面及自服务 API
+        if user_role not in ('admin', ''):
+            # 页面路由白名单：非管理员只能访问这几个页面
+            page_whitelist = ['/my', '/login', '/register', '/logout', '/set-username']
+            is_page_request = not path.startswith('/api/') and not path.startswith('/static')
+            if is_page_request:
+                if path not in page_whitelist:
+                    return redirect('/my')
+
+            # API 路由白名单
+            if path.startswith('/api/'):
+                # 完全开放的 API
+                open_apis = ['/api/csrf-token', '/api/user/me', '/api/change-password',
+                            '/api/set-username']
+                if path in open_apis or path.startswith('/api/my/'):
+                    return None
+
+                # 自数据 API：学生读取自身 /api/students/<自己的id>/*
+                ref_id = session.get('user_ref_id', '')
+                if user_role == 'student' and ref_id:
+                    student_api_prefix = f'/api/students/{ref_id}'
+                    if path == student_api_prefix or path.startswith(student_api_prefix + '/'):
+                        return None
+
+                # 自数据 API：教师读取自身 /api/teachers/<自己的id>/*
+                if user_role == 'teacher' and ref_id:
+                    teacher_api_prefix = f'/api/teachers/{ref_id}'
+                    if path == teacher_api_prefix or path.startswith(teacher_api_prefix + '/'):
+                        return None
+
+                return jsonify({'code': 1, 'msg': '权限不足'}), 403

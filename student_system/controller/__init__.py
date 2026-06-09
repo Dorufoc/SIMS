@@ -17,6 +17,8 @@ from controller.statistics_controller import statistics_bp
 from controller.query_controller import query_bp
 from controller.csv_controller import csv_bp
 from controller.user_controller import user_bp
+from controller.mock_data_controller import mock_data_bp
+from controller.settings_controller import settings_bp
 
 
 def register_all(app):
@@ -39,3 +41,5 @@ def register_all(app):
     app.register_blueprint(query_bp)
     app.register_blueprint(csv_bp)
     app.register_blueprint(user_bp)
+    app.register_blueprint(settings_bp)
+    app.register_blueprint(mock_data_bp)

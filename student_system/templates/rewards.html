@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增记录</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -145,28 +148,61 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(item => {
+            tbody.innerHTML = '';
+            data.forEach(item => {
                 const dateStr = item.date ? item.date.substring(0, 10) : '-';
-                const typeTag = item.rp_type === '奖励'
-                    ? '<span class="status-tag active">奖励</span>'
-                    : '<span class="status-tag inactive">处分</span>';
-                const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
-                return `
-                <tr>
-                    <td>${item.rp_id}</td>
-                    <td>${item.student_id}</td>
-                    <td>${typeTag}</td>
-                    <td>${item.title}</td>
-                    <td>${item.level || '-'}</td>
-                    <td>${dateStr}</td>
-                    <td>${item.issuing_authority || '-'}</td>
-                    <td class="actions">
-                        <button class="btn btn-warning" onclick="editReward(this)" data-item="${itemJson}">编辑</button>
-                        <button class="btn btn-danger" onclick="deleteReward(${item.rp_id})">删除</button>
-                    </td>
-                </tr>
-                `;
-            }).join('');
+
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = item.rp_id;
+                tr.appendChild(tdId);
+
+                const tdStudent = document.createElement('td');
+                tdStudent.textContent = item.student_id;
+                tr.appendChild(tdStudent);
+
+                const tdType = document.createElement('td');
+                const typeSpan = document.createElement('span');
+                typeSpan.className = 'status-tag ' + (item.rp_type === '奖励' ? 'active' : 'inactive');
+                typeSpan.textContent = item.rp_type;
+                tdType.appendChild(typeSpan);
+                tr.appendChild(tdType);
+
+                const tdTitle = document.createElement('td');
+                tdTitle.textContent = item.title;
+                tr.appendChild(tdTitle);
+
+                const tdLevel = document.createElement('td');
+                tdLevel.textContent = item.level || '-';
+                tr.appendChild(tdLevel);
+
+                const tdDate = document.createElement('td');
+                tdDate.textContent = dateStr;
+                tr.appendChild(tdDate);
+
+                const tdAuthority = document.createElement('td');
+                tdAuthority.textContent = item.issuing_authority || '-';
+                tr.appendChild(tdAuthority);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editReward(item); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteReward(item.rp_id); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -203,8 +239,7 @@
         }
 
         // 编辑奖惩记录
-        function editReward(el) {
-            const item = JSON.parse(el.getAttribute('data-item'));
+        function editReward(item) {
             document.getElementById('rewardModal').classList.add('active');
             document.getElementById('modalTitle').textContent = '编辑记录';
             document.getElementById('rpId').value = item.rp_id;
@@ -290,6 +325,14 @@
             onReset: function(filters) { loadRewards(1); }
         });
         loadRewards();
+
+        initBatchImport({
+            entityType: 'reward',
+            previewColumns: ['学号', '类型', '标题', '级别', '日期'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学号',
+            onImportSuccess: function() { loadRewards(1); }
+        });
     </script>
 
 </body>

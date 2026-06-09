@@ -155,42 +155,36 @@
                         const totalPaid = payment.total_paid || 0;
                         const paymentRate = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0;
 
-                        document.getElementById('overviewStats').innerHTML = `
-                            <div class="stat-card-report">
-                                <h3>学生总数</h3>
-                                <div class="value">${overview.student_count}</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>教师总数</h3>
-                                <div class="value">${overview.teacher_count}</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>课程总数</h3>
-                                <div class="value">${overview.course_count}</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>院系总数</h3>
-                                <div class="value">${overview.dept_count}</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>班级总数</h3>
-                                <div class="value">${overview.class_count}</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>宿舍入住率</h3>
-                                <div class="value">${dormRate}%</div>
-                                <div class="sub-value">${totalOccupied}/${totalCapacity} 床位</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>缴费完成率</h3>
-                                <div class="value">${paymentRate}%</div>
-                                <div class="sub-value">${payment.unpaid_count || 0} 笔待缴</div>
-                            </div>
-                            <div class="stat-card-report">
-                                <h3>本学期选课</h3>
-                                <div class="value">${overview.current_enrollment_count}</div>
-                            </div>
-                        `;
+                        const container = document.getElementById('overviewStats');
+                        container.innerHTML = '';
+                        const items = [
+                            { label: '学生总数', value: overview.student_count },
+                            { label: '教师总数', value: overview.teacher_count },
+                            { label: '课程总数', value: overview.course_count },
+                            { label: '院系总数', value: overview.dept_count },
+                            { label: '班级总数', value: overview.class_count },
+                            { label: '宿舍入住率', value: dormRate + '%', sub: totalOccupied + '/' + totalCapacity + ' 床位' },
+                            { label: '缴费完成率', value: paymentRate + '%', sub: (payment.unpaid_count || 0) + ' 笔待缴' },
+                            { label: '本学期选课', value: overview.current_enrollment_count }
+                        ];
+                        items.forEach(item => {
+                            const card = document.createElement('div');
+                            card.className = 'stat-card-report';
+                            const h3 = document.createElement('h3');
+                            h3.textContent = item.label;
+                            card.appendChild(h3);
+                            const valDiv = document.createElement('div');
+                            valDiv.className = 'value';
+                            valDiv.textContent = item.value;
+                            card.appendChild(valDiv);
+                            if (item.sub) {
+                                const subDiv = document.createElement('div');
+                                subDiv.className = 'sub-value';
+                                subDiv.textContent = item.sub;
+                                card.appendChild(subDiv);
+                            }
+                            container.appendChild(card);
+                        });
                     }
                 });
         }
@@ -207,21 +201,29 @@
                         const total = rows.reduce((sum, r) => sum + r.count, 0);
 
                         const tbody = document.querySelector('#studentDistTable tbody');
-                        tbody.innerHTML = rows.map(r => {
+                        tbody.innerHTML = '';
+                        rows.forEach(r => {
                             const pct = total > 0 ? ((r.count / total) * 100).toFixed(1) : 0;
-                            return `
-                                <tr>
-                                    <td>${r.name}${r.parent_name ? ' (' + r.parent_name + ')' : ''}</td>
-                                    <td>${r.count}</td>
-                                    <td>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill"></div>
-                                        </div>
-                                        <small>${pct}%</small>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('');
+                            const tr = document.createElement('tr');
+                            const tdName = document.createElement('td');
+                            tdName.textContent = r.name + (r.parent_name ? ' (' + r.parent_name + ')' : '');
+                            tr.appendChild(tdName);
+                            const tdCount = document.createElement('td');
+                            tdCount.textContent = r.count;
+                            tr.appendChild(tdCount);
+                            const tdPct = document.createElement('td');
+                            const progressBar = document.createElement('div');
+                            progressBar.className = 'progress-bar';
+                            const progressFill = document.createElement('div');
+                            progressFill.className = 'progress-fill';
+                            progressBar.appendChild(progressFill);
+                            tdPct.appendChild(progressBar);
+                            const small = document.createElement('small');
+                            small.textContent = pct + '%';
+                            tdPct.appendChild(small);
+                            tr.appendChild(tdPct);
+                            tbody.appendChild(tr);
+                        });
                     }
                 });
 
@@ -234,21 +236,29 @@
                         const totalCount = total.reduce((sum, t) => sum + t.count, 0);
 
                         const tbody = document.querySelector('#genderTable tbody');
-                        tbody.innerHTML = total.map(t => {
+                        tbody.innerHTML = '';
+                        total.forEach(t => {
                             const pct = totalCount > 0 ? ((t.count / totalCount) * 100).toFixed(1) : 0;
-                            return `
-                                <tr>
-                                    <td>${t.gender || '未填写'}</td>
-                                    <td>${t.count}</td>
-                                    <td>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill"></div>
-                                        </div>
-                                        <small>${pct}%</small>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('');
+                            const tr = document.createElement('tr');
+                            const tdGender = document.createElement('td');
+                            tdGender.textContent = t.gender || '未填写';
+                            tr.appendChild(tdGender);
+                            const tdCount = document.createElement('td');
+                            tdCount.textContent = t.count;
+                            tr.appendChild(tdCount);
+                            const tdPct = document.createElement('td');
+                            const progressBar = document.createElement('div');
+                            progressBar.className = 'progress-bar';
+                            const progressFill = document.createElement('div');
+                            progressFill.className = 'progress-fill';
+                            progressBar.appendChild(progressFill);
+                            tdPct.appendChild(progressBar);
+                            const small = document.createElement('small');
+                            small.textContent = pct + '%';
+                            tdPct.appendChild(small);
+                            tr.appendChild(tdPct);
+                            tbody.appendChild(tr);
+                        });
                     }
                 });
         }
@@ -277,16 +287,29 @@
                 .then(data => {
                     if (data.code === 0) {
                         const tbody = document.querySelector('#classGradeTable tbody');
-                        tbody.innerHTML = data.data.map(r => `
-                            <tr>
-                                <td>${r.class_name}</td>
-                                <td>${r.major_name}</td>
-                                <td>${r.dept_name}</td>
-                                <td>${r.student_count}</td>
-                                <td>${r.avg_score ? r.avg_score.toFixed(2) : '-'}</td>
-                                <td>${r.avg_gpa ? r.avg_gpa.toFixed(2) : '-'}</td>
-                            </tr>
-                        `).join('');
+                        tbody.innerHTML = '';
+                        data.data.forEach(r => {
+                            const tr = document.createElement('tr');
+                            const tdClass = document.createElement('td');
+                            tdClass.textContent = r.class_name;
+                            tr.appendChild(tdClass);
+                            const tdMajor = document.createElement('td');
+                            tdMajor.textContent = r.major_name;
+                            tr.appendChild(tdMajor);
+                            const tdDept = document.createElement('td');
+                            tdDept.textContent = r.dept_name;
+                            tr.appendChild(tdDept);
+                            const tdStudentCount = document.createElement('td');
+                            tdStudentCount.textContent = r.student_count;
+                            tr.appendChild(tdStudentCount);
+                            const tdAvgScore = document.createElement('td');
+                            tdAvgScore.textContent = r.avg_score ? r.avg_score.toFixed(2) : '-';
+                            tr.appendChild(tdAvgScore);
+                            const tdAvgGpa = document.createElement('td');
+                            tdAvgGpa.textContent = r.avg_gpa ? r.avg_gpa.toFixed(2) : '-';
+                            tr.appendChild(tdAvgGpa);
+                            tbody.appendChild(tr);
+                        });
                     }
                 });
         }
@@ -300,17 +323,36 @@
                 .then(data => {
                     if (data.code === 0) {
                         const tbody = document.querySelector('#rankingTable tbody');
-                        tbody.innerHTML = data.data.map(r => `
-                            <tr>
-                                <td><strong>${r.rank}</strong></td>
-                                <td>${r.student_id}</td>
-                                <td>${r.name}</td>
-                                <td>${r.class_name}</td>
-                                <td>${r.major_name}</td>
-                                <td><strong>${r.avg_gpa ? r.avg_gpa.toFixed(2) : '-'}</strong></td>
-                                <td>${r.total_credits || 0}</td>
-                            </tr>
-                        `).join('');
+                        tbody.innerHTML = '';
+                        data.data.forEach(r => {
+                            const tr = document.createElement('tr');
+                            const tdRank = document.createElement('td');
+                            const strongRank = document.createElement('strong');
+                            strongRank.textContent = r.rank;
+                            tdRank.appendChild(strongRank);
+                            tr.appendChild(tdRank);
+                            const tdStudentId = document.createElement('td');
+                            tdStudentId.textContent = r.student_id;
+                            tr.appendChild(tdStudentId);
+                            const tdName = document.createElement('td');
+                            tdName.textContent = r.name;
+                            tr.appendChild(tdName);
+                            const tdClassName = document.createElement('td');
+                            tdClassName.textContent = r.class_name;
+                            tr.appendChild(tdClassName);
+                            const tdMajorName = document.createElement('td');
+                            tdMajorName.textContent = r.major_name;
+                            tr.appendChild(tdMajorName);
+                            const tdAvgGpa = document.createElement('td');
+                            const strongGpa = document.createElement('strong');
+                            strongGpa.textContent = r.avg_gpa ? r.avg_gpa.toFixed(2) : '-';
+                            tdAvgGpa.appendChild(strongGpa);
+                            tr.appendChild(tdAvgGpa);
+                            const tdCredits = document.createElement('td');
+                            tdCredits.textContent = r.total_credits || 0;
+                            tr.appendChild(tdCredits);
+                            tbody.appendChild(tr);
+                        });
                     }
                 });
         }

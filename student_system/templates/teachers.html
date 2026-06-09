@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增教师</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -160,23 +163,60 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(teacher => {
+            tbody.innerHTML = '';
+            data.forEach(teacher => {
                 const dept = departments.find(d => d.dept_id === teacher.dept_id);
-                return `
-                    <tr>
-                        <td>${teacher.teacher_id}</td>
-                        <td>${teacher.name}</td>
-                        <td>${teacher.gender === 'M' ? '男' : teacher.gender === 'F' ? '女' : teacher.gender || '-'}</td>
-                        <td>${dept ? dept.dept_name : '-'}</td>
-                        <td>${teacher.title || '-'}</td>
-                        <td>${teacher.phone || '-'}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning" onclick="editTeacher('${teacher.teacher_id}')">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteTeacher('${teacher.teacher_id}', '${teacher.name}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = teacher.teacher_id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = teacher.name;
+                tr.appendChild(tdName);
+
+                const tdGender = document.createElement('td');
+                if (teacher.gender === 'M') {
+                    tdGender.textContent = '男';
+                } else if (teacher.gender === 'F') {
+                    tdGender.textContent = '女';
+                } else {
+                    tdGender.textContent = teacher.gender || '-';
+                }
+                tr.appendChild(tdGender);
+
+                const tdDept = document.createElement('td');
+                tdDept.textContent = dept ? dept.dept_name : '-';
+                tr.appendChild(tdDept);
+
+                const tdTitle = document.createElement('td');
+                tdTitle.textContent = teacher.title || '-';
+                tr.appendChild(tdTitle);
+
+                const tdPhone = document.createElement('td');
+                tdPhone.textContent = teacher.phone || '-';
+                tr.appendChild(tdPhone);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editTeacher(teacher.teacher_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteTeacher(teacher.teacher_id, teacher.name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -294,6 +334,14 @@
         });
         loadDepartments();
         loadTeachers();
+
+        initBatchImport({
+            entityType: 'teacher',
+            previewColumns: ['教师编号', '姓名', '性别', '职称', '联系电话'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '教师编号',
+            onImportSuccess: function() { loadTeachers(1); }
+        });
     </script>
 
 </body>

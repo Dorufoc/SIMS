@@ -1,0 +1,28 @@
+[run]
+source = .
+omit = */tests/*, */__pypackages__/*, */sql/*, */static/*, */templates/*, _test_conn.py, */migrations/*
+branch = True
+concurrency = multiprocessing
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise RuntimeError
+    raise NotImplementedError
+    if __name__ == '__main__':
+    def __repr__
+    def __str__
+    if FLASK_ENV == 'production':
+    if not DATABASE_URL:
+    if not SECRET_KEY:
+    _validate_and_rollback
+    _create_database_if_not_exists
+    _sync_all_metadata
+    _seed_default_admin
+    def _test_db_connection
+    def _rollback_env
+    def _validate_and_rollback
+    def is_db_available
+    def set_db_available
+    def get_env_dynamic
+    def set_env_dynamic

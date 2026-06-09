@@ -25,6 +25,7 @@ def api_teaching():
 
 
 @teaching_bp.route('/api/teachers/<teacher_id>/teaching', methods=['GET'])
+@teaching_bp.route('/api/teachers/<teacher_id>/teachings', methods=['GET'])
 def api_teacher_teaching(teacher_id):
     svc = TeachingService()
     try:

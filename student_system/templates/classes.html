@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增班级</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -139,23 +142,54 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(cls => {
+            tbody.innerHTML = '';
+            data.forEach(cls => {
                 const major = majors.find(m => m.major_id === cls.major_id);
-                return `
-                    <tr>
-                        <td>${cls.class_id}</td>
-                        <td>${cls.class_name}</td>
-                        <td>${major ? major.major_name : '-'}</td>
-                        <td>${cls.enrollment_year}</td>
-                        <td>${cls.student_count || 0}</td>
-                        <td>${cls.counselor || '-'}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning" onclick="editClass(${cls.class_id})">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteClass(${cls.class_id}, '${cls.class_name}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = cls.class_id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = cls.class_name;
+                tr.appendChild(tdName);
+
+                const tdMajor = document.createElement('td');
+                tdMajor.textContent = major ? major.major_name : '-';
+                tr.appendChild(tdMajor);
+
+                const tdYear = document.createElement('td');
+                tdYear.textContent = cls.enrollment_year;
+                tr.appendChild(tdYear);
+
+                const tdCount = document.createElement('td');
+                tdCount.textContent = cls.student_count || 0;
+                tr.appendChild(tdCount);
+
+                const tdCounselor = document.createElement('td');
+                tdCounselor.textContent = cls.counselor || '-';
+                tr.appendChild(tdCounselor);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editClass(cls.class_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteClass(cls.class_id, cls.class_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -267,6 +301,14 @@
         });
         loadMajors();
         loadClasses();
+
+        initBatchImport({
+            entityType: 'class',
+            previewColumns: ['班级名称', '所属专业编号', '入学年份', '辅导员'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '班级名称',
+            onImportSuccess: function() { loadClasses(1); }
+        });
     </script>
 
 </body>

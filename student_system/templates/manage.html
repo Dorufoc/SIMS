@@ -14,49 +14,12 @@
         {% include '_sidebar.html' %}
         <main class="main-wrapper" id="main-wrapper">
             <div class="content-area">
-        <!-- 导入导出操作区 -->
-        <section class="import-export-area">
-            <h2>导入导出操作</h2>
-            <div class="import-export-actions">
-                <a href="/csv/template" class="btn btn-secondary" download>下载导入模板</a>
+        <!-- 批量导入导出 -->
+        {% include '_batch_import.html' %}
 
-                <div class="import-section">
-                    <input type="file" id="csv_file_input" accept=".csv" class="file-input">
-                    <button type="button" id="btn_preview_import" class="btn btn-primary">批量导入</button>
-                </div>
-
-                <a href="/csv/export" class="btn btn-secondary" download>导出全部数据</a>
-                <a href="/csv/export_filtered" class="btn btn-secondary" download>导出筛选数据</a>
-
-                <button type="button" class="btn btn-primary" onclick="open_add_modal()" style="margin-left:auto">+ 手动添加</button>
-            </div>
-
-            <!-- CSV导入预览区 -->
-            <div id="csv_preview_area" class="csv-preview-area" style="display:none;">
-                <h3>导入预览</h3>
-                <div id="csv_preview_errors" class="msg-box msg-error" style="display:none;"></div>
-                <div class="table-wrapper">
-                    <table id="csv_preview_table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>学号</th>
-                                <th>姓名</th>
-                                <th>性别</th>
-                                <th>出生日期</th>
-                                <th>专业</th>
-                                <th>入学年份</th>
-                                <th>班级</th>
-                            </tr>
-                        </thead>
-                        <tbody id="csv_preview_tbody"></tbody>
-                    </table>
-                </div>
-                <div class="preview-actions">
-                    <button type="button" id="btn_confirm_import" class="btn btn-primary">确认导入</button>
-                    <button type="button" id="btn_cancel_import" class="btn btn-secondary">取消</button>
-                </div>
-            </div>
-        </section>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+            <button type="button" class="btn btn-primary" onclick="open_add_modal()">+ 手动添加</button>
+        </div>
 
         <!-- 筛选模块 -->
         <section class="data-section">
@@ -234,115 +197,13 @@
 
     <script src="/static/js/main.js"></script>
     <script>
-        /* ========== CSV导入预览相关 ========== */
-        var csv_file_input = document.getElementById('csv_file_input');
-        var btn_preview_import = document.getElementById('btn_preview_import');
-        var csv_preview_area = document.getElementById('csv_preview_area');
-        var csv_preview_tbody = document.getElementById('csv_preview_tbody');
-        var csv_preview_errors = document.getElementById('csv_preview_errors');
-        var btn_confirm_import = document.getElementById('btn_confirm_import');
-        var btn_cancel_import = document.getElementById('btn_cancel_import');
-
-        var pending_csv_data = null;
-
-        btn_preview_import.addEventListener('click', function() {
-            if (!csv_file_input.files || csv_file_input.files.length === 0) {
-                alert('请先选择CSV文件');
-                return;
-            }
-            var file = csv_file_input.files[0];
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                var text = e.target.result;
-                var parsed = parse_csv_content(text);
-                var validated = validate_csv_data(parsed.rows);
-                render_csv_preview(validated);
-                pending_csv_data = validated.valid_data;
-                hide_loading();
-            };
-            reader.onerror = function() {
-                alert('文件读取失败');
-                hide_loading();
-            };
-            show_loading();
-            reader.readAsText(file);
-        });
-
-        function render_csv_preview(res) {
-            csv_preview_tbody.innerHTML = '';
-
-            if (res.errors && res.errors.length > 0) {
-                csv_preview_errors.textContent = res.errors.join('；');
-                csv_preview_errors.style.display = 'block';
-            } else {
-                csv_preview_errors.style.display = 'none';
-            }
-
-            if (res.valid_data && res.valid_data.length > 0) {
-                res.valid_data.forEach(function(row) {
-                    var tr = document.createElement('tr');
-                    row.forEach(function(cell) {
-                        var td = document.createElement('td');
-                        td.textContent = (cell !== null && cell !== undefined) ? cell : '';
-                        tr.appendChild(td);
-                    });
-                    csv_preview_tbody.appendChild(tr);
-                });
-                btn_confirm_import.style.display = '';
-            } else {
-                var tr = document.createElement('tr');
-                var td = document.createElement('td');
-                td.colSpan = 7;
-                td.textContent = '无有效数据';
-                td.className = 'empty-row';
-                tr.appendChild(td);
-                csv_preview_tbody.appendChild(tr);
-                btn_confirm_import.style.display = 'none';
-            }
-
-            csv_preview_area.style.display = 'block';
-        }
-
-        btn_confirm_import.addEventListener('click', function() {
-            if (!pending_csv_data || pending_csv_data.length === 0) {
-                alert('没有有效数据可导入');
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/csv/import', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    hide_loading();
-                    if (xhr.status === 200) {
-                        try {
-                            var res = JSON.parse(xhr.responseText);
-                            if (res.code === 0) {
-                                alert('导入成功，共导入 ' + (res.count || 0) + ' 条数据');
-                                window.location.reload();
-                            } else {
-                                alert('导入失败：' + (res.msg || '未知错误'));
-                            }
-                        } catch (err) {
-                            alert('导入响应解析失败');
-                        }
-                    } else {
-                        alert('导入请求失败，状态码：' + xhr.status);
-                    }
-                }
-            };
-            xhr.send(JSON.stringify({data: pending_csv_data}));
-            show_loading();
-        });
-
-        btn_cancel_import.addEventListener('click', function() {
-            csv_preview_area.style.display = 'none';
-            csv_preview_tbody.innerHTML = '';
-            csv_preview_errors.style.display = 'none';
-            pending_csv_data = null;
-            csv_file_input.value = '';
+        /* ========== 批量导入初始化 ========== */
+        initBatchImport({
+            entityType: 'student',
+            previewColumns: ['学号', '姓名', '性别', '出生日期', '入学年份', '班级编号'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学号',
+            onImportSuccess: function() { loadStudents(1); }
         });
 
         /* ========== 删除操作 ========== */
@@ -663,7 +524,14 @@
             var tbody = document.getElementById('student-table-body');
             if (!tbody) return;
             if (!students || students.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="empty-row">暂无数据</td></tr>';
+                tbody.innerHTML = '';
+                var emptyTr = document.createElement('tr');
+                var emptyTd = document.createElement('td');
+                emptyTd.colSpan = 10;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
                 return;
             }
             tbody.innerHTML = '';
@@ -736,25 +604,50 @@
                 container.innerHTML = '';
                 return;
             }
-            var html = '';
+            container.innerHTML = '';
             if (page > 1) {
-                html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + (page - 1) + ')">上一页</a>';
+                var prevLink = document.createElement('a');
+                prevLink.href = 'javascript:void(0)';
+                prevLink.className = 'page-link';
+                prevLink.textContent = '上一页';
+                prevLink.addEventListener('click', function() { loadStudents(page - 1); });
+                container.appendChild(prevLink);
             } else {
-                html += '<span class="page-link page-link-disabled">上一页</span>';
+                var prevSpan = document.createElement('span');
+                prevSpan.className = 'page-link page-link-disabled';
+                prevSpan.textContent = '上一页';
+                container.appendChild(prevSpan);
             }
             for (var i = 1; i <= totalPages; i++) {
                 if (i === page) {
-                    html += '<span class="page-link page-link-active">' + i + '</span>';
+                    var activeSpan = document.createElement('span');
+                    activeSpan.className = 'page-link page-link-active';
+                    activeSpan.textContent = String(i);
+                    container.appendChild(activeSpan);
                 } else {
-                    html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + i + ')">' + i + '</a>';
+                    var pageLink = document.createElement('a');
+                    pageLink.href = 'javascript:void(0)';
+                    pageLink.className = 'page-link';
+                    pageLink.textContent = String(i);
+                    (function(pageNum) {
+                        pageLink.addEventListener('click', function() { loadStudents(pageNum); });
+                    })(i);
+                    container.appendChild(pageLink);
                 }
             }
             if (page < totalPages) {
-                html += '<a href="javascript:void(0)" class="page-link" onclick="loadStudents(' + (page + 1) + ')">下一页</a>';
+                var nextLink = document.createElement('a');
+                nextLink.href = 'javascript:void(0)';
+                nextLink.className = 'page-link';
+                nextLink.textContent = '下一页';
+                nextLink.addEventListener('click', function() { loadStudents(page + 1); });
+                container.appendChild(nextLink);
             } else {
-                html += '<span class="page-link page-link-disabled">下一页</span>';
+                var nextSpan = document.createElement('span');
+                nextSpan.className = 'page-link page-link-disabled';
+                nextSpan.textContent = '下一页';
+                container.appendChild(nextSpan);
             }
-            container.innerHTML = html;
         }
 
         /* ========== 筛选模块初始化（使用main.js中的统一函数） ========== */

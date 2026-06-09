@@ -9,7 +9,9 @@ student_bp = Blueprint('student', __name__)
 
 @student_bp.route('/')
 def index():
-    return render_template('index.html')
+    from config import get_env_dynamic
+    show_mock_data = get_env_dynamic('SHOW_MOCK_DATA_BUTTON', 'false').lower() == 'true'
+    return render_template('index.html', show_mock_data=show_mock_data)
 
 
 @student_bp.route('/my')
@@ -53,6 +55,52 @@ def add_student():
         svc.close()
 
 
+@student_bp.route('/api/students/<student_id>', methods=['GET'])
+@require_login
+def api_student_detail(student_id):
+    """获取单个学生基本信息"""
+    svc = StudentService()
+    try:
+        student = svc.get_full_info(student_id)
+        if not student:
+            return jsonify({'code': 1, 'msg': '学生不存在'})
+        return jsonify({'code': 0, 'data': {
+            'student_id': student.student_id,
+            'name': student.name,
+            'gender': student.gender,
+            'birth_date': str(student.birth_date) if student.birth_date else None,
+            'phone': student.phone,
+            'email': student.email,
+            'address': student.address,
+            'status': student.status,
+            'class_id': student.class_id,
+            'class_name': student.class_.class_name if student.class_ else None,
+            'major_name': student.class_.major.major_name if student.class_ and student.class_.major else None,
+            'dept_name': student.class_.major.department.dept_name if student.class_ and student.class_.major and student.class_.major.department else None,
+        }})
+    finally:
+        svc.close()
+
+
+@student_bp.route('/api/my/dorm', methods=['GET'])
+@require_login
+def get_my_dorm():
+    """获取当前学生的宿舍分配信息"""
+    if session.get('user_role') != 'student':
+        return jsonify({'code': 1, 'msg': '仅学生可操作'}), 403
+
+    student_id = session.get('user_ref_id')
+    if not student_id:
+        return jsonify({'code': 1, 'msg': '未关联学生信息'}), 400
+
+    svc = StudentService()
+    try:
+        data = svc.get_my_dorm(student_id)
+        return jsonify({'code': 0, 'data': data})
+    finally:
+        svc.close()
+
+
 @student_bp.route('/manage')
 def manage():
     page = request.args.get('page', 1, type=int)
@@ -60,6 +108,7 @@ def manage():
 
 
 @student_bp.route('/edit/<student_id>', methods=['GET', 'POST'])
+@require_login
 @csrf_protect
 def edit_student(student_id):
     if request.method == 'GET':
@@ -110,6 +159,7 @@ def edit_student(student_id):
 
 @student_bp.route('/delete/<student_id>', methods=['POST'])
 @require_login
+@csrf_protect
 def delete_student(student_id):
     svc = StudentService()
     try:
@@ -120,6 +170,7 @@ def delete_student(student_id):
 
 
 @student_bp.route('/api/students', methods=['GET'])
+@require_login
 def api_students_list():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
@@ -152,6 +203,7 @@ def api_students_list():
 
 
 @student_bp.route('/api/my/profile/student', methods=['POST'])
+@require_login
 @csrf_protect
 def update_my_student_profile():
     if session.get('user_role') != 'student':

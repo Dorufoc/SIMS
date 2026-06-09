@@ -47,7 +47,7 @@ class EnrollmentService:
             Enrollment.teaching_id == teaching_id,
             Enrollment.status != '退课'
         ).count()
-        if teaching.capacity and enrolled_count >= teaching.capacity:
+        if teaching.capacity is not None and enrolled_count >= teaching.capacity:
             return False, '课程容量已满'
 
         # 检查时间冲突

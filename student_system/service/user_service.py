@@ -3,7 +3,7 @@ from repository.user_repo import UserRepo
 from repository.user_permission_repo import UserPermissionRepo
 from repository.base import escape_like
 from utils.password_utils import encrypt_password
-from utils.permission_utils import generate_uuid
+from utils.permission_utils import generate_uuid, init_user_permissions
 
 
 class UserService:
@@ -24,9 +24,10 @@ class UserService:
         )
 
         if keyword:
+            escaped = escape_like(keyword)
             q = q.filter(
-                (User.username.like(f'%{keyword}%')) |
-                (User.ref_id.like(f'%{keyword}%'))
+                (User.username.like(f'%{escaped}%', escape='\\')) |
+                (User.ref_id.like(f'%{escaped}%', escape='\\'))
             )
 
         q = q.order_by(User.created_at.desc())
@@ -54,7 +55,7 @@ class UserService:
             self.user_repo.create(user)
 
             # 初始化权限
-            self._init_permissions(user_uuid, role)
+            init_user_permissions(self.perm_repo, user_uuid, role)
             return True, '创建成功'
         except Exception:
             self.user_repo.db.rollback()
@@ -79,6 +80,10 @@ class UserService:
         return True, '更新成功'
 
     def delete(self, user_id: int):
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            return False
+        self.perm_repo.delete_by_user_uuid(user.uuid)
         return self.user_repo.delete_by_id(user_id)
 
     def get_permissions(self, user_id: int):
@@ -123,21 +128,3 @@ class UserService:
         ]
         return tables
 
-    def _init_permissions(self, user_uuid, role):
-        all_tables = [
-            'departments', 'majors', 'classes', 'students', 'teachers', 'courses',
-            'semesters', 'teaching', 'enrollments', 'grade_scale', 'rewards_punishments',
-            'payments', 'dorm_rooms', 'dorm_assignments', 'curriculum', 'enroll_logs'
-        ]
-
-        if role == 'student':
-            perm_map = {'students': '600', 'enrollments': '400', 'courses': '400',
-                        'curriculum': '400', 'rewards_punishments': '400'}
-        elif role == 'teacher':
-            perm_map = {'teachers': '600', 'teaching': '400', 'courses': '400'}
-        else:
-            perm_map = {}
-
-        for table in all_tables:
-            code = perm_map.get(table, '000')
-            self.perm_repo.upsert(user_uuid, table, code)

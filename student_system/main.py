@@ -21,6 +21,10 @@ def create_app():
     if FLASK_ENV == 'production':
         app.config['SESSION_COOKIE_SECURE'] = True
 
+    # 注入离线模式标志到模板全局变量
+    from config import is_db_available
+    app.jinja_env.globals['offline_mode'] = not is_db_available()
+
     # 注册全局登录拦截器
     register_global_interceptor(app)
 

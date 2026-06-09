@@ -20,6 +20,9 @@
                         <button class="btn btn-primary" onclick="openModal()">新增专业</button>
                     </div>
 
+                    <!-- 批量导入导出 -->
+                    {% include '_batch_import.html' %}
+
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
                             <h3>筛选条件</h3>
@@ -146,22 +149,50 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(major => {
+            tbody.innerHTML = '';
+            data.forEach(major => {
                 const dept = departments.find(d => d.dept_id === major.dept_id);
-                return `
-                    <tr>
-                        <td>${major.major_id}</td>
-                        <td>${major.major_name}</td>
-                        <td>${dept ? dept.dept_name : '-'}</td>
-                        <td>${major.duration}</td>
-                        <td>${major.degree_type || '-'}</td>
-                        <td class="actions">
-                            <button class="btn btn-warning" onclick="editMajor(${major.major_id})">编辑</button>
-                            <button class="btn btn-danger" onclick="deleteMajor(${major.major_id}, '${major.major_name}')">删除</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+
+                const tr = document.createElement('tr');
+
+                const tdId = document.createElement('td');
+                tdId.textContent = major.major_id;
+                tr.appendChild(tdId);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = major.major_name;
+                tr.appendChild(tdName);
+
+                const tdDept = document.createElement('td');
+                tdDept.textContent = dept ? dept.dept_name : '-';
+                tr.appendChild(tdDept);
+
+                const tdDuration = document.createElement('td');
+                tdDuration.textContent = major.duration;
+                tr.appendChild(tdDuration);
+
+                const tdDegree = document.createElement('td');
+                tdDegree.textContent = major.degree_type || '-';
+                tr.appendChild(tdDegree);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-warning';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editMajor(major.major_id); };
+                tdActions.appendChild(btnEdit);
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteMajor(major.major_id, major.major_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -272,6 +303,14 @@
         });
         loadDepartments();
         loadMajors();
+
+        initBatchImport({
+            entityType: 'major',
+            previewColumns: ['专业名称', '所属院系编号', '学制(年)'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '专业名称',
+            onImportSuccess: function() { loadMajors(1); }
+        });
     </script>
 
 </body>

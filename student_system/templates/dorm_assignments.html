@@ -23,6 +23,9 @@
             </div>
         </div>
 
+        <!-- 批量导入导出 -->
+        {% include '_batch_import.html' %}
+
         <div id="filterModule" class="filter-builder">
             <div class="filter-builder-header">
                 <h3>筛选条件</h3>
@@ -148,27 +151,68 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(assign => {
-                const statusClass = assign.status === '在住' ? 'status-active' : 'status-inactive';
-                const actionButtons = assign.status === '在住' 
-                    ? `<button class="btn btn-warning" onclick="openCheckoutModal(${assign.assign_id})">退宿</button>`
-                    : '<span>已退</span>';
-                return `
-                    <tr>
-                        <td>${assign.student_id}</td>
-                        <td>${assign.student_name}</td>
-                        <td>${assign.gender === 'M' ? '男' : assign.gender === 'F' ? '女' : assign.gender || '-'}</td>
-                        <td>${assign.building}</td>
-                        <td>${assign.room_number}</td>
-                        <td>${assign.bed_number || '-'}</td>
-                        <td>${assign.check_in_date || '-'}</td>
-                        <td><span class="${statusClass}">${assign.status}</span></td>
-                        <td class="actions">
-                            ${actionButtons}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            tbody.innerHTML = '';
+            data.forEach(assign => {
+                const tr = document.createElement('tr');
+
+                const tdStudent = document.createElement('td');
+                tdStudent.textContent = assign.student_id;
+                tr.appendChild(tdStudent);
+
+                const tdName = document.createElement('td');
+                tdName.textContent = assign.student_name;
+                tr.appendChild(tdName);
+
+                const tdGender = document.createElement('td');
+                if (assign.gender === 'M') {
+                    tdGender.textContent = '男';
+                } else if (assign.gender === 'F') {
+                    tdGender.textContent = '女';
+                } else {
+                    tdGender.textContent = assign.gender || '-';
+                }
+                tr.appendChild(tdGender);
+
+                const tdBuilding = document.createElement('td');
+                tdBuilding.textContent = assign.building;
+                tr.appendChild(tdBuilding);
+
+                const tdRoom = document.createElement('td');
+                tdRoom.textContent = assign.room_number;
+                tr.appendChild(tdRoom);
+
+                const tdBed = document.createElement('td');
+                tdBed.textContent = assign.bed_number || '-';
+                tr.appendChild(tdBed);
+
+                const tdDate = document.createElement('td');
+                tdDate.textContent = assign.check_in_date || '-';
+                tr.appendChild(tdDate);
+
+                const tdStatus = document.createElement('td');
+                const statusSpan = document.createElement('span');
+                statusSpan.className = assign.status === '在住' ? 'status-active' : 'status-inactive';
+                statusSpan.textContent = assign.status;
+                tdStatus.appendChild(statusSpan);
+                tr.appendChild(tdStatus);
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+                if (assign.status === '在住') {
+                    const btnCheckout = document.createElement('button');
+                    btnCheckout.className = 'btn btn-warning';
+                    btnCheckout.textContent = '退宿';
+                    btnCheckout.onclick = function() { openCheckoutModal(assign.assign_id); };
+                    tdActions.appendChild(btnCheckout);
+                } else {
+                    const spanDone = document.createElement('span');
+                    spanDone.textContent = '已退';
+                    tdActions.appendChild(spanDone);
+                }
+                tr.appendChild(tdActions);
+
+                tbody.appendChild(tr);
+            });
         }
 
         // 渲染分页
@@ -300,6 +344,14 @@
             onReset: function(filters) { loadAssignments(1); }
         });
         loadAssignments();
+
+        initBatchImport({
+            entityType: 'dorm_assignment',
+            previewColumns: ['学号', '房间编号', '床位号', '入住日期', '状态'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学号',
+            onImportSuccess: function() { loadAssignments(1); }
+        });
     </script>
 </body>
 </html>
