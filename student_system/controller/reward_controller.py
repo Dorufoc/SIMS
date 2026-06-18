@@ -109,6 +109,9 @@ def api_update_reward(rp_id):
 def api_delete_reward(rp_id):
     svc = RewardService()
     try:
+        existing = svc.repo.get_by_id(rp_id)
+        if not existing:
+            return jsonify({'code': 1, 'msg': '奖惩记录不存在'}), 404
         svc.delete(rp_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
     finally:
@@ -167,10 +170,10 @@ def api_batch_score():
     scores_data = data.get('scores', [])
     svc = GradeService()
     try:
-        success, msg = svc.batch_score(scores_data)
+        success, msg, errors = svc.batch_score(scores_data)
         if success:
-            return jsonify({'code': 0, 'msg': msg})
-        return jsonify({'code': 1, 'msg': msg})
+            return jsonify({'code': 0, 'msg': msg, 'errors': errors})
+        return jsonify({'code': 1, 'msg': msg, 'errors': errors})
     finally:
         svc.close()
 

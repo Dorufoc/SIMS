@@ -62,3 +62,33 @@ class TestSemesterService:
 
     def test_close(self, svc):
         svc.close()
+
+    def test_get_by_id(self, svc):
+        created = svc.create({"academic_year": "2024-2025", "semester_name": "第一学期", "start_date": "2024-09-01", "end_date": "2025-01-15"})
+        found = svc.get_by_id(created.semester_id)
+        assert found is not None
+        assert found.semester_id == created.semester_id
+
+    def test_get_by_id_not_found(self, svc):
+        assert svc.get_by_id(9999) is None
+
+    def test_set_current(self, svc):
+        s1 = svc.create({"academic_year": "2024-2025", "semester_name": "第一学期", "start_date": "2024-09-01", "end_date": "2025-01-15"})
+        s2 = svc.create({"academic_year": "2025-2026", "semester_name": "第二学期", "start_date": "2025-09-01", "end_date": "2026-01-15"})
+        assert svc.set_current(s2.semester_id) is True
+        assert svc.get_by_id(s1.semester_id).is_current is False
+        assert svc.get_by_id(s2.semester_id).is_current is True
+
+    def test_set_current_not_found(self, svc):
+        # 先创建一条记录，避免 get_all 为空时产生意外
+        svc.create({"academic_year": "2024-2025", "semester_name": "第一学期", "start_date": "2024-09-01", "end_date": "2025-01-15"})
+        assert svc.set_current(9999) is False
+
+    def test_get_current(self, svc):
+        s = svc.create({"academic_year": "2024-2025", "semester_name": "第一学期", "start_date": "2024-09-01", "end_date": "2025-01-15", "is_current": True})
+        current = svc.get_current()
+        assert current is not None
+        assert current.semester_id == s.semester_id
+
+    def test_get_current_none(self, svc):
+        assert svc.get_current() is None

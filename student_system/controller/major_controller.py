@@ -111,8 +111,7 @@ def api_create_major():
     svc = MajorService()
     try:
         svc.create({'major_name': data.get('major_name', ''), 'dept_id': data.get('dept_id'),
-                    'duration': data.get('duration', 4), 'degree_type': data.get('degree_type', '学士'),
-                    'description': data.get('description', '')})
+                    'duration': data.get('duration', 4), 'degree_type': data.get('degree_type', '学士')})
         return jsonify({'code': 0, 'msg': '创建成功'})
     except (ValueError, KeyError) as e:
         return jsonify({'code': 1, 'msg': f'参数错误: {str(e)}'})
@@ -131,7 +130,7 @@ def api_update_major(major_id):
     svc = MajorService()
     try:
         # 仅传递请求中存在的字段，避免空字符串覆盖已有数据
-        update_data = {k: v for k, v in data.items() if k in ('major_name', 'dept_id', 'duration', 'degree_type', 'description') and v is not None and v != ''}
+        update_data = {k: v for k, v in data.items() if k in ('major_name', 'dept_id', 'duration', 'degree_type') and v is not None and v != ''}
         result = svc.update(major_id, update_data)
         if result:
             return jsonify({'code': 0, 'msg': '更新成功'})
@@ -146,7 +145,8 @@ def api_update_major(major_id):
 def api_delete_major(major_id):
     svc = MajorService()
     try:
-        svc.delete(major_id)
-        return jsonify({'code': 0, 'msg': '删除成功'})
+        if svc.delete(major_id):
+            return jsonify({'code': 0, 'msg': '删除成功'})
+        return jsonify({'code': 1, 'msg': '专业不存在或存在关联班级，无法删除'})
     finally:
         svc.close()

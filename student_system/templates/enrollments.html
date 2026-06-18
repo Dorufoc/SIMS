@@ -94,7 +94,7 @@
 
         // 加载选课列表
         function loadEnrollments(page = 1) {
-            let url = `/api/grades?page=${page}&page_size=10`;
+            let url = `/api/enrollments?page=${page}&page_size=10`;
             if (currentSort.sort_by) {
                 url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
             }

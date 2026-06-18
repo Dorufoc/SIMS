@@ -13,12 +13,11 @@ from entity.student import Student
 
 class TestStudentRepo:
     @pytest.fixture
-    def repo(self):
+    def repo(self, reset_tables):
         Base.metadata.create_all(bind=engine)
         r = StudentRepo()
         yield r
         r.close()
-        Base.metadata.drop_all(bind=engine)
 
     def test_find_by_student_id(self, repo):
         s = Student(student_id="R001", name="repotest", enrollment_year=2024)

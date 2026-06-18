@@ -43,6 +43,13 @@ class UserService:
         if role not in ['admin', 'teacher', 'student']:
             role = 'student'
 
+        # 检查用户名唯一性
+        username = data.get('username')
+        if username:
+            existing = self.user_repo.find_by_username(username)
+            if existing:
+                return False, f'用户名 {username} 已存在'
+
         try:
             user_uuid = generate_uuid()
             user = User(
@@ -59,7 +66,7 @@ class UserService:
             return True, '创建成功'
         except Exception:
             self.user_repo.db.rollback()
-            return False, '创建失败（用户名可能已存在）'
+            return False, '创建失败'
 
     def update(self, user_id: int, data: dict):
         """更新用户"""
@@ -68,12 +75,21 @@ class UserService:
             return False, '用户不存在'
 
         if 'username' in data and data['username']:
+            # 检查用户名唯一性
+            existing = self.user_repo.find_by_username(data['username'])
+            if existing and existing.user_id != user_id:
+                return False, f'用户名 {data["username"]} 已存在'
             user.username = data['username']
         if 'role' in data and data['role'] in ['admin', 'teacher', 'student']:
             user.role = data['role']
         if 'ref_id' in data:
             user.ref_id = data['ref_id']
         if 'password' in data and data['password']:
+            # 管理员修改密码也需要强度校验
+            from service.auth_service import AuthService
+            is_strong, msg = AuthService._validate_password_strength(data['password'])
+            if not is_strong:
+                return False, msg
             user.password_hash = encrypt_password(data['password'])
 
         self.user_repo.db.commit()

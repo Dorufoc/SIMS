@@ -120,9 +120,14 @@ class DormService:
             assignment.status = '已退'
             assignment.check_out_date = date.today()
 
+            # 根据实际在住记录动态计算 occupied，确保数据一致性
             room = self.room_repo.get_by_id(assignment.room_id)
-            if room and room.occupied > 0:
-                room.occupied -= 1
+            if room:
+                active_count = self._session.query(DormAssignment).filter(
+                    DormAssignment.room_id == room.room_id,
+                    DormAssignment.status == '在住'
+                ).count()
+                room.occupied = max(0, active_count - 1)
 
             self.assignment_repo.db.commit()
             return True, '退宿成功'

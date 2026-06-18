@@ -125,6 +125,9 @@ def api_update_dorm_room(room_id):
 def api_delete_dorm_room(room_id):
     svc = DormService()
     try:
+        existing = svc.room_repo.get_by_id(room_id)
+        if not existing:
+            return jsonify({'code': 1, 'msg': '宿舍房间不存在'}), 404
         svc.delete_room(room_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
     finally:

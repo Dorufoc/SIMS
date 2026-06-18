@@ -170,3 +170,24 @@ class TestStudentService:
         result = svc.get_gpa("NONEXIST")
         assert result["gpa"] == 0
         assert result["total_credits"] == 0
+
+    def test_get_my_dorm(self, svc, reset_tables):
+        _setup_student_fk()
+        from entity.base import SessionLocal
+        from entity.dorm_room import DormRoom
+        from entity.dorm_assignment import DormAssignment
+        from datetime import date
+        db = SessionLocal()
+        room = DormRoom(building="梅苑", room_number="0101", capacity=4, gender_limit="M")
+        db.add(room); db.flush()
+        assign = DormAssignment(student_id="STU001", room_id=room.room_id, bed_number="A",
+                                check_in_date=date(2024, 9, 1), status="在住")
+        db.add(assign); db.commit(); db.close()
+        result = svc.get_my_dorm("STU001")
+        assert len(result) == 1
+        assert result[0]["building"] == "梅苑"
+        assert result[0]["bed_number"] == "A"
+
+    def test_get_my_dorm_empty(self, svc, reset_tables):
+        result = svc.get_my_dorm("NOSTU")
+        assert result == []

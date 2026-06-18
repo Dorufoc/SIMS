@@ -19,6 +19,7 @@ from controller.mock_data_controller import mock_data_bp
 from controller.settings_controller import settings_bp
 from controller.classroom_controller import classroom_bp
 from controller.query_controller import query_bp
+from controller.curriculum_controller import curriculum_bp
 
 
 def register_all(app):
@@ -43,3 +44,4 @@ def register_all(app):
     app.register_blueprint(mock_data_bp)
     app.register_blueprint(classroom_bp)
     app.register_blueprint(query_bp)
+    app.register_blueprint(curriculum_bp)

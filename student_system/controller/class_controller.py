@@ -96,22 +96,30 @@ def api_classes():
                         op = f.get('op', 'eq')
                         value = f.get('value', '')
                         col = func.coalesce(student_subq.c.cnt, 0)
+                        try:
+                            int_value = int(value)
+                        except (ValueError, TypeError):
+                            continue
                         if op == 'eq':
-                            q = q.filter(col == value)
+                            q = q.filter(col == int_value)
                         elif op == 'neq':
-                            q = q.filter(col != value)
+                            q = q.filter(col != int_value)
                         elif op == 'gt':
-                            q = q.filter(col > value)
+                            q = q.filter(col > int_value)
                         elif op == 'gte':
-                            q = q.filter(col >= value)
+                            q = q.filter(col >= int_value)
                         elif op == 'lt':
-                            q = q.filter(col < value)
+                            q = q.filter(col < int_value)
                         elif op == 'lte':
-                            q = q.filter(col <= value)
+                            q = q.filter(col <= int_value)
                         elif op == 'between':
                             parts = [v.strip() for v in str(value).split(',', 1)]
                             if len(parts) == 2 and parts[0] and parts[1]:
-                                q = q.filter(col.between(parts[0], parts[1]))
+                                try:
+                                    v1, v2 = int(parts[0]), int(parts[1])
+                                    q = q.filter(col.between(v1, v2))
+                                except (ValueError, TypeError):
+                                    pass
 
                 # 处理剩余的标准字段筛选
                 FIELD_MAP = getattr(svc.repo, 'field_map', {})
@@ -299,6 +307,9 @@ def api_update_class(class_id):
 def api_delete_class(class_id):
     svc = ClassService()
     try:
+        existing = svc.repo.get_by_id(class_id)
+        if not existing:
+            return jsonify({'code': 1, 'msg': '班级不存在'}), 404
         svc.delete(class_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
     finally:

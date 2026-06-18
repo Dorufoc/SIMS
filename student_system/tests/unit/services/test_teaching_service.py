@@ -68,3 +68,12 @@ class TestTeachingService:
 
     def test_close(self, svc):
         svc.close()
+
+    def test_get_by_teacher(self, svc):
+        svc.create({"course_id": "CS101", "teacher_id": "T001", "semester_id": 1, "classroom": "A101"})
+        result = svc.get_by_teacher("T001")
+        assert len(result) == 1
+        assert result[0].teacher_id == "T001"
+
+    def test_get_by_teacher_empty(self, svc):
+        assert svc.get_by_teacher("T999") == []

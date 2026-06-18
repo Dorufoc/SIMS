@@ -242,7 +242,7 @@ def _sync_all_metadata(force: bool = False):
 
 
 def _seed_default_admin():
-    """插入或更新默认管理员账号，密码固定为 admin。"""
+    """插入默认管理员账号，仅在首次创建时设置默认密码。"""
     from utils.password_utils import encrypt_password
 
     with SessionLocal() as db:
@@ -252,9 +252,8 @@ def _seed_default_admin():
 
         existing = db.query(User).filter(User.username == 'admin').first()
         if existing:
-            existing.password_hash = encrypt_password(DEFAULT_PASSWORD)
-            db.commit()
-            print('[DB] 默认管理员密码已设置为 admin')
+            # 已存在则不重置密码
+            print('[DB] 默认管理员已存在，跳过密码重置')
             return
 
         admin = User(

@@ -134,8 +134,8 @@ def api_set_username():
     if 'user_id' not in session:
         return jsonify({'code': 1, 'msg': '未登录'})
 
-    data = request.get_json()
-    new_username = data.get('username', '').strip()
+    data = request.get_json(silent=True) or {}
+    new_username = (data.get('username') or '').strip()
 
     svc = AuthService()
     try:
@@ -161,9 +161,9 @@ def api_change_password():
     if 'user_id' not in session:
         return jsonify({'code': 1, 'msg': '未登录'})
 
-    data = request.get_json()
-    old_password = data.get('old_password', '')
-    new_password = data.get('new_password', '')
+    data = request.get_json(silent=True) or {}
+    old_password = data.get('old_password') or ''
+    new_password = data.get('new_password') or ''
 
     svc = AuthService()
     try:

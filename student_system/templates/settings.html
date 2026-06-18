@@ -327,16 +327,17 @@
     <script>
     var csrfToken = '';
 
-    // 初始化：获取 CSRF Token 并加载当前配置
+    // 初始化：先获取 CSRF Token，再加载配置
     document.addEventListener('DOMContentLoaded', function() {
-        loadCurrentConfig();
         {% if not offline_mode %}
         loadMockDataToggle();
         {% endif %}
-        fetchCsrfToken();
+        fetchCsrfToken(function() {
+            loadCurrentConfig();
+        });
     });
 
-    function fetchCsrfToken() {
+    function fetchCsrfToken(callback) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', '/api/csrf-token', true);
         xhr.onload = function() {
@@ -344,6 +345,10 @@
                 var resp = JSON.parse(xhr.responseText);
                 csrfToken = resp.csrf_token || resp.token || '';
             }
+            if (callback) callback();
+        };
+        xhr.onerror = function() {
+            if (callback) callback();
         };
         xhr.send();
     }

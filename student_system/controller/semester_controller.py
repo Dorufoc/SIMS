@@ -64,7 +64,10 @@ def api_semesters():
                 if op == 'eq':
                     # is_current 是布尔类型，需要特殊处理
                     if column.type.python_type == bool:
-                        q = q.filter(column == (value == 'True' or value is True))
+                        val = value
+                        if isinstance(val, str):
+                            val = val.lower() in ('true', '1', 'yes')
+                        q = q.filter(column == bool(val))
                     else:
                         q = q.filter(column == value)
                 elif op == 'neq':
@@ -160,6 +163,9 @@ def api_update_semester(semester_id):
 def api_delete_semester(semester_id):
     svc = SemesterService()
     try:
+        existing = svc.get_by_id(semester_id)
+        if not existing:
+            return jsonify({'code': 1, 'msg': '学期不存在'}), 404
         svc.delete(semester_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
     finally:

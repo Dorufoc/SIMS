@@ -15,4 +15,5 @@ class Class(Base):  # 文件名 class_.py，类名 Class
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     major = relationship('Major', back_populates='classes')
+    teacher = relationship('Teacher', foreign_keys='Class.advisor', primaryjoin='Class.advisor == Teacher.teacher_id')
     students = relationship('Student', back_populates='class_', lazy='dynamic')

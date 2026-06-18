@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, render_template, session
 from service.teacher_service import TeacherService
 from middleware.auth_middleware import require_login, require_admin, csrf_protect
+from repository.base import escape_like
 import logging
 
 teacher_bp = Blueprint('teacher', __name__)
@@ -148,6 +149,8 @@ def api_delete_teacher(teacher_id):
     try:
         svc.delete(teacher_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
+    except ValueError as e:
+        return jsonify({'code': 1, 'msg': str(e)})
     finally:
         svc.close()
 

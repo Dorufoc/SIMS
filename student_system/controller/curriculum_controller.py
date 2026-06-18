@@ -96,6 +96,9 @@ def api_update_curriculum(plan_id):
 def api_delete_curriculum(plan_id):
     svc = CurriculumService()
     try:
+        existing = svc.repo.get_by_id(plan_id)
+        if not existing:
+            return jsonify({'code': 1, 'msg': '记录不存在'}), 404
         svc.delete(plan_id)
         return jsonify({'code': 0, 'msg': '删除成功'})
     finally:

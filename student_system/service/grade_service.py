@@ -41,6 +41,9 @@ class GradeService:
         except (ValueError, TypeError):
             return False, '成绩格式不正确'
 
+        if score < 0 or score > 100:
+            return False, '成绩必须在0-100之间'
+
         enrollment.score = score
         enrollment.grade_point = self._calc_grade_point(score)
         self.repo.db.commit()
@@ -49,19 +52,34 @@ class GradeService:
     def batch_score(self, scores_data: list):
         """批量录入成绩
         scores_data: [{'enroll_id': 1, 'score': 85}, ...]
+        返回 (success_count, fail_count, errors)
         """
-        for item in scores_data:
-            enrollment = self.repo.get_by_id(item['enroll_id'])
-            if enrollment:
-                score = item.get('score')
-                try:
-                    score = float(score)
-                except (ValueError, TypeError):
-                    continue
-                enrollment.score = score
-                enrollment.grade_point = self._calc_grade_point(score)
+        success_count = 0
+        fail_count = 0
+        errors = []
+        for idx, item in enumerate(scores_data):
+            enroll_id = item.get('enroll_id')
+            enrollment = self.repo.get_by_id(enroll_id)
+            if not enrollment:
+                fail_count += 1
+                errors.append(f'第{idx+1}条：选课记录(enroll_id={enroll_id})不存在')
+                continue
+            score = item.get('score')
+            try:
+                score = float(score)
+            except (ValueError, TypeError):
+                fail_count += 1
+                errors.append(f'第{idx+1}条：成绩格式不正确')
+                continue
+            if score < 0 or score > 100:
+                fail_count += 1
+                errors.append(f'第{idx+1}条：成绩必须在0-100之间')
+                continue
+            enrollment.score = score
+            enrollment.grade_point = self._calc_grade_point(score)
+            success_count += 1
         self.repo.db.commit()
-        return True, f'批量录入完成，共{len(scores_data)}条'
+        return True, f'批量录入完成：成功{success_count}条，失败{fail_count}条', errors
 
     def get_teaching_students(self, teaching_id: int):
         """获取授课班级的学生成绩列表"""

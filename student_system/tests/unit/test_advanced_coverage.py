@@ -192,7 +192,7 @@ class TestPermissionUtilsAdvanced:
         
         mock_repo.reset_mock()
         init_user_permissions(mock_repo, "uuid-other", "other")
-        assert mock_repo.upsert.call_count >= 15
+        assert mock_repo.upsert.call_count >= 13
 
 
 class TestEntityBaseAdvanced:

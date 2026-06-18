@@ -56,6 +56,25 @@ def _setup_stat_fk():
     db.commit()
     db.close()
 
+
+def _setup_age_student():
+    """创建一条带出生日期的学生记录，用于年龄相关统计"""
+    from entity.base import SessionLocal
+    from datetime import date
+    db = SessionLocal()
+    dept = Department(dept_name="年龄学院")
+    db.add(dept); db.flush()
+    major = Major(major_name="年龄专业", dept_id=dept.dept_id, duration=4)
+    db.add(major); db.flush()
+    cls = Class(class_name="年龄班", major_id=major.major_id, enrollment_year=2024)
+    db.add(cls); db.flush()
+    stu = Student(student_id="SAGE001", name="年龄测试", enrollment_year=2024, gender="M",
+                  birth_date=date(2000, 1, 1), status="在校",
+                  dept_id=dept.dept_id, class_id=cls.class_id)
+    db.add(stu)
+    db.commit()
+    db.close()
+
 class TestStatisticsService:
     @pytest.fixture
     def svc(self):
@@ -121,3 +140,49 @@ class TestStatisticsService:
         _setup_stat_fk()
         result = svc.gpa_ranking()
         assert len(result) >= 1
+
+    def test_class_grade_stats(self, svc, reset_tables):
+        _setup_stat_fk()
+        result = svc.class_grade_stats()
+        assert len(result) >= 1
+        assert result[0]["avg_score"] is not None
+
+    def test_class_grade_stats_by_semester(self, svc, reset_tables):
+        _setup_stat_fk()
+        from entity.base import SessionLocal
+        db = SessionLocal()
+        sem = db.query(Semester).first()
+        db.close()
+        result = svc.class_grade_stats(semester_id=sem.semester_id)
+        assert len(result) >= 1
+
+    def test_age_stats_by_major(self, svc, reset_tables):
+        _setup_age_student()
+        result = svc.age_stats_by_major()
+        assert len(result) >= 1
+        assert result[0]["max_age"] >= result[0]["min_age"]
+
+    def test_grade_avg_age(self, svc, reset_tables):
+        _setup_age_student()
+        result = svc.grade_avg_age()
+        assert len(result) >= 1
+        assert result[0]["grade"] == "2024"
+        assert result[0]["avg_age"] > 0
+
+    def test_age_range_stats(self, svc, reset_tables):
+        _setup_age_student()
+        result = svc.age_range_stats(10, 100)
+        assert result["count"] >= 1
+
+    def test_age_range_stats_no_match(self, svc, reset_tables):
+        _setup_age_student()
+        result = svc.age_range_stats(1, 5)
+        assert result["count"] == 0
+
+    def test_student_count_with_birth_date(self, svc, reset_tables):
+        _setup_age_student()
+        count = svc.student_count_with_birth_date()
+        assert count >= 1
+
+    def test_student_count_with_birth_date_empty(self, svc, reset_tables):
+        assert svc.student_count_with_birth_date() == 0

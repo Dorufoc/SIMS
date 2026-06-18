@@ -35,4 +35,12 @@ class MajorService:
         return major
 
     def delete(self, major_id):
+        from entity.class_ import Class
+        major = self.repo.get_by_id(major_id)
+        if not major:
+            return False
+        # 若存在关联班级，禁止删除，避免违反非空外键约束
+        related_classes = self.repo.db.query(Class).filter(Class.major_id == major_id).count()
+        if related_classes > 0:
+            return False
         return self.repo.delete_by_id(major_id)

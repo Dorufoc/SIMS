@@ -14,7 +14,7 @@ from utils.permission_utils import generate_uuid
 
 
 @pytest.fixture
-def repo():
+def repo(reset_tables):
     import entity  # noqa: F401
     Base.metadata.create_all(bind=engine)
     # 先创建测试用户（UserPermission 有 FK -> users.uuid）
@@ -29,7 +29,6 @@ def repo():
     r = UserPermissionRepo()
     yield r
     r.close()
-    Base.metadata.drop_all(bind=engine)
 
 
 class TestUserPermissionRepo:
@@ -54,3 +53,16 @@ class TestUserPermissionRepo:
         p = repo.find_by_user_and_table("uuid-004", "majors")
         assert p is not None
         assert p.permission_code == "600"
+
+    def test_delete_by_user_uuid(self, repo):
+        repo.upsert("uuid-001", "students", "777")
+        repo.upsert("uuid-001", "courses", "400")
+        repo.delete_by_user_uuid("uuid-001")
+        perms = repo.find_by_user_uuid("uuid-001")
+        assert len(perms) == 0
+
+    def test_delete_by_user_uuid_no_records(self, repo):
+        # 删除不存在的用户权限记录不应抛出异常
+        repo.delete_by_user_uuid("uuid-no-perms")
+        perms = repo.find_by_user_uuid("uuid-no-perms")
+        assert len(perms) == 0

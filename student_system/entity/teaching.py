@@ -25,3 +25,4 @@ class Teaching(Base):
     teacher = relationship('Teacher', back_populates='teachings')
     semester = relationship('Semester', back_populates='teachings')
     enrollments = relationship('Enrollment', back_populates='teaching', lazy='dynamic')
+    enroll_logs = relationship('EnrollLog', back_populates='teaching', lazy='dynamic')

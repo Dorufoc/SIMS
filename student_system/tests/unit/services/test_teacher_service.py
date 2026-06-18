@@ -62,3 +62,12 @@ class TestTeacherService:
 
     def test_close(self, svc):
         svc.close()
+
+    def test_get_by_id(self, svc):
+        svc.create({"teacher_id": "T001", "name": "李教授"})
+        obj = svc.get_by_id("T001")
+        assert obj is not None
+        assert obj.name == "李教授"
+
+    def test_get_by_id_not_found(self, svc):
+        assert svc.get_by_id("NONEXIST") is None

@@ -141,10 +141,22 @@ class BaseRepo:
                 q = q.filter(column < value)
             elif op == 'lte':
                 q = q.filter(column <= value)
+            elif op in ('in', 'in_'):
+                values = [v.strip() for v in str(value).split(',') if v.strip()]
+                if values:
+                    q = q.filter(column.in_(values))
             elif op == 'between':
                 parts = [v.strip() for v in value.split(',', 1)]
                 if len(parts) == 2 and parts[0] and parts[1]:
-                    q = q.filter(column.between(parts[0], parts[1]))
+                    # 根据列类型转换值
+                    if isinstance(column.type, Integer):
+                        try:
+                            v1, v2 = int(parts[0]), int(parts[1])
+                            q = q.filter(column.between(v1, v2))
+                        except (ValueError, TypeError):
+                            pass
+                    else:
+                        q = q.filter(column.between(parts[0], parts[1]))
 
         if order_by is not None:
             q = q.order_by(order_by)

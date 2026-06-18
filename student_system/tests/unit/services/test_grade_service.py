@@ -100,7 +100,7 @@ class TestGradeService:
     def test_batch_score(self, svc, reset_tables):
         self._init_grade_scale()
         eid, tid, sid = self._setup_enrollment()
-        ok, msg = svc.batch_score([{"enroll_id": eid, "score": 90}])
+        ok, msg, errors = svc.batch_score([{"enroll_id": eid, "score": 90}])
         assert ok is True
         assert "批量录入完成" in msg
 

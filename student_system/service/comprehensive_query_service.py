@@ -163,7 +163,10 @@ class ComprehensiveQueryService:
     def get_table_fields(self, table_name):
         """获取指定表的所有字段信息"""
         inspector = sa_inspect(engine)
-        columns = inspector.get_columns(table_name)
+        try:
+            columns = inspector.get_columns(table_name)
+        except Exception:
+            return []
         pk_constraint = inspector.get_pk_constraint(table_name)
         pk_columns = set(pk_constraint.get('constrained_columns', [])) if pk_constraint else set()
         fields = []

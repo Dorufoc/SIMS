@@ -95,6 +95,7 @@
     <script src="/static/js/pagination.js"></script>
     <script>
         let pager = null;
+        var currentSort = { sort_by: '', sort_order: 'asc' };
 
         // 加载院系列表
         function loadDepartments(page = 1) {
@@ -244,29 +245,19 @@
             }
         }
 
-        // 加载院系编号下拉选项后初始化筛选模块
-        fetch('/api/departments?simple=1')
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                var deptOptions = [];
-                if (data && data.length > 0) {
-                    deptOptions = data.map(function(d) {
-                        return {value: d.dept_id.toString(), label: d.dept_id + ' - ' + d.dept_name};
-                    });
-                }
-                initFilterModule({
-                    containerId: 'filterModule',
-                    fields: [
-                        {name: 'dept_id', label: '院系编号', type: 'select', options: deptOptions},
-                        {name: 'dept_name', label: '院系名称', type: 'text'},
-                        {name: 'dean', label: '院长/主任', type: 'text'},
-                        {name: 'phone', label: '联系电话', type: 'text'}
-                    ],
-                    onApply: function(filters) { loadDepartments(1); },
-                    onReset: function(filters) { loadDepartments(1); }
-                });
-                loadDepartments();
-            });
+        // 初始化筛选模块
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'dept_id', label: '院系编号', type: 'number'},
+                {name: 'dept_name', label: '院系名称', type: 'text'},
+                {name: 'dean', label: '院长/主任', type: 'text'},
+                {name: 'phone', label: '联系电话', type: 'text'}
+            ],
+            onApply: function(filters) { loadDepartments(1); },
+            onReset: function(filters) { loadDepartments(1); }
+        });
+        loadDepartments();
 
         initSortableTable({
             tableId: 'deptTable',

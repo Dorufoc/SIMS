@@ -126,9 +126,12 @@ class BatchImportService:
                     existing = find_existing(repo, item)
 
                 if existing:
-                    # 更新已存在记录
+                    # 更新已存在记录，过滤只读字段
+                    updatable_fields = cfg.get('updatable_fields', None)
                     for k, v in item.items():
                         if v is not None and hasattr(existing, k):
+                            if updatable_fields is not None and k not in updatable_fields:
+                                continue
                             setattr(existing, k, v)
                 else:
                     # 创建新记录
@@ -161,6 +164,10 @@ class BatchImportService:
 
         try:
             data = query_results if query_results is not None else repo.get_all()
+            # 若配置提供 relation_loader，则使用带关联的查询导出
+            relation_loader = cfg.get('relation_loader')
+            if relation_loader is not None and query_results is None:
+                data = relation_loader(repo)
             export_row: Callable = cfg.get('export_row')
             for obj in data:
                 writer.writerow(export_row(obj))

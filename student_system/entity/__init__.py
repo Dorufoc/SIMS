@@ -4,9 +4,11 @@ from entity.class_ import Class
 from entity.student import Student
 from entity.teacher import Teacher
 from entity.course import Course
+from entity.curriculum import Curriculum
 from entity.semester import Semester
 from entity.teaching import Teaching
 from entity.enrollment import Enrollment
+from entity.enroll_log import EnrollLog
 from entity.user import User
 from entity.user_permission import UserPermission
 from entity.reward_punishment import RewardPunishment
@@ -14,3 +16,4 @@ from entity.payment import Payment
 from entity.dorm_room import DormRoom
 from entity.dorm_assignment import DormAssignment
 from entity.classroom import Classroom
+from entity.grade_scale import GradeScale

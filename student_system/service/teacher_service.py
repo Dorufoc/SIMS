@@ -36,4 +36,21 @@ class TeacherService:
         return teacher
 
     def delete(self, teacher_id):
+        from entity.teaching import Teaching
+        from entity.enroll_log import EnrollLog
+
+        teacher = self.repo.get_by_id(teacher_id)
+        if not teacher:
+            return False
+
+        # 检查是否存在关联授课记录
+        related_teaching = self.repo.db.query(Teaching).filter(Teaching.teacher_id == teacher_id).count()
+        if related_teaching > 0:
+            raise ValueError('该教师存在关联授课记录，无法删除')
+
+        # 删除关联的选课日志记录
+        self.repo.db.query(EnrollLog).filter(EnrollLog.teaching_id.in_(
+            self.repo.db.query(Teaching.teaching_id).filter(Teaching.teacher_id == teacher_id)
+        )).delete(synchronize_session=False)
+
         return self.repo.delete_by_id(teacher_id)

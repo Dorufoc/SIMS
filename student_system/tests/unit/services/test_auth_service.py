@@ -34,12 +34,24 @@ class TestAuthService:
         assert "错误" in msg
         assert user is None
 
+    def _create_student(self, student_id):
+        """为学生注册测试创建必要的 Student 记录"""
+        from entity.base import SessionLocal
+        from entity.student import Student
+        db = SessionLocal()
+        s = Student(student_id=student_id, name="测试", enrollment_year=2024)
+        db.add(s)
+        db.commit()
+        db.close()
+
     def test_register_and_login(self, svc, reset_tables):
-        ok, msg, user = svc.register("testpass123", "测试学生", "student", "ref_id", "S999999")
+        self._create_student("S999999")
+        ok, msg, user = svc.register("Test@12345", "测试学生", "student", "ref_id", "S999999")
         assert ok is True
         assert user is not None
         assert user["username"].startswith("tmp_")
-        ok2, msg2, user2 = svc.login(user["username"], "testpass123")
+        # login by ref_id (非管理员用户通过 ref_id 匹配)
+        ok2, msg2, user2 = svc.login("S999999", "Test@12345")
         assert ok2 is True
 
     def test_register_short_password(self, svc):
@@ -47,7 +59,8 @@ class TestAuthService:
         assert ok is False
 
     def test_set_username(self, svc, reset_tables):
-        ok, msg, _ = svc.register("test123456", "测试", "student", "ref_id", "S100001")
+        self._create_student("S100001")
+        ok, msg, _ = svc.register("Test@12345", "测试", "student", "ref_id", "S100001")
         assert ok is True
         from entity.user import User
         from entity.base import SessionLocal
@@ -63,12 +76,31 @@ class TestAuthService:
         assert ok is False
 
     def test_change_password(self, svc, reset_tables):
-        ok, msg, _ = svc.register("oldpass123", "测试", "student", "ref_id", "S200001")
+        self._create_student("S200001")
+        ok, msg, _ = svc.register("Old@12345", "测试", "student", "ref_id", "S200001")
         assert ok is True
         from entity.user import User
         from entity.base import SessionLocal
         db = SessionLocal()
         u = db.query(User).filter(User.ref_id == "S200001").first()
-        ok2, msg2 = svc.change_password(u.user_id, "oldpass123", "newpass456")
+        ok2, msg2 = svc.change_password(u.user_id, "Old@12345", "New@67890")
         assert ok2 is True
         db.close()
+
+    def test_local_login_success(self):
+        ok, msg, user = AuthService.local_login("admin", "admin")
+        assert ok is True
+        assert "离线模式" in msg
+        assert user["role"] == "admin"
+        assert user["user_id"] == 0
+
+    def test_local_login_wrong_password(self):
+        ok, msg, user = AuthService.local_login("admin", "wrong")
+        assert ok is False
+        assert "错误" in msg
+        assert user is None
+
+    def test_local_login_unknown_user(self):
+        ok, msg, user = AuthService.local_login("nobody", "admin")
+        assert ok is False
+        assert user is None

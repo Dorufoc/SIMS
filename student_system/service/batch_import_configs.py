@@ -11,6 +11,7 @@ from repository.dorm_assignment_repo import DormAssignmentRepo
 from repository.reward_punishment_repo import RewardPunishmentRepo
 from repository.enrollment_repo import EnrollmentRepo
 from repository.user_repo import UserRepo
+from repository.teaching_repo import TeachingRepo
 from entity.student import Student
 from entity.enrollment import Enrollment
 from entity.user import User
@@ -22,6 +23,8 @@ from entity.class_ import Class
 from entity.dorm_room import DormRoom
 from entity.dorm_assignment import DormAssignment
 from entity.reward_punishment import RewardPunishment
+from entity.teaching import Teaching
+from entity.semester import Semester
 
 
 def _parse_int(i: int, raw_val, csv_col: str):
@@ -63,7 +66,7 @@ def _student_parse_row(i: int, item: dict, row: dict):
     item['class_id'] = class_id
 
     if item.get('birth_date'):
-        item['birth_date'] = item['birth_date'] if item['birth_date'] else None
+        item['birth_date'] = item['birth_date']
 
     item.setdefault('status', '在校')
     return item, errors
@@ -171,7 +174,16 @@ def _course_find_existing(repo, item: dict):
 
 
 def _course_export_row(c):
-    return [c.course_id, c.course_name, c.dept_id or '', c.credits, c.hours or '', c.type or '']
+    dept_name = ''
+    if c.dept_id:
+        dept = c.department if hasattr(c, 'department') and c.department else None
+        dept_name = dept.dept_name if dept else ''
+    return [c.course_id, c.course_name, dept_name, c.credits, c.hours or '', c.type or '']
+
+
+def _course_relation_loader(repo):
+    from sqlalchemy.orm import joinedload
+    return repo.db.query(Course).options(joinedload(Course.department)).all()
 
 
 COURSE_IMPORT_CONFIG = {
@@ -191,6 +203,7 @@ COURSE_IMPORT_CONFIG = {
     'on_parse_row': _course_parse_row,
     'find_existing': _course_find_existing,
     'export_row': _course_export_row,
+    'relation_loader': _course_relation_loader,
     'preview_columns': ['课程代码', '课程名称', '学分', '学时', '类型'],
 }
 
@@ -287,7 +300,26 @@ def _class_find_existing(repo, item: dict):
 
 
 def _class_export_row(c):
-    return [c.class_id, c.class_name, c.major_id or '', c.enrollment_year or '', c.advisor or '']
+    from entity.major import Major
+    from entity.teacher import Teacher
+
+    major_name = ''
+    dept_name = ''
+    if c.major_id:
+        major = c.major if hasattr(c, 'major') and c.major else None
+        if major:
+            major_name = major.major_name or ''
+            dept_name = major.department.dept_name if major.department else ''
+    advisor_name = ''
+    if c.advisor:
+        teacher = c.teacher if hasattr(c, 'teacher') and c.teacher else None
+        advisor_name = teacher.name if teacher else c.advisor
+
+    return [c.class_id, c.class_name, major_name, dept_name, c.enrollment_year or '', advisor_name]
+
+
+def _class_relation_loader(repo):
+    return repo.get_all_with_relations()
 
 
 CLASS_IMPORT_CONFIG = {
@@ -295,7 +327,7 @@ CLASS_IMPORT_CONFIG = {
     'model': Class,
     'template_headers': ['班级名称', '所属专业编号', '入学年份', '辅导员'],
     'template_example': ['计算机2024-1班', '1', '2024', '张老师'],
-    'export_headers': ['班级编号', '班级名称', '所属专业编号', '入学年份', '辅导员'],
+    'export_headers': ['班级编号', '班级名称', '所属专业', '所属院系', '入学年份', '辅导员'],
     'header_check_field': '班级名称',
     'field_map': {
         '班级名称': 'class_name', '所属专业编号': 'major_id',
@@ -306,6 +338,7 @@ CLASS_IMPORT_CONFIG = {
     'on_parse_row': _class_parse_row,
     'find_existing': _class_find_existing,
     'export_row': _class_export_row,
+    'relation_loader': _class_relation_loader,
     'preview_columns': ['班级名称', '所属专业编号', '入学年份', '辅导员'],
 }
 
@@ -409,27 +442,26 @@ def _reward_find_existing(repo, item: dict):
 
 
 def _reward_export_row(r):
-    return [r.rp_id, r.student_id, r.rp_type, r.title, r.level or '',
-            str(r.date) if r.date else '', r.issuing_authority or '']
+    return [r.rp_id, r.student_id, r.rp_type, r.title,
+            str(r.date) if r.date else '', r.reason or '', r.remark or '']
 
 
 REWARD_IMPORT_CONFIG = {
     'repo': RewardPunishmentRepo,
     'model': RewardPunishment,
-    'template_headers': ['学号', '类型(奖励/处分)', '标题', '级别', '日期(YYYY-MM-DD)', '原因', '发文单位', '备注'],
-    'template_example': ['2024001', '奖励', '优秀学生', '校级', '2025-01-15', '学习成绩优异', '学生处', ''],
-    'export_headers': ['编号', '学号', '类型', '标题', '级别', '日期', '发文单位'],
+    'template_headers': ['学号', '类型(奖励/处分)', '标题', '日期(YYYY-MM-DD)', '原因', '备注'],
+    'template_example': ['2024001', '奖励', '优秀学生', '2025-01-15', '学习成绩优异', ''],
+    'export_headers': ['编号', '学号', '类型', '标题', '日期', '原因', '备注'],
     'header_check_field': '学号',
     'field_map': {
         '学号': 'student_id', '类型(奖励/处分)': 'rp_type', '标题': 'title',
-        '级别': 'level', '日期(YYYY-MM-DD)': 'date', '原因': 'reason',
-        '发文单位': 'issuing_authority', '备注': 'remark'
+        '日期(YYYY-MM-DD)': 'date', '原因': 'reason', '备注': 'remark'
     },
     'required_fields': ['student_id', 'rp_type', 'title', 'date'],
     'field_labels': {'student_id': '学号', 'rp_type': '类型', 'title': '标题', 'date': '日期'},
     'find_existing': _reward_find_existing,
     'export_row': _reward_export_row,
-    'preview_columns': ['学号', '类型', '标题', '级别', '日期'],
+    'preview_columns': ['学号', '类型', '标题', '日期', '原因'],
 }
 
 
@@ -463,6 +495,87 @@ ENROLLMENT_IMPORT_CONFIG = {
     'export_row': _enrollment_export_row,
     'preview_columns': ['学号', '授课编号', '成绩', '状态'],
 }
+
+# ==================== 教学安排 ====================
+
+def _teaching_parse_row(i: int, item: dict, row: dict):
+    errors = []
+    course_id = item.get('course_id', '').strip() if item.get('course_id') else ''
+    if not course_id:
+        errors.append(f'第{i}行：课程代码不能为空')
+    teacher_id = item.get('teacher_id', '').strip() if item.get('teacher_id') else ''
+    if not teacher_id:
+        errors.append(f'第{i}行：教师编号不能为空')
+    semester_id, errs = _parse_int(i, item.get('semester_id'), '学期编号')
+    errors.extend(errs)
+    if semester_id is None:
+        errors.append(f'第{i}行：学期编号不能为空')
+    else:
+        item['semester_id'] = semester_id
+    capacity, errs = _parse_int(i, item.get('capacity'), '容量')
+    errors.extend(errs)
+    if capacity is not None:
+        item['capacity'] = capacity
+    else:
+        item['capacity'] = 30
+    item['course_id'] = course_id
+    item['teacher_id'] = teacher_id
+    return item, errors
+
+
+def _teaching_find_existing(repo, item: dict):
+    return repo.find_by(course_id=item.get('course_id'), teacher_id=item.get('teacher_id'),
+                        semester_id=item.get('semester_id'), classroom=item.get('classroom'),
+                        schedule=item.get('schedule'))
+
+
+def _teaching_export_row(t):
+    course_name = ''
+    teacher_name = ''
+    semester_label = ''
+    if t.course_id:
+        course = t.course if hasattr(t, 'course') and t.course else None
+        course_name = course.course_name if course else ''
+    if t.teacher_id:
+        teacher = t.teacher if hasattr(t, 'teacher') and t.teacher else None
+        teacher_name = teacher.name if teacher else ''
+    if t.semester_id:
+        semester = t.semester if hasattr(t, 'semester') and t.semester else None
+        if semester:
+            semester_label = f'{semester.academic_year} {semester.semester_name}'
+    return [t.teaching_id, course_name, teacher_name, semester_label,
+            t.classroom or '', t.schedule or '', t.capacity or 30]
+
+
+def _teaching_relation_loader(repo):
+    from sqlalchemy.orm import joinedload
+    return repo.db.query(Teaching).options(
+        joinedload(Teaching.course),
+        joinedload(Teaching.teacher),
+        joinedload(Teaching.semester)
+    ).all()
+
+
+TEACHING_IMPORT_CONFIG = {
+    'repo': TeachingRepo,
+    'model': Teaching,
+    'template_headers': ['课程代码', '教师编号', '学期编号', '教室', '上课时间', '容量'],
+    'template_example': ['CS101', 'T001', '1', '教学楼101', '周一 1-2节', '30'],
+    'export_headers': ['授课编号', '课程名称', '授课教师', '学期', '教室', '上课时间', '容量'],
+    'header_check_field': '课程代码',
+    'field_map': {
+        '课程代码': 'course_id', '教师编号': 'teacher_id', '学期编号': 'semester_id',
+        '教室': 'classroom', '上课时间': 'schedule', '容量': 'capacity'
+    },
+    'required_fields': ['course_id', 'teacher_id', 'semester_id'],
+    'field_labels': {'course_id': '课程代码', 'teacher_id': '教师编号', 'semester_id': '学期编号'},
+    'on_parse_row': _teaching_parse_row,
+    'find_existing': _teaching_find_existing,
+    'export_row': _teaching_export_row,
+    'relation_loader': _teaching_relation_loader,
+    'preview_columns': ['课程代码', '教师编号', '学期编号', '教室', '上课时间', '容量'],
+}
+
 
 # ==================== 用户账号 ====================
 
@@ -526,4 +639,5 @@ BatchImportService.register('dorm_room', **DORM_ROOM_IMPORT_CONFIG)
 BatchImportService.register('dorm_assignment', **DORM_ASSIGN_IMPORT_CONFIG)
 BatchImportService.register('reward', **REWARD_IMPORT_CONFIG)
 BatchImportService.register('enrollment', **ENROLLMENT_IMPORT_CONFIG)
+BatchImportService.register('teaching', **TEACHING_IMPORT_CONFIG)
 BatchImportService.register('user', **USER_IMPORT_CONFIG)

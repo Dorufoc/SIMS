@@ -92,6 +92,13 @@ class StudentService:
         ok, err = validate_birth_date(str(birth_date) if birth_date else '')
         if not ok: raise ValueError(err)
 
+        # 检查学号唯一性
+        student_id = data.get('student_id')
+        if student_id:
+            existing = self.repo.get_by_id(student_id)
+            if existing:
+                raise ValueError(f'学号 {student_id} 已存在')
+
         # 验证学院-专业-班级的层级关系
         class_id = data.get('class_id')
         dept_id = data.get('dept_id')
@@ -127,6 +134,19 @@ class StudentService:
         if birth_date:
             ok, err = validate_birth_date(str(birth_date))
             if not ok: raise ValueError(err)
+
+        # 验证学院-专业-班级的层级关系
+        class_id = filtered_data.get('class_id')
+        dept_id = filtered_data.get('dept_id')
+        if class_id:
+            from entity.class_ import Class
+            cls = self.repo.db.query(Class).filter(Class.class_id == class_id).first()
+            if not cls:
+                raise ValueError('所选班级不存在')
+            if dept_id and cls.major.dept_id != dept_id:
+                raise ValueError('所选班级不属于所选学院')
+            # 将 dept_id 设置为班级所属专业的学院，确保数据一致性
+            filtered_data['dept_id'] = cls.major.dept_id
         
         student = self.repo.get_by_id(student_id)
         if not student:
@@ -139,11 +159,25 @@ class StudentService:
 
     def delete(self, student_id: str):
         """删除学生"""
+        from entity.enrollment import Enrollment
+        from entity.enroll_log import EnrollLog
+        from entity.dorm_assignment import DormAssignment
+        from entity.reward_punishment import RewardPunishment
+        from entity.payment import Payment
+
         student = self.repo.get_by_id(student_id)
-        if student:
-            self.repo.delete(student)
-            return True
-        return False
+        if not student:
+            return False
+
+        # 删除关联记录，避免违反外键约束
+        self.repo.db.query(Enrollment).filter(Enrollment.student_id == student_id).delete(synchronize_session=False)
+        self.repo.db.query(EnrollLog).filter(EnrollLog.student_id == student_id).delete(synchronize_session=False)
+        self.repo.db.query(DormAssignment).filter(DormAssignment.student_id == student_id).delete(synchronize_session=False)
+        self.repo.db.query(RewardPunishment).filter(RewardPunishment.student_id == student_id).delete(synchronize_session=False)
+        self.repo.db.query(Payment).filter(Payment.student_id == student_id).delete(synchronize_session=False)
+
+        self.repo.delete(student)
+        return True
 
     def get_gpa(self, student_id):
         """计算学生 GPA"""

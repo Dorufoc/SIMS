@@ -33,13 +33,13 @@ class TestRewardService:
 
     def test_create(self, svc):
         rp = svc.create({"student_id": "S001", "rp_type": "奖励", "title": "优秀学生",
-                         "level": "校级", "date": "2024-12-01", "reason": "成绩优异"})
+                         "date": "2024-12-01", "reason": "成绩优异"})
         assert rp is not None
         assert rp.title == "优秀学生"
 
     def test_get_by_student(self, svc):
         svc.create({"student_id": "S001", "rp_type": "奖励", "title": "优秀学生",
-                    "level": "校级", "date": "2024-12-01"})
+                    "date": "2024-12-01"})
         results = svc.get_by_student("S001")
         assert len(results) == 1
 

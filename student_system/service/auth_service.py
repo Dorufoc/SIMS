@@ -105,6 +105,11 @@ class AuthService:
         if not password or len(password) < 6:
             return False, '密码长度不能少于6位', None
 
+        # 与修改密码保持一致的强度校验
+        is_strong, strength_msg = self._validate_password_strength(password)
+        if not is_strong and len(password) < 8:
+            return False, '密码长度不能少于8位且需包含大小写字母、数字和特殊字符', None
+
         # 检查是否已被注册
         existing = self.user_repo.find_by(ref_id=register_value)
         if existing:
@@ -167,6 +172,8 @@ class AuthService:
                 'username_changed': False,
             }
         except Exception as e:
+            import logging
+            logging.exception('用户注册失败')
             self.user_repo.db.rollback()
             return False, '注册失败，请稍后重试', None
 

@@ -6,6 +6,7 @@ _pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "__p
 if os.path.isdir(_pkg) and _pkg not in sys.path:
     sys.path.insert(0, _pkg)
 
+import json
 import pytest
 from flask import Flask, jsonify, session
 from unittest.mock import patch
@@ -213,6 +214,41 @@ class TestCSRFTokenGeneration:
 
 class TestGlobalInterceptor:
     """测试全局拦截器（需用 main 中的 app，它有 register_global_interceptor）"""
+
+    def test_register_global_interceptor_registers_handler(self, app):
+        """直接调用 register_global_interceptor 应注册 before_request 处理函数"""
+        from middleware.auth_middleware import register_global_interceptor
+        with patch("config.is_db_available", return_value=True):
+            register_global_interceptor(app)
+
+            @app.route("/api/test")
+            def view():
+                return jsonify({"ok": True})
+
+            with app.test_client() as c:
+                resp = c.get("/api/test")
+                assert resp.status_code == 401
+                data = json.loads(resp.data)
+                assert data["code"] == 1
+                assert "登录" in data["msg"]
+
+    def test_register_global_interceptor_with_session(self, app):
+        """注册拦截器后，已登录用户可访问非白名单路由"""
+        from middleware.auth_middleware import register_global_interceptor
+        with patch("config.is_db_available", return_value=True):
+            register_global_interceptor(app)
+
+            @app.route("/api/test")
+            def view():
+                return jsonify({"ok": True})
+
+            with app.test_client() as c:
+                with c.session_transaction() as sess:
+                    sess["user_id"] = 1
+                    sess["user_role"] = "admin"
+                    sess["username_changed"] = True
+                resp = c.get("/api/test")
+                assert resp.status_code == 200
 
     def test_white_list_bypass(self):
         from main import app as _app

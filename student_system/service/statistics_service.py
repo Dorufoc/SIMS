@@ -115,23 +115,24 @@ class StatisticsService:
         }
 
     def gpa_ranking(self, limit=50):
-        """GPA 排名"""
+        """GPA 排名（学分加权平均）"""
         results = self.repo.db.query(
             Student.student_id, Student.name,
             Class.class_name,
             Major.major_name,
             func.sum(Course.credits).label('total_credits'),
-            func.avg(Enrollment.grade_point).label('avg_gpa')
+            func.sum(Enrollment.grade_point * Course.credits).label('weighted_sum')
         ).join(Enrollment, Student.student_id == Enrollment.student_id
         ).join(Class, Student.class_id == Class.class_id
         ).join(Major, Class.major_id == Major.major_id
         ).join(Teaching, Enrollment.teaching_id == Teaching.teaching_id
         ).join(Course, Teaching.course_id == Course.course_id
         ).filter(
-            Enrollment.grade_point.isnot(None)
+            Enrollment.grade_point.isnot(None),
+            Enrollment.status != '退课'
         ).group_by(Student.student_id, Student.name, Class.class_name, Major.major_name
         ).order_by(
-            func.avg(Enrollment.grade_point).desc()
+            (func.sum(Enrollment.grade_point * Course.credits) / func.nullif(func.sum(Course.credits), 0)).desc()
         ).limit(limit).all()
 
         return [{
@@ -141,7 +142,7 @@ class StatisticsService:
             'class_name': r[2] or '',
             'major_name': r[3] or '',
             'total_credits': round(float(r[4] or 0), 1),
-            'avg_gpa': round(float(r[5] or 0), 2),
+            'avg_gpa': round(float(r[5] or 0) / max(float(r[4] or 0), 1), 2),
         } for idx, r in enumerate(results)]
 
     def class_grade_stats(self, semester_id=None):
@@ -182,6 +183,9 @@ class StatisticsService:
         age_ranges: 年龄边界列表，如 [18, 20, 22]
         返回: [{'range': '≤18', 'count': 10}, {'range': '18-20', 'count': 25}, ...]
         """
+        if not age_ranges:
+            return []
+
         age_expr = func.floor(
             func.extract('YEAR', func.now()) - func.extract('YEAR', Student.birth_date)
         )
@@ -196,7 +200,7 @@ class StatisticsService:
             when_clauses.append((age_expr <= high, f'{low}-{high}'))
         when_clauses.append((age_expr > sorted_ranges[-1], f'>{sorted_ranges[-1]}'))
 
-        range_case = sql_case(when_clauses, else_='未知')
+        range_case = sql_case(*when_clauses, else_='未知')
 
         results = self.repo.db.query(
             range_case.label('range'),

@@ -34,3 +34,4 @@ class Student(Base):
     rewards_punishments = relationship('RewardPunishment', back_populates='student', lazy='dynamic')
     payments = relationship('Payment', back_populates='student', lazy='dynamic')
     dorm_assignments = relationship('DormAssignment', back_populates='student', lazy='dynamic')
+    enroll_logs = relationship('EnrollLog', back_populates='student', lazy='dynamic')

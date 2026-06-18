@@ -1,5 +1,5 @@
 """选课管理 API"""
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from service.enrollment_service import EnrollmentService
 from middleware.auth_middleware import require_login, csrf_protect
 from repository.base import escape_like
@@ -37,9 +37,16 @@ def api_available_courses():
 @csrf_protect
 def api_enroll():
     data = request.get_json()
+    student_id = data.get('student_id', '')
+    # 非管理员用户只能为自己选课
+    user_role = session.get('user_role', '')
+    if user_role != 'admin':
+        ref_id = session.get('user_ref_id', '')
+        if ref_id and str(student_id) != str(ref_id):
+            return jsonify({'code': 1, 'msg': '只能为自己选课'})
     svc = EnrollmentService()
     try:
-        success, msg = svc.enroll(data.get('student_id', ''), data.get('teaching_id', 0))
+        success, msg = svc.enroll(student_id, data.get('teaching_id', 0))
         if success:
             return jsonify({'code': 0, 'msg': msg})
         return jsonify({'code': 1, 'msg': msg})
@@ -62,6 +69,7 @@ def api_drop(enroll_id):
 
 
 @enrollment_bp.route('/api/grades', methods=['GET'])
+@enrollment_bp.route('/api/enrollments', methods=['GET'])
 @require_login
 def api_grades():
     page = request.args.get('page', 1, type=int)
@@ -103,7 +111,10 @@ def api_grades():
                 elif field == 'status':
                     q = q.filter(Enrollment.status == value)
                 elif field == 'score':
-                    val = float(value)
+                    try:
+                        val = float(value)
+                    except (ValueError, TypeError):
+                        continue
                     if op == 'gt':
                         q = q.filter(Enrollment.score > val)
                     elif op == 'lt':
@@ -129,7 +140,10 @@ def api_grades():
                     if not _teaching_joined:
                         q = q.join(Teaching, Enrollment.teaching_id == Teaching.teaching_id)
                         _teaching_joined = True
-                    val = int(value)
+                    try:
+                        val = int(value)
+                    except (ValueError, TypeError):
+                        continue
                     if op == 'gt':
                         q = q.filter(Teaching.capacity > val)
                     elif op == 'lt':

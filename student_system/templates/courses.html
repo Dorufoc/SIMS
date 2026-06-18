@@ -102,10 +102,6 @@
                         <option value="通识">通识</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>课程简介</label>
-                    <input type="text" id="description">
-                </div>
                 <button type="submit" class="btn btn-primary">保存</button>
             </form>
         </div>
@@ -244,7 +240,6 @@
                         document.getElementById('credits').value = course.credits;
                         document.getElementById('hours').value = course.hours;
                         document.getElementById('courseType').value = course.type || '必修';
-                        document.getElementById('description').value = course.description || '';
                     }
                 });
         }
@@ -259,8 +254,7 @@
                 dept_id: parseInt(document.getElementById('deptId').value),
                 credits: parseFloat(document.getElementById('credits').value),
                 hours: parseInt(document.getElementById('hours').value),
-                type: document.getElementById('courseType').value,
-                description: document.getElementById('description').value
+                type: document.getElementById('courseType').value
             };
 
             const url = id ? `/api/courses/${id}` : '/api/courses';

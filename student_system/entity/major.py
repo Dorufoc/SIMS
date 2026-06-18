@@ -17,3 +17,4 @@ class Major(Base):
 
     department = relationship('Department', back_populates='majors')
     classes = relationship('Class', back_populates='major', lazy='dynamic')
+    curricula = relationship('Curriculum', back_populates='major', lazy='dynamic')

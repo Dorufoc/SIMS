@@ -53,7 +53,7 @@ class TestUserService:
         user = db.query(User).filter(User.username == "passuser").first()
         uid = user.user_id
         db.close()
-        ok, msg = svc.update(uid, {"password": "newpass"})
+        ok, msg = svc.update(uid, {"password": "New@67890"})
         assert ok is True
 
     def test_delete(self, svc, reset_tables):
