@@ -17,4 +17,3 @@ class Course(Base):
 
     department = relationship('Department', back_populates='courses')
     teachings = relationship('Teaching', back_populates='course', lazy='dynamic')
-    curricula = relationship('Curriculum', back_populates='course', lazy='dynamic')

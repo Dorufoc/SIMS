@@ -30,7 +30,7 @@ class TeacherService:
         if not teacher:
             return None
         for k, v in filtered_data.items():
-            if hasattr(teacher, k):
+            if v is not None and v != '' and hasattr(teacher, k):
                 setattr(teacher, k, v)
         self.repo.db.commit()
         return teacher

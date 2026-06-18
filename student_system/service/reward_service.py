@@ -23,14 +23,14 @@ class RewardService:
         return self.repo.create(RewardPunishment(**data))
 
     def update(self, rp_id, data: dict):
-        ALLOWED_FIELDS = {'student_id', 'rp_type', 'title', 'level', 'date',
-                         'reason', 'issuing_authority', 'remark'}
+        ALLOWED_FIELDS = {'student_id', 'rp_type', 'title', 'date',
+                         'reason', 'remark'}
         filtered_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
         rp = self.repo.get_by_id(rp_id)
         if not rp:
             return None
         for k, v in filtered_data.items():
-            if hasattr(rp, k):
+            if v is not None and v != '' and hasattr(rp, k):
                 setattr(rp, k, v)
         self.repo.db.commit()
         return rp

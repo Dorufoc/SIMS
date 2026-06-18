@@ -108,22 +108,16 @@ CREATE TABLE enrollments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 10. 成绩等级表
-CREATE TABLE grade_scale (
-    grade_level VARCHAR(1) PRIMARY KEY,
-    min_score NUMERIC(5,2) NOT NULL,
-    max_score NUMERIC(5,2) NOT NULL,
-    grade_point NUMERIC(3,2) NOT NULL,
-    description VARCHAR(50)
+-- 10. 教室表
+CREATE TABLE classrooms (
+    classroom_id SERIAL PRIMARY KEY,
+    classroom_name VARCHAR(50) NOT NULL,
+    building VARCHAR(50),
+    floor SMALLINT,
+    capacity SMALLINT DEFAULT 30,
+    type VARCHAR(20) DEFAULT '普通教室',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- 预置成绩等级数据
-INSERT INTO grade_scale (grade_level, min_score, max_score, grade_point, description) VALUES
-('A', 90, 100, 4.0, '优秀'),
-('B', 80, 89, 3.0, '良好'),
-('C', 70, 79, 2.0, '中等'),
-('D', 60, 69, 1.0, '及格'),
-('F', 0, 59, 0.0, '不及格');
 
 -- 11. 用户表
 CREATE TABLE users (
@@ -157,10 +151,8 @@ CREATE TABLE rewards_punishments (
     student_id VARCHAR(20) NOT NULL REFERENCES students(student_id),
     rp_type VARCHAR(10) NOT NULL CHECK (rp_type IN ('奖励','处分')),
     title VARCHAR(100) NOT NULL,
-    level VARCHAR(50),
     date DATE NOT NULL,
     reason TEXT,
-    issuing_authority VARCHAR(100),
     remark TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -203,34 +195,6 @@ CREATE TABLE dorm_assignments (
     check_out_date DATE,
     status VARCHAR(10) DEFAULT '在住' CHECK (status IN ('在住','已退','调换')),
     remark TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 17. 培养计划表
-CREATE TABLE curriculum (
-    plan_id SERIAL PRIMARY KEY,
-    major_id INTEGER NOT NULL REFERENCES majors(major_id),
-    enrollment_year INTEGER NOT NULL,
-    course_id VARCHAR(20) NOT NULL REFERENCES courses(course_id),
-    course_type VARCHAR(10) DEFAULT '必修' CHECK (course_type IN ('必修','选修','公共')),
-    recommended_term VARCHAR(20),
-    min_grade NUMERIC(4,1),
-    is_core BOOLEAN DEFAULT FALSE,
-    remark TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 18. 选课日志表
-CREATE TABLE enroll_logs (
-    log_id BIGSERIAL PRIMARY KEY,
-    student_id VARCHAR(20) NOT NULL REFERENCES students(student_id),
-    teaching_id INTEGER NOT NULL REFERENCES teaching(teaching_id),
-    operation_type VARCHAR(10) CHECK (operation_type IN ('选课','退课','成绩修改','状态变更')),
-    old_value TEXT,
-    new_value TEXT,
-    operator VARCHAR(50),
-    operator_ip VARCHAR(45),
-    reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -319,41 +283,95 @@ CREATE TRIGGER trigger_dorm_checkout
 -- 索引（常用查询字段）
 -- ============================================
 
+-- students 表
 CREATE INDEX idx_students_name ON students(name);
 CREATE INDEX idx_students_class_id ON students(class_id);
 CREATE INDEX idx_students_dept_id ON students(dept_id);
 CREATE INDEX idx_students_enrollment_year ON students(enrollment_year);
 CREATE INDEX idx_students_status ON students(status);
+CREATE INDEX idx_students_gender ON students(gender);
+CREATE INDEX idx_students_phone ON students(phone);
+CREATE INDEX idx_students_birth_date ON students(birth_date);
+CREATE INDEX idx_students_email ON students(email);
 
+-- teachers 表
 CREATE INDEX idx_teachers_name ON teachers(name);
 CREATE INDEX idx_teachers_dept_id ON teachers(dept_id);
+CREATE INDEX idx_teachers_title ON teachers(title);
+CREATE INDEX idx_teachers_gender ON teachers(gender);
+CREATE INDEX idx_teachers_phone ON teachers(phone);
 
+-- courses 表
 CREATE INDEX idx_courses_dept_id ON courses(dept_id);
+CREATE INDEX idx_courses_type ON courses(type);
+CREATE INDEX idx_courses_name ON courses(course_name);
 
+-- semesters 表
+CREATE INDEX idx_semesters_current ON semesters(is_current);
+
+-- teaching 表
 CREATE INDEX idx_teaching_course_id ON teaching(course_id);
 CREATE INDEX idx_teaching_teacher_id ON teaching(teacher_id);
 CREATE INDEX idx_teaching_semester_id ON teaching(semester_id);
+CREATE INDEX idx_teaching_schedule ON teaching(schedule);
+CREATE INDEX idx_teaching_classroom ON teaching(classroom);
+CREATE INDEX idx_teaching_capacity ON teaching(capacity);
 
+-- enrollments 表
 CREATE INDEX idx_enrollments_student_id ON enrollments(student_id);
 CREATE INDEX idx_enrollments_teaching_id ON enrollments(teaching_id);
+CREATE INDEX idx_enrollments_status ON enrollments(status);
+CREATE INDEX idx_enrollments_score ON enrollments(score);
+CREATE INDEX idx_enrollments_grade_point ON enrollments(grade_point);
 
+-- classrooms 表
+CREATE INDEX idx_classrooms_building ON classrooms(building);
+CREATE INDEX idx_classrooms_type ON classrooms(type);
+CREATE INDEX idx_classrooms_name ON classrooms(classroom_name);
+CREATE INDEX idx_classrooms_floor ON classrooms(floor);
+
+-- users 表
 CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_uuid ON users(uuid);
 CREATE INDEX idx_users_ref_id ON users(ref_id);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_users_created_at ON users(created_at);
 
+-- user_permissions 表
+CREATE INDEX idx_user_perm_user ON user_permissions(user_uuid);
+CREATE INDEX idx_user_perm_table ON user_permissions(table_name);
+
+-- rewards_punishments 表
 CREATE INDEX idx_rp_student_id ON rewards_punishments(student_id);
+CREATE INDEX idx_rp_type ON rewards_punishments(rp_type);
 CREATE INDEX idx_rp_date ON rewards_punishments(date);
+CREATE INDEX idx_rp_student_date ON rewards_punishments(student_id, date);
 
+-- payments 表
 CREATE INDEX idx_payments_student_id ON payments(student_id);
+CREATE INDEX idx_payments_year ON payments(academic_year);
 CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_fee_type ON payments(fee_type);
+CREATE INDEX idx_payments_amount_due ON payments(amount_due);
+CREATE INDEX idx_payments_amount_paid ON payments(amount_paid);
+CREATE INDEX idx_payments_payment_date ON payments(payment_date);
+CREATE INDEX idx_payments_student_year ON payments(student_id, academic_year, semester);
 
+-- dorm_rooms 表
 CREATE INDEX idx_dorm_rooms_building ON dorm_rooms(building);
+CREATE INDEX idx_dorm_rooms_gender ON dorm_rooms(gender_limit);
+CREATE INDEX idx_dorm_rooms_capacity ON dorm_rooms(capacity);
+CREATE INDEX idx_dorm_rooms_occupied ON dorm_rooms(occupied);
 
+-- dorm_assignments 表
 CREATE INDEX idx_dorm_assign_student ON dorm_assignments(student_id);
 CREATE INDEX idx_dorm_assign_room ON dorm_assignments(room_id);
-
-CREATE INDEX idx_curriculum_major ON curriculum(major_id);
-CREATE INDEX idx_curriculum_course ON curriculum(course_id);
+CREATE INDEX idx_dorm_assign_status ON dorm_assignments(status);
+CREATE INDEX idx_dorm_assign_student_status ON dorm_assignments(student_id, status);
+CREATE INDEX idx_dorm_assign_room_status ON dorm_assignments(room_id, status);
+CREATE INDEX idx_dorm_assign_checkin_date ON dorm_assignments(check_in_date);
 
 -- 插入默认管理员账号（密码: admin123）
 INSERT INTO users (uuid, username, password_hash, role, username_changed) VALUES

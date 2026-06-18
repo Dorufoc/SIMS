@@ -12,28 +12,75 @@ def teachers_page():
     return render_template('teachers.html')
 
 
+@teacher_bp.route('/api/teachers/counselors', methods=['GET'])
+@require_login
+def api_counselors():
+    """获取所有职称是辅导员的教师列表"""
+    svc = TeacherService()
+    try:
+        from entity.teacher import Teacher
+        teachers = svc.repo.db.query(Teacher).filter(Teacher.title == '辅导员').all()
+        data = [{'teacher_id': t.teacher_id, 'name': t.name} for t in teachers]
+        return jsonify({'code': 0, 'data': data})
+    finally:
+        svc.close()
+
+
 @teacher_bp.route('/api/teachers', methods=['GET'])
 @require_login
 def api_teachers():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     svc = TeacherService()
     try:
         from entity.teacher import Teacher
-        q = svc.repo.db.query(Teacher)
-        if keyword:
-            q = q.filter(
-                (Teacher.teacher_id.like(f'%{escape_like(keyword)}%', escape='\\')) |
-                (Teacher.name.like(f'%{escape_like(keyword)}%', escape='\\'))
-            )
-        q = q.order_by(Teacher.teacher_id)
-        items, total = svc.repo.paginate(page, page_size, q)
+        from entity.department import Department
+        from sqlalchemy.orm import joinedload
+
+        SORT_FIELDS = {
+            'teacher_id': Teacher.teacher_id,
+            'name': Teacher.name,
+            'gender': Teacher.gender,
+            'title': Teacher.title,
+            'dept_name': Department.dept_name,
+            'phone': Teacher.phone,
+        }
+        sort_by = request.args.get('sort_by', '')
+        sort_order = request.args.get('sort_order', '')
+        order_col = SORT_FIELDS.get(sort_by)
+        if order_col is not None:
+            if sort_order == 'desc':
+                order_col = order_col.desc()
+
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+            order_by = order_col if order_col is not None else Teacher.teacher_id
+            items, total = svc.repo.filter_paginate(filters, page, page_size, order_by)
+        else:
+            q = svc.repo.db.query(Teacher).options(joinedload(Teacher.department))
+            if keyword:
+                q = q.filter(
+                    (Teacher.teacher_id.like(f'%{escape_like(keyword)}%', escape='\\')) |
+                    (Teacher.name.like(f'%{escape_like(keyword)}%', escape='\\'))
+                )
+            if order_col is not None:
+                q = q.order_by(order_col)
+            else:
+                q = q.order_by(Teacher.teacher_id)
+            items, total = svc.repo.paginate(page, page_size, q)
 
         total_pages = (total + page_size - 1) // page_size
         data = [{'teacher_id': t.teacher_id, 'name': t.name, 'gender': t.gender,
-                 'title': t.title, 'dept_id': t.dept_id, 'phone': t.phone or '', 'email': t.email or ''} for t in items]
+                 'gender_text': '男' if t.gender == 'M' else ('女' if t.gender == 'F' else ''),
+                 'title': t.title, 'dept_id': t.dept_id, 'dept_name': t.department.dept_name if t.department else '',
+                 'phone': t.phone or '', 'email': t.email or ''} for t in items]
         return jsonify({'code': 0, 'data': data, 'total': total, 'page': page, 'total_pages': total_pages})
     finally:
         svc.close()
@@ -44,11 +91,16 @@ def api_teachers():
 def api_teacher_detail(teacher_id):
     svc = TeacherService()
     try:
-        t = svc.get_by_id(teacher_id)
+        from entity.teacher import Teacher
+        from entity.department import Department
+        from sqlalchemy.orm import joinedload
+        t = svc.repo.db.query(Teacher).options(joinedload(Teacher.department)).filter(Teacher.teacher_id == teacher_id).first()
         if not t:
             return jsonify({'code': 1, 'msg': '教师不存在'})
         return jsonify({'code': 0, 'data': {'teacher_id': t.teacher_id, 'name': t.name, 'gender': t.gender,
-                        'title': t.title, 'dept_id': t.dept_id, 'phone': t.phone or '', 'email': t.email or ''}})
+                        'gender_text': '男' if t.gender == 'M' else ('女' if t.gender == 'F' else ''),
+                        'title': t.title, 'dept_id': t.dept_id, 'dept_name': t.department.dept_name if t.department else '',
+                        'phone': t.phone or '', 'email': t.email or ''}})
     finally:
         svc.close()
 

@@ -28,12 +28,41 @@ def api_departments():
             depts = svc.get_all()
             return jsonify([{'dept_id': d.dept_id, 'dept_name': d.dept_name} for d in depts])
 
-        if keyword:
-            from entity.department import Department
+        from entity.department import Department
+
+        SORT_FIELDS = {
+            'dept_name': Department.dept_name,
+            'dean': Department.dean,
+            'phone': Department.phone,
+            'dept_id': Department.dept_id,
+        }
+        sort_by = request.args.get('sort_by', '')
+        sort_order = request.args.get('sort_order', '')
+        order_col = SORT_FIELDS.get(sort_by)
+        if order_col is not None:
+            if sort_order == 'desc':
+                order_col = order_col.desc()
+
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+            order_by = order_col if order_col is not None else svc.repo.model.dept_name
+            items, total = svc.repo.filter_paginate(filters, page, page_size, order_by)
+        elif keyword:
             q = svc.repo.db.query(Department).filter(Department.dept_name.like(f'%{escape_like(keyword)}%', escape='\\'))
+            if order_col is not None:
+                q = q.order_by(order_col)
             items, total = svc.repo.paginate(page, page_size, q)
         else:
-            items, total = svc.get_list(page, page_size)
+            if order_col is not None:
+                q = svc.repo.db.query(Department)
+                q = q.order_by(order_col)
+                items, total = svc.repo.paginate(page, page_size, q)
+            else:
+                items, total = svc.get_list(page, page_size)
 
         total_pages = (total + page_size - 1) // page_size
         data = [{'dept_id': d.dept_id, 'dept_name': d.dept_name, 'dean': d.dean, 'phone': d.phone} for d in items]
@@ -69,7 +98,9 @@ def api_update_department(dept_id):
     data = request.get_json()
     svc = DepartmentService()
     try:
-        result = svc.update(dept_id, {'dept_name': data.get('dept_name', ''), 'dean': data.get('dean', ''), 'phone': data.get('phone', '')})
+        # 仅传递请求中存在的字段，避免空字符串覆盖已有数据
+        update_data = {k: v for k, v in data.items() if k in ('dept_name', 'dean', 'phone') and v is not None and v != ''}
+        result = svc.update(dept_id, update_data)
         if result:
             return jsonify({'code': 0, 'msg': '更新成功'})
         return jsonify({'code': 1, 'msg': '院系不存在'})

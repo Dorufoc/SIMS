@@ -7,12 +7,10 @@ from repository.course_repo import CourseRepo
 from repository.semester_repo import SemesterRepo
 from repository.teaching_repo import TeachingRepo
 from repository.enrollment_repo import EnrollmentRepo
-from repository.grade_scale_repo import GradeScaleRepo
 from repository.user_repo import UserRepo
 from repository.user_permission_repo import UserPermissionRepo
 from repository.reward_punishment_repo import RewardPunishmentRepo
 from repository.payment_repo import PaymentRepo
 from repository.dorm_room_repo import DormRoomRepo
 from repository.dorm_assignment_repo import DormAssignmentRepo
-from repository.curriculum_repo import CurriculumRepo
-from repository.enroll_log_repo import EnrollLogRepo
+

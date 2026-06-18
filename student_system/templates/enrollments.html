@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选课管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'enrollments' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>选课管理</h1>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="openModal()">新增选课</button>
+                        </div>
+                    </div>
+
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="student_id">学号</th>
+                                    <th data-sort="student_name">学生姓名</th>
+                                    <th data-sort="course_name">课程名称</th>
+                                    <th data-sort="credits">学分</th>
+                                    <th data-sort="capacity">容量</th>
+                                    <th data-sort="schedule">上课时间</th>
+                                    <th data-sort="score">成绩</th>
+                                    <th data-sort="semester_name">学期</th>
+                                </tr>
+                            </thead>
+                            <tbody id="enrollmentTable">
+                                <tr><td colspan="9" class="empty-row">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增选课模态框 -->
+    <div id="enrollmentModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>新增选课</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="enrollmentForm" onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label>学号 *</label>
+                    <input type="text" id="studentIdInput" required placeholder="请输入学号" onchange="loadAvailableCourses()">
+                </div>
+                <div class="form-group">
+                    <label>可选课程 *</label>
+                    <select id="teachingSelect" required>
+                        <option value="">请先输入学号查询可选课程</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">确认选课</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
+    <script>
+        var currentSort = { sort_by: '', sort_order: 'asc' };
+
+        // 加载选课列表
+        function loadEnrollments(page = 1) {
+            let url = `/api/grades?page=${page}&page_size=10`;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('enrollmentTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '';
+                const emptyTr = document.createElement('tr');
+                const emptyTd = document.createElement('td');
+                emptyTd.colSpan = 9;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach((enrollment, index) => {
+                const tr = document.createElement('tr');
+
+                const tdIndex = document.createElement('td');
+                tdIndex.textContent = (pager.currentPage - 1) * 10 + index + 1;
+                tr.appendChild(tdIndex);
+
+                const tdStudentId = document.createElement('td');
+                tdStudentId.textContent = enrollment.student_id;
+                tr.appendChild(tdStudentId);
+
+                const tdStudentName = document.createElement('td');
+                tdStudentName.textContent = enrollment.student_name;
+                tr.appendChild(tdStudentName);
+
+                const tdCourseName = document.createElement('td');
+                tdCourseName.textContent = enrollment.course_name;
+                tr.appendChild(tdCourseName);
+
+                const tdCredits = document.createElement('td');
+                tdCredits.textContent = enrollment.credits || '-';
+                tr.appendChild(tdCredits);
+
+                const tdCapacity = document.createElement('td');
+                tdCapacity.textContent = enrollment.capacity != null ? enrollment.capacity : '-';
+                tr.appendChild(tdCapacity);
+
+                const tdSchedule = document.createElement('td');
+                tdSchedule.textContent = enrollment.schedule || '-';
+                tr.appendChild(tdSchedule);
+
+                const tdScore = document.createElement('td');
+                tdScore.textContent = enrollment.score != null ? enrollment.score : '-';
+                tr.appendChild(tdScore);
+
+                const tdSemester = document.createElement('td');
+                tdSemester.textContent = enrollment.semester_name || '-';
+                tr.appendChild(tdSemester);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 打开模态框
+        function openModal() {
+            document.getElementById('enrollmentModal').classList.add('active');
+            document.getElementById('enrollmentForm').reset();
+            document.getElementById('teachingSelect').innerHTML = '<option value="">请先输入学号查询可选课程</option>';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('enrollmentModal').classList.remove('active');
+        }
+
+        // 加载可选课程
+        function loadAvailableCourses() {
+            const studentId = document.getElementById('studentIdInput').value.trim();
+            const teachingSelect = document.getElementById('teachingSelect');
+            if (!studentId) {
+                teachingSelect.innerHTML = '<option value="">请先输入学号查询可选课程</option>';
+                return;
+            }
+
+            teachingSelect.innerHTML = '<option value="">加载中...</option>';
+            fetch(`/api/enrollment/available?student_id=${encodeURIComponent(studentId)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0 && data.data && data.data.length > 0) {
+                        const options = data.data.map(c =>
+                            `<option value="${c.teaching_id}">${c.course_id} - ${c.classroom || '未指定教室'} (${c.schedule || '未安排'})</option>`
+                        ).join('');
+                        teachingSelect.innerHTML = '<option value="">请选择课程</option>' + options;
+                    } else {
+                        teachingSelect.innerHTML = '<option value="">该学生暂无可选课程</option>';
+                    }
+                })
+                .catch(() => {
+                    teachingSelect.innerHTML = '<option value="">加载失败，请重试</option>';
+                });
+        }
+
+        // 提交表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const studentId = document.getElementById('studentIdInput').value.trim();
+            const teachingId = parseInt(document.getElementById('teachingSelect').value);
+
+            if (!studentId || !teachingId) {
+                alert('请填写学号并选择课程');
+                return;
+            }
+
+            fetch('/api/enrollment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify({ student_id: studentId, teaching_id: teachingId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadEnrollments(1);
+                }
+            });
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        }
+    </script>
+
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'student_id', label: '学号', type: 'text'},
+                {name: 'student_name', label: '学生姓名', type: 'text'},
+                {name: 'course_name', label: '课程名称', type: 'text'},
+                {name: 'capacity', label: '容量', type: 'number'},
+                {name: 'schedule', label: '上课时间', type: 'text'},
+                {name: 'score', label: '成绩', type: 'number'}
+            ],
+            onApply: function(filters) { loadEnrollments(1); },
+            onReset: function(filters) { loadEnrollments(1); }
+        });
+
+        initSortableTable({
+            tableId: 'enrollmentTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadEnrollments(1);
+            }
+        });
+
+        initBatchImport({
+            entityType: 'enrollment',
+            previewColumns: ['学号', '授课编号', '成绩', '状态'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学号',
+            onImportSuccess: function() { loadEnrollments(1); }
+        });
+        loadEnrollments();
+
+        // 初始化分页
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadEnrollments(page); }
+        });
+    </script>
+
+    {% include '_batch_import.html' %}
+</body>
+</html>

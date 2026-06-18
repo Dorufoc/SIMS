@@ -23,13 +23,13 @@ class MajorService:
         return self.repo.create(Major(**data))
 
     def update(self, major_id, data: dict):
-        ALLOWED_FIELDS = {'major_name', 'dept_id', 'duration'}
+        ALLOWED_FIELDS = {'major_name', 'dept_id', 'duration', 'degree_type', 'description'}
         filtered_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
         major = self.repo.get_by_id(major_id)
         if not major:
             return None
         for k, v in filtered_data.items():
-            if hasattr(major, k):
+            if v is not None and v != '' and hasattr(major, k):
                 setattr(major, k, v)
         self.repo.db.commit()
         return major

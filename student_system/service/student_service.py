@@ -92,6 +92,19 @@ class StudentService:
         ok, err = validate_birth_date(str(birth_date) if birth_date else '')
         if not ok: raise ValueError(err)
 
+        # 验证学院-专业-班级的层级关系
+        class_id = data.get('class_id')
+        dept_id = data.get('dept_id')
+        if class_id:
+            from entity.class_ import Class
+            cls = self.repo.db.query(Class).filter(Class.class_id == class_id).first()
+            if not cls:
+                raise ValueError('所选班级不存在')
+            if dept_id and cls.major.dept_id != dept_id:
+                raise ValueError('所选班级不属于所选学院')
+            # 将 dept_id 设置为班级所属专业的学院，确保数据一致性
+            data['dept_id'] = cls.major.dept_id
+
         student = Student(**data)
         return self.repo.create(student)
 
@@ -119,7 +132,7 @@ class StudentService:
         if not student:
             return None
         for key, value in filtered_data.items():
-            if value is not None and hasattr(student, key):
+            if value is not None and value != '' and hasattr(student, key):
                 setattr(student, key, value)
         self.repo.db.commit()
         return student

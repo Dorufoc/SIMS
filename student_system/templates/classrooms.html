@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'classrooms' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>教室管理</h1>
+                        <div>
+                            <button class="btn btn-primary" onclick="openModal()">新增教室</button>
+                        </div>
+                    </div>
+
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="classroom_name">教室名称</th>
+                                    <th data-sort="building">所属楼栋</th>
+                                    <th data-sort="floor">楼层</th>
+                                    <th data-sort="capacity">容纳人数</th>
+                                    <th data-sort="type">教室类型</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classroomTable">
+                                <tr><td colspan="7" class="empty-row">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/编辑模态框 -->
+    <div id="classroomModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增教室</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="classroomForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="classroomId">
+                <div class="form-group">
+                    <label>教室名称/编号 *</label>
+                    <input type="text" id="classroomName" required placeholder="如：A101">
+                </div>
+                <div class="form-group">
+                    <label>所属楼栋</label>
+                    <input type="text" id="building" placeholder="如：教学楼A">
+                </div>
+                <div class="form-group">
+                    <label>楼层</label>
+                    <input type="number" id="floor" min="1" max="20" placeholder="如：3">
+                </div>
+                <div class="form-group">
+                    <label>容纳人数 *</label>
+                    <input type="number" id="capacity" min="1" max="500" value="30" required>
+                </div>
+                <div class="form-group">
+                    <label>教室类型</label>
+                    <select id="type">
+                        <option value="普通教室">普通教室</option>
+                        <option value="多媒体教室">多媒体教室</option>
+                        <option value="实验室">实验室</option>
+                        <option value="机房">机房</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
+    <script>
+        let pager = null;
+        var currentSort = { sort_by: '', sort_order: 'asc' };
+
+        // 加载教室列表
+        function loadClassrooms(page = 1) {
+            let url = `/api/classrooms?page=${page}&page_size=10`;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('classroomTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '';
+                var emptyTr = document.createElement('tr');
+                var emptyTd = document.createElement('td');
+                emptyTd.colSpan = 7;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(function(item, i) {
+                var rowIdx = (pager.currentPage - 1) * 10 + i + 1;
+                const tr = document.createElement('tr');
+
+                var displayName = item.classroom_name;
+                if (item.building) {
+                    displayName = item.building + ' ' + item.classroom_name;
+                }
+                var floorStr = item.floor ? item.floor + '楼' : '-';
+                var cells = [rowIdx, displayName, item.building || '-', floorStr, item.capacity || '-', item.type || '-'];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var td = document.createElement('td');
+                    td.textContent = String(cells[ci]);
+                    tr.appendChild(td);
+                }
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'action-cell';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-sm btn-primary';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editClassroom(item.classroom_id); };
+                tdActions.appendChild(btnEdit);
+
+                tdActions.appendChild(document.createTextNode(' '));
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-sm btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteClassroom(item.classroom_id, item.classroom_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 打开模态框
+        function openModal() {
+            document.getElementById('classroomModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '新增教室';
+            document.getElementById('classroomForm').reset();
+            document.getElementById('classroomId').value = '';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('classroomModal').classList.remove('active');
+        }
+
+        // 编辑教室
+        function editClassroom(id) {
+            fetch(`/api/classrooms/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const item = data.data;
+                        document.getElementById('classroomModal').classList.add('active');
+                        document.getElementById('modalTitle').textContent = '编辑教室';
+                        document.getElementById('classroomId').value = item.classroom_id;
+                        document.getElementById('classroomName').value = item.classroom_name;
+                        document.getElementById('building').value = item.building || '';
+                        document.getElementById('floor').value = item.floor || '';
+                        document.getElementById('capacity').value = item.capacity || 30;
+                        document.getElementById('type').value = item.type || '普通教室';
+                    }
+                });
+        }
+
+        // 提交表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('classroomId').value;
+            const data = {
+                classroom_name: document.getElementById('classroomName').value,
+                building: document.getElementById('building').value,
+                floor: document.getElementById('floor').value ? parseInt(document.getElementById('floor').value) : null,
+                capacity: parseInt(document.getElementById('capacity').value),
+                type: document.getElementById('type').value
+            };
+
+            const url = id ? `/api/classrooms/${id}` : '/api/classrooms';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadClassrooms(pager.currentPage);
+                }
+            });
+        }
+
+        // 删除教室
+        function deleteClassroom(id, name) {
+            if (!confirm(`确定要删除教室 "${name}" 吗？`)) return;
+
+            fetch(`/api/classrooms/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrf_token } })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.msg);
+                    if (data.code === 0) loadClassrooms(pager.currentPage);
+                });
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        }
+    </script>
+
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'classroom_name', label: '教室名称', type: 'text'},
+                {name: 'building', label: '所属楼栋', type: 'text'},
+                {name: 'floor', label: '楼层', type: 'number'},
+                {name: 'capacity', label: '容纳人数', type: 'number'},
+                {name: 'type', label: '教室类型', type: 'select', options: ['普通教室', '多媒体教室', '实验室', '机房']}
+            ],
+            onApply: function(filters) { loadClassrooms(1); },
+            onReset: function(filters) { loadClassrooms(1); }
+        });
+        loadClassrooms();
+
+        // 初始化分页
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadClassrooms(page); }
+        });
+
+        initSortableTable({
+            tableId: 'classroomTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadClassrooms(1);
+            }
+        });
+    </script>
+</body>
+</html>

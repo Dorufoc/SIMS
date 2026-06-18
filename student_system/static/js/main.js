@@ -32,6 +32,40 @@ function toggleSidebar() {
     }
 }
 
+/* ========== 移动端侧边栏切换 ========== */
+
+var MOBILE_BREAKPOINT = 768;
+
+function toggleMobileSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar) return;
+    sidebar.classList.toggle('mobile-show');
+    if (overlay) overlay.classList.toggle('active');
+}
+
+// 初始化移动端侧边栏：创建遮罩层、监听窗口尺寸变化、点击遮罩关闭
+(function() {
+    var sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.id = 'sidebar-overlay';
+    overlay.addEventListener('click', function() {
+        sidebar.classList.remove('mobile-show');
+        overlay.classList.remove('active');
+    });
+    document.body.appendChild(overlay);
+
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > MOBILE_BREAKPOINT) {
+            sidebar.classList.remove('mobile-show');
+            overlay.classList.remove('active');
+        }
+    });
+})();
+
 /* ========== 加载遮罩 ========== */
 
 function show_loading() {
@@ -490,1772 +524,7 @@ function validate_csv_data(rows) {
     return {valid_data: valid_data, errors: errors};
 }
 
-/* ========== 查询页面交互逻辑 ========== */
-(function() {
-    // 仅在查询页面执行（检查新的筛选查询面板）
-    if (!document.getElementById('panel-filter')) return;
 
-    /* ---------- 1. Tab 面板切换逻辑 ---------- */
-    var tab_items = document.querySelectorAll('.tab-item');
-    var panels = {
-        'filter': document.getElementById('panel-filter'),
-        'stat': document.getElementById('panel-stat'),
-        'sort': document.getElementById('panel-sort'),
-        'training': document.getElementById('panel-training')
-    };
-
-    for (var i = 0; i < tab_items.length; i++) {
-        tab_items[i].addEventListener('click', function() {
-            var target = this.getAttribute('data-tab');
-            for (var j = 0; j < tab_items.length; j++) {
-                tab_items[j].classList.remove('tab-active');
-            }
-            this.classList.add('tab-active');
-            for (var key in panels) {
-                if (panels.hasOwnProperty(key)) {
-                    panels[key].classList.remove('panel-active');
-                }
-            }
-            panels[target].classList.add('panel-active');
-        });
-    }
-
-    /* ---------- 2. 筛选查询逻辑 ---------- */
-    // 口语化筛选条件配置
-    var FILTER_CONFIG = {
-        'student_no': {label: '学号', type: 'text', operators: {'equals': '是', 'contains': '包含'}},
-        'student_name': {label: '姓名', type: 'text', operators: {'equals': '是', 'contains': '包含'}},
-        'gender': {label: '性别', type: 'gender', operators: {'equals': '是'}},
-        'age': {label: '年龄', type: 'number', operators: {'equals': '是', 'gt': '大于', 'lt': '小于', 'between': '在...到...之间'}},
-        'dept_name': {label: '学院', type: 'multi_select', operators: {'in': '在...中'}},
-        'major_name': {label: '专业', type: 'text', operators: {'equals': '是', 'contains': '包含'}},
-        'grade': {label: '年级', type: 'text', operators: {'equals': '是'}},
-        'class_name': {label: '班级', type: 'multi_select', operators: {'in': '在...中'}}
-    };
-
-    // 多选数据源
-    var multiSelectData = {
-        'dept_name': [],
-        'class_name': []
-    };
-
-    // 当前筛选项计数
-    var filterItemCount = 0;
-    var currentFilterSQL = '';
-    var currentFilterPage = 1;
-    var currentFilterParams = null;
-
-    // 加载学院和班级列表数据
-    function loadMultiSelectData() {
-        // 加载学院列表
-        var xhr1 = new XMLHttpRequest();
-        xhr1.open('GET', '/api/departments', true);
-        xhr1.onreadystatechange = function() {
-            if (xhr1.readyState === 4 && xhr1.status === 200) {
-                try {
-                    var resp = JSON.parse(xhr1.responseText);
-                    if (resp.ok && resp.data) {
-                        multiSelectData.dept_name = resp.data;
-                    }
-                } catch (e) {}
-            }
-        };
-        xhr1.send();
-
-        // 加载班级列表
-        var xhr2 = new XMLHttpRequest();
-        xhr2.open('GET', '/api/classes', true);
-        xhr2.onreadystatechange = function() {
-            if (xhr2.readyState === 4 && xhr2.status === 200) {
-                try {
-                    var resp = JSON.parse(xhr2.responseText);
-                    if (resp.ok && resp.data) {
-                        multiSelectData.class_name = resp.data;
-                    }
-                } catch (e) {}
-            }
-        };
-        xhr2.send();
-    }
-
-    // 初始化加载多选数据
-    loadMultiSelectData();
-
-    // 快捷场景按钮点击事件
-    var sceneButtons = document.querySelectorAll('.filter-scene-btn');
-    for (var i = 0; i < sceneButtons.length; i++) {
-        sceneButtons[i].addEventListener('click', function() {
-            var scene = this.getAttribute('data-scene');
-            applyScenePreset(scene);
-        });
-    }
-
-    // 快捷场景预设
-    function applyScenePreset(scene) {
-        // 清空现有筛选项
-        clearAllFilterItems();
-
-        switch (scene) {
-            case 'cs_2022':
-                // 计算机学院2022级
-                addFilterItem('dept_name', 'in', ['计算机学院']);
-                addFilterItem('grade', 'equals', '2022');
-                break;
-            case 'age_18_22':
-                // 18-22岁
-                addFilterItem('age', 'between', ['18', '22']);
-                break;
-            case 'name_zhang':
-                // 姓名包含"张"
-                addFilterItem('student_name', 'contains', '张');
-                break;
-            case 'male':
-                // 男生
-                addFilterItem('gender', 'equals', '男');
-                break;
-            case 'female':
-                // 女生
-                addFilterItem('gender', 'equals', '女');
-                break;
-        }
-    }
-
-    // 添加筛选项
-    function addFilterItem(field, operator, value) {
-        var container = document.getElementById('filter-items-container');
-        if (!container) return;
-
-        filterItemCount++;
-        var itemId = 'filter-item-' + filterItemCount;
-
-        var config = FILTER_CONFIG[field];
-        if (!config) return;
-
-        var html = '<div class="filter-item" id="' + itemId + '" data-field="' + field + '">';
-        html += '<span class="filter-item-label">' + escape_html(config.label) + '</span>';
-        html += '<span class="filter-item-operator">' + escape_html(config.operators[operator] || operator) + '</span>';
-        html += '<span class="filter-item-value">' + formatFilterValue(value) + '</span>';
-        html += '<button class="filter-item-remove" data-item="' + itemId + '">×</button>';
-        html += '<input type="hidden" class="filter-field" value="' + field + '">';
-        html += '<input type="hidden" class="filter-operator" value="' + operator + '">';
-        html += '<input type="hidden" class="filter-value" value="' + escape_html(JSON.stringify(value)) + '">';
-        html += '</div>';
-
-        container.insertAdjacentHTML('beforeend', html);
-
-        // 绑定删除按钮事件
-        var removeBtn = container.querySelector('#' + itemId + ' .filter-item-remove');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                var item = document.getElementById(this.getAttribute('data-item'));
-                if (item) item.remove();
-            });
-        }
-    }
-
-    // 格式化筛选值显示
-    function formatFilterValue(value) {
-        if (Array.isArray(value)) {
-            return escape_html(value.join('、'));
-        }
-        return escape_html(String(value));
-    }
-
-    // 清空所有筛选项
-    function clearAllFilterItems() {
-        var container = document.getElementById('filter-items-container');
-        if (container) container.innerHTML = '';
-        filterItemCount = 0;
-    }
-
-    // 动态添加筛选项按钮
-    var btnAddFilter = document.getElementById('btn-add-filter');
-    if (btnAddFilter) {
-        btnAddFilter.addEventListener('click', function() {
-            showFilterSelector();
-        });
-    }
-
-    // 显示筛选条件选择器
-    function showFilterSelector() {
-        var selector = document.getElementById('filter-field-selector');
-        if (selector) {
-            selector.classList.remove('hidden');
-            selector.removeAttribute('style');
-            // 重置选择器
-            var fieldSelect = document.getElementById('filter-field-select');
-            var operatorSelect = document.getElementById('filter-operator-select');
-            if (fieldSelect) fieldSelect.value = '';
-            if (operatorSelect) {
-                operatorSelect.innerHTML = '<option value="">请选择运算符</option>';
-                operatorSelect.disabled = true;
-            }
-            // 清空值输入区
-            var valueContainer = document.getElementById('filter-value-container');
-            if (valueContainer) valueContainer.innerHTML = '';
-        }
-    }
-
-    // 字段选择变化事件
-    var fieldSelect = document.getElementById('filter-field-select');
-    if (fieldSelect) {
-        fieldSelect.addEventListener('change', function() {
-            var field = this.value;
-            var operatorSelect = document.getElementById('filter-operator-select');
-            var valueContainer = document.getElementById('filter-value-container');
-
-            if (!field) {
-                if (operatorSelect) {
-                    operatorSelect.innerHTML = '<option value="">请选择运算符</option>';
-                    operatorSelect.disabled = true;
-                }
-                if (valueContainer) valueContainer.innerHTML = '';
-                return;
-            }
-
-            var config = FILTER_CONFIG[field];
-            if (config && operatorSelect) {
-                var html = '<option value="">请选择运算符</option>';
-                for (var op in config.operators) {
-                    if (config.operators.hasOwnProperty(op)) {
-                        html += '<option value="' + op + '">' + escape_html(config.operators[op]) + '</option>';
-                    }
-                }
-                operatorSelect.innerHTML = html;
-                operatorSelect.disabled = false;
-            }
-
-            if (valueContainer) valueContainer.innerHTML = '';
-        });
-    }
-
-    // 运算符选择变化事件
-    var operatorSelect = document.getElementById('filter-operator-select');
-    if (operatorSelect) {
-        operatorSelect.addEventListener('change', function() {
-            var field = fieldSelect ? fieldSelect.value : '';
-            var operator = this.value;
-            var valueContainer = document.getElementById('filter-value-container');
-
-            if (!field || !operator || !valueContainer) return;
-
-            var config = FILTER_CONFIG[field];
-            if (!config) return;
-
-            renderValueInput(valueContainer, field, operator, config.type);
-        });
-    }
-
-    // 根据字段类型渲染值输入组件
-    function renderValueInput(container, field, operator, type) {
-        var html = '';
-
-        switch (type) {
-            case 'text':
-                html = '<input type="text" id="filter-input-value" class="form-control" placeholder="请输入' + FILTER_CONFIG[field].label + '">';
-                break;
-            case 'gender':
-                html = '<div class="radio-group">';
-                html += '<label><input type="radio" name="filter-gender" value="男" checked> 男</label>';
-                html += '<label><input type="radio" name="filter-gender" value="女"> 女</label>';
-                html += '</div>';
-                break;
-            case 'number':
-                if (operator === 'between') {
-                    html = '<div class="range-input">';
-                    html += '<input type="number" id="filter-input-value1" class="form-control" placeholder="最小值" min="0" max="150">';
-                    html += '<span class="range-separator">至</span>';
-                    html += '<input type="number" id="filter-input-value2" class="form-control" placeholder="最大值" min="0" max="150">';
-                    html += '</div>';
-                } else {
-                    html = '<input type="number" id="filter-input-value" class="form-control" placeholder="请输入' + FILTER_CONFIG[field].label + '" min="0" max="150">';
-                }
-                break;
-            case 'multi_select':
-                html = renderMultiSelect(field);
-                break;
-        }
-
-        container.innerHTML = html;
-
-        // 绑定多选下拉框事件
-        if (type === 'multi_select') {
-            bindMultiSelectEvents(container, field);
-        }
-    }
-
-    // 渲染多选下拉框
-    function renderMultiSelect(field) {
-        var data = multiSelectData[field] || [];
-        var html = '<div class="multi-select-dropdown">';
-        html += '<div class="multi-select-trigger" id="multi-select-trigger">';
-        html += '<span class="multi-select-placeholder">请选择' + FILTER_CONFIG[field].label + '</span>';
-        html += '<span class="multi-select-arrow">▼</span>';
-        html += '</div>';
-        html += '<div class="multi-select-options" id="multi-select-options" style="display:none;">';
-
-        for (var i = 0; i < data.length; i++) {
-            html += '<div class="multi-select-option" data-value="' + escape_html(data[i]) + '">';
-            html += '<input type="checkbox" value="' + escape_html(data[i]) + '"> ';
-            html += escape_html(data[i]);
-            html += '</div>';
-        }
-
-        html += '</div>';
-        html += '<div class="multi-select-selected" id="multi-select-selected"></div>';
-        html += '</div>';
-
-        return html;
-    }
-
-    // 绑定多选下拉框交互事件
-    function bindMultiSelectEvents(container, field) {
-        var trigger = container.querySelector('#multi-select-trigger');
-        var options = container.querySelector('#multi-select-options');
-        var selected = container.querySelector('#multi-select-selected');
-
-        if (!trigger || !options) return;
-
-        // 展开/收起下拉框
-        trigger.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var isVisible = !options.classList.contains('hidden');
-            if (isVisible) {
-                options.classList.add('hidden');
-            } else {
-                options.classList.remove('hidden');
-                options.removeAttribute('style');
-            }
-            trigger.classList.toggle('open', !isVisible);
-        });
-
-        // 选项选择事件
-        var optionItems = options.querySelectorAll('.multi-select-option');
-        for (var i = 0; i < optionItems.length; i++) {
-            optionItems[i].addEventListener('click', function(e) {
-                e.stopPropagation();
-                var checkbox = this.querySelector('input[type="checkbox"]');
-                checkbox.checked = !checkbox.checked;
-                this.classList.toggle('selected', checkbox.checked);
-                updateMultiSelectDisplay(selected, options);
-            });
-        }
-
-        // 点击外部关闭下拉框
-        document.addEventListener('click', function(e) {
-            if (!container.contains(e.target)) {
-                options.classList.add('hidden');
-                trigger.classList.remove('open');
-            }
-        });
-    }
-
-    // 更新多选显示
-    function updateMultiSelectDisplay(selectedContainer, optionsContainer) {
-        if (!selectedContainer || !optionsContainer) return;
-
-        var checked = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
-        var values = [];
-        for (var i = 0; i < checked.length; i++) {
-            values.push(checked[i].value);
-        }
-
-        if (values.length === 0) {
-            selectedContainer.innerHTML = '';
-        } else {
-            var html = '';
-            for (var j = 0; j < values.length; j++) {
-                html += '<span class="multi-select-tag">' + escape_html(values[j]) + '</span>';
-            }
-            selectedContainer.innerHTML = html;
-        }
-    }
-
-    // 确认添加筛选项
-    var btnConfirmFilter = document.getElementById('btn-confirm-filter');
-    if (btnConfirmFilter) {
-        btnConfirmFilter.addEventListener('click', function() {
-            var field = fieldSelect ? fieldSelect.value : '';
-            var operator = operatorSelect ? operatorSelect.value : '';
-
-            if (!field || !operator) {
-                alert('请选择字段和运算符');
-                return;
-            }
-
-            var config = FILTER_CONFIG[field];
-            var value = getFilterValue(field, operator, config.type);
-
-            if (value === null || value === undefined || value === '') {
-                alert('请输入筛选值');
-                return;
-            }
-
-            if (Array.isArray(value) && value.length === 0) {
-                alert('请至少选择一个选项');
-                return;
-            }
-
-            addFilterItem(field, operator, value);
-
-            // 隐藏选择器
-            var selector = document.getElementById('filter-field-selector');
-            if (selector) selector.classList.add('hidden');
-        });
-    }
-
-    // 取消添加筛选项
-    var btnCancelFilter = document.getElementById('btn-cancel-filter');
-    if (btnCancelFilter) {
-        btnCancelFilter.addEventListener('click', function() {
-            var selector = document.getElementById('filter-field-selector');
-            if (selector) selector.classList.add('hidden');
-        });
-    }
-
-    // 获取筛选值
-    function getFilterValue(field, operator, type) {
-        switch (type) {
-            case 'text':
-            case 'number':
-                if (operator === 'between') {
-                    var val1 = document.getElementById('filter-input-value1');
-                    var val2 = document.getElementById('filter-input-value2');
-                    if (val1 && val2) {
-                        return [val1.value.trim(), val2.value.trim()];
-                    }
-                } else {
-                    var input = document.getElementById('filter-input-value');
-                    if (input) return input.value.trim();
-                }
-                break;
-            case 'gender':
-                var radios = document.getElementsByName('filter-gender');
-                for (var i = 0; i < radios.length; i++) {
-                    if (radios[i].checked) return radios[i].value;
-                }
-                break;
-            case 'multi_select':
-                var options = document.getElementById('multi-select-options');
-                if (options) {
-                    var checked = options.querySelectorAll('input[type="checkbox"]:checked');
-                    var values = [];
-                    for (var j = 0; j < checked.length; j++) {
-                        values.push(checked[j].value);
-                    }
-                    return values;
-                }
-                break;
-        }
-        return null;
-    }
-
-    // 查询按钮逻辑
-    var btnFilterQuery = document.getElementById('btn-filter-query');
-    if (btnFilterQuery) {
-        btnFilterQuery.addEventListener('click', function() {
-            executeFilterQuery(1);
-        });
-    }
-
-    // 执行筛选查询
-    function executeFilterQuery(page) {
-        var filters = collectFilters();
-        if (filters.length === 0) {
-            alert('请至少添加一个筛选条件');
-            return;
-        }
-
-        currentFilterParams = { filters: filters, page: page };
-        currentFilterPage = page;
-
-        show_loading();
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/filter', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText);
-                        if (resp.ok) {
-                            renderFilterResult(resp);
-                        } else {
-                            alert(resp.message || '查询失败');
-                        }
-                    } catch (e) {
-                        alert('响应解析失败');
-                    }
-                } else {
-                    alert('请求失败');
-                }
-            }
-        };
-        xhr.send(JSON.stringify(currentFilterParams));
-    }
-
-    // 收集所有筛选项
-    function collectFilters() {
-        var filters = [];
-        var items = document.querySelectorAll('.filter-item');
-
-        for (var i = 0; i < items.length; i++) {
-            var field = items[i].getAttribute('data-field');
-            var operatorInput = items[i].querySelector('.filter-operator');
-            var valueInput = items[i].querySelector('.filter-value');;
-
-            if (field && operatorInput && valueInput) {
-                var value;
-                try {
-                    value = JSON.parse(valueInput.value);
-                } catch (e) {
-                    value = valueInput.value;
-                }
-
-                filters.push({
-                    field: field,
-                    operator: operatorInput.value,
-                    value: value
-                });
-            }
-        }
-
-        return filters;
-    }
-
-    // 渲染筛选结果
-    function renderFilterResult(resp) {
-        currentFilterSQL = resp.sql || '';
-
-        // 显示SQL
-        var sqlBox = document.getElementById('filter-sql');
-        if (sqlBox) {
-            sqlBox.innerHTML = highlight_sql(resp.sql || '');
-            sqlBox.classList.add('sql-visible');
-        }
-
-        // 显示结果表格
-        var resultWrapper = document.getElementById('filter-result');
-        var emptyBox = document.getElementById('filter-empty');
-        var table = document.getElementById('filter-table');
-
-        var columns = resp.columns || [];
-        var data = resp.data || [];
-
-        if (data.length === 0) {
-            if (resultWrapper) { resultWrapper.classList.add('hidden'); }
-            if (emptyBox) emptyBox.classList.add('empty-visible');
-            return;
-        }
-
-        if (emptyBox) emptyBox.classList.remove('empty-visible');
-        if (resultWrapper) { resultWrapper.classList.remove('hidden'); resultWrapper.removeAttribute('style'); }
-
-        // 渲染表头
-        var thead = '<thead><tr>';
-        for (var i = 0; i < columns.length; i++) {
-            thead += '<th>' + escape_html(columns[i]) + '</th>';
-        }
-        thead += '</tr></thead>';
-
-        // 渲染表体
-        var tbody = '<tbody>';
-        for (var r = 0; r < data.length; r++) {
-            tbody += '<tr>';
-            for (var c = 0; c < columns.length; c++) {
-                var val = data[r][columns[c]];
-                tbody += '<td>' + escape_html(val !== null && val !== undefined ? String(val) : '') + '</td>';
-            }
-            tbody += '</tr>';
-        }
-        tbody += '</tbody>';
-
-        if (table) table.innerHTML = thead + tbody;
-
-        // 更新分页
-        updateFilterPagination(resp.page || 1, resp.total_pages || 1);
-    }
-
-    // 更新分页控件
-    function updateFilterPagination(currentPage, totalPages) {
-        var pageInfo = document.getElementById('filter-page-info');
-        var prevBtn = document.getElementById('filter-page-prev');
-        var nextBtn = document.getElementById('filter-page-next');
-
-        if (pageInfo) {
-            pageInfo.textContent = '第 ' + currentPage + ' 页 / 共 ' + totalPages + ' 页';
-        }
-
-        if (prevBtn) {
-            prevBtn.disabled = currentPage <= 1;
-            prevBtn.onclick = function() {
-                if (currentPage > 1) {
-                    executeFilterQuery(currentPage - 1);
-                }
-            };
-        }
-
-        if (nextBtn) {
-            nextBtn.disabled = currentPage >= totalPages;
-            nextBtn.onclick = function() {
-                if (currentPage < totalPages) {
-                    executeFilterQuery(currentPage + 1);
-                }
-            };
-        }
-    }
-
-    // 重置按钮逻辑
-    var btnFilterReset = document.getElementById('btn-filter-reset');
-    if (btnFilterReset) {
-        btnFilterReset.addEventListener('click', function() {
-            clearAllFilterItems();
-            currentFilterSQL = '';
-            currentFilterParams = null;
-
-            var sqlBox = document.getElementById('filter-sql');
-            var resultWrapper = document.getElementById('filter-result');
-            var emptyBox = document.getElementById('filter-empty');
-
-            if (sqlBox) {
-                sqlBox.innerHTML = '';
-                sqlBox.classList.remove('sql-visible');
-            }
-            if (resultWrapper) { resultWrapper.classList.add('hidden'); }
-            if (emptyBox) emptyBox.classList.remove('empty-visible');
-        });
-    }
-
-    // 导出按钮逻辑
-    var btnFilterExport = document.getElementById('btn-filter-export');
-    if (btnFilterExport) {
-        btnFilterExport.addEventListener('click', function() {
-            if (!currentFilterParams) {
-                alert('请先执行查询');
-                return;
-            }
-
-            show_loading();
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/query/filter', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-            xhr.responseType = 'blob';
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    hide_loading();
-                    if (xhr.status === 200) {
-                        var blob = new Blob([xhr.response], {type: 'text/csv'});
-                        var link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = 'filter_query_result.csv';
-                        link.click();
-                    } else {
-                        alert('导出失败');
-                    }
-                }
-            };
-            var exportParams = JSON.parse(JSON.stringify(currentFilterParams));
-            exportParams.export = true;
-            xhr.send(JSON.stringify(exportParams));
-        });
-    }
-
-    /* ---------- 3. 统计分析逻辑 ---------- */
-    var stat_cards = document.querySelectorAll('.stat-card');
-    var current_stat_sql = '';
-
-    for (var i = 0; i < stat_cards.length; i++) {
-        stat_cards[i].addEventListener('click', function() {
-            for (var j = 0; j < stat_cards.length; j++) {
-                stat_cards[j].classList.remove('stat-card-active');
-            }
-            this.classList.add('stat-card-active');
-
-            var scene = this.getAttribute('data-scene');
-            execute_stat_query(scene);
-        });
-    }
-
-    function execute_stat_query(scene) {
-        ajax_post('/query/stat', { scene: scene }, function(success, resp) {
-            if (success) {
-                render_stat_result(resp);
-            } else {
-                alert('查询失败');
-            }
-        }, true);
-    }
-
-    /* ---------- 3.1 分类统计模块 - 快捷操作功能 ---------- */
-    (function() {
-        // 快捷操作配置
-        var QUICK_ACTIONS = {
-            'major_count': {
-                label: '专业人数统计',
-                description: '统计各专业学生人数，可设置人数阈值',
-                params: [
-                    { name: 'threshold', label: '人数阈值', type: 'number', placeholder: '例如：10', min: 0 }
-                ]
-            },
-            'age_distribution': {
-                label: '年龄分布统计',
-                description: '按指定年龄段统计学生分布',
-                params: [
-                    { name: 'ages', label: '年龄段', type: 'text', placeholder: '例如：18,19,20,21,22' }
-                ]
-            },
-            'grade_count': {
-                label: '年级人数统计',
-                description: '统计各年级学生人数',
-                params: []
-            },
-            'dept_count': {
-                label: '学院人数统计',
-                description: '统计各学院学生人数',
-                params: []
-            },
-            'custom_age_range': {
-                label: '自定义年龄范围',
-                description: '统计指定年龄范围内的学生',
-                params: [
-                    { name: 'min_age', label: '最小年龄', type: 'number', placeholder: '例如：18', min: 0, max: 150 },
-                    { name: 'max_age', label: '最大年龄', type: 'number', placeholder: '例如：22', min: 0, max: 150 }
-                ]
-            }
-        };
-
-        var currentQuickAction = null;
-
-        // 初始化快捷操作卡片
-        function initQuickActionCards() {
-            var container = document.getElementById('quick-action-cards');
-            if (!container) return;
-
-            var html = '';
-            for (var actionKey in QUICK_ACTIONS) {
-                if (QUICK_ACTIONS.hasOwnProperty(actionKey)) {
-                    var action = QUICK_ACTIONS[actionKey];
-                    html += '<div class="quick-action-card" data-action="' + actionKey + '">';
-                    html += '<div class="quick-action-header">';
-                    html += '<span class="quick-action-title">' + escape_html(action.label) + '</span>';
-                    html += '<span class="quick-action-toggle">▼</span>';
-                    html += '</div>';
-                    html += '<div class="quick-action-body" style="display:none;">';
-                    html += '<p class="quick-action-desc">' + escape_html(action.description) + '</p>';
-
-                    if (action.params.length > 0) {
-                        html += '<div class="quick-action-params">';
-                        for (var i = 0; i < action.params.length; i++) {
-                            var param = action.params[i];
-                            html += '<div class="quick-action-param-row">';
-                            html += '<label>' + escape_html(param.label) + '：</label>';
-                            if (param.type === 'number') {
-                                html += '<input type="number" class="form-control quick-param-input" data-param="' + param.name + '"';
-                                html += ' placeholder="' + (param.placeholder || '') + '"';
-                                if (param.min !== undefined) html += ' min="' + param.min + '"';
-                                if (param.max !== undefined) html += ' max="' + param.max + '"';
-                                html += '>';
-                            } else {
-                                html += '<input type="text" class="form-control quick-param-input" data-param="' + param.name + '"';
-                                html += ' placeholder="' + (param.placeholder || '') + '">';
-                            }
-                            html += '</div>';
-                        }
-                        html += '</div>';
-                    }
-
-                    html += '<div class="quick-action-footer">';
-                    html += '<button class="btn btn-primary btn-quick-execute" data-action="' + actionKey + '">立即统计</button>';
-                    html += '</div>';
-                    html += '</div>';
-                    html += '</div>';
-                }
-            }
-
-            container.innerHTML = html;
-
-            // 绑定卡片点击事件
-            var cards = container.querySelectorAll('.quick-action-card');
-            for (var j = 0; j < cards.length; j++) {
-                cards[j].addEventListener('click', function(e) {
-                    // 如果点击的是输入框或按钮，不触发折叠
-                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
-                        return;
-                    }
-
-                    var body = this.querySelector('.quick-action-body');
-                    var toggle = this.querySelector('.quick-action-toggle');
-                    var isVisible = !body.classList.contains('hidden');
-
-                    // 先关闭所有其他卡片
-                    var allCards = container.querySelectorAll('.quick-action-card');
-                    for (var k = 0; k < allCards.length; k++) {
-                        var otherBody = allCards[k].querySelector('.quick-action-body');
-                        var otherToggle = allCards[k].querySelector('.quick-action-toggle');
-                        if (otherBody) otherBody.classList.add('hidden');
-                        if (otherToggle) otherToggle.textContent = '▼';
-                        allCards[k].classList.remove('quick-action-active');
-                    }
-
-                    // 切换当前卡片
-                    if (!isVisible) {
-                        body.classList.remove('hidden');
-                        body.removeAttribute('style');
-                        toggle.textContent = '▲';
-                        this.classList.add('quick-action-active');
-                        currentQuickAction = this.getAttribute('data-action');
-                    } else {
-                        currentQuickAction = null;
-                    }
-                });
-            }
-
-            // 绑定执行按钮事件
-            var executeBtns = container.querySelectorAll('.btn-quick-execute');
-            for (var m = 0; m < executeBtns.length; m++) {
-                executeBtns[m].addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var actionKey = this.getAttribute('data-action');
-                    executeQuickAction(actionKey, this.closest('.quick-action-card'));
-                });
-            }
-        }
-
-        // 执行快捷操作
-        function executeQuickAction(actionKey, cardEl) {
-            var action = QUICK_ACTIONS[actionKey];
-            if (!action) return;
-
-            var params = { action: actionKey };
-
-            // 收集参数
-            if (action.params.length > 0) {
-                for (var i = 0; i < action.params.length; i++) {
-                    var paramConfig = action.params[i];
-                    var input = cardEl.querySelector('.quick-param-input[data-param="' + paramConfig.name + '"]');
-                    if (input) {
-                        var value = input.value.trim();
-                        if (value === '') {
-                            alert('请填写' + paramConfig.label);
-                            return;
-                        }
-                        if (paramConfig.type === 'number') {
-                            params[paramConfig.name] = parseInt(value, 10);
-                        } else {
-                            params[paramConfig.name] = value;
-                        }
-                    }
-                }
-            }
-
-            // 发送请求
-            show_loading();
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/query/stat-with-params', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    hide_loading();
-                    if (xhr.status === 200) {
-                        try {
-                            var resp = JSON.parse(xhr.responseText);
-                            if (resp.ok) {
-                                renderQuickActionResult(resp, action.label);
-                            } else {
-                                alert(resp.message || '查询失败');
-                            }
-                        } catch (e) {
-                            alert('响应解析失败');
-                        }
-                    } else {
-                        alert('请求失败');
-                    }
-                }
-            };
-            xhr.send(JSON.stringify(params));
-        }
-
-        // 渲染快捷操作结果
-        function renderQuickActionResult(resp, actionLabel) {
-            var resultWrapper = document.getElementById('quick-action-result');
-            var sqlBox = document.getElementById('quick-action-sql');
-            var table = document.getElementById('quick-action-table');
-            var emptyBox = document.getElementById('quick-action-empty');
-            var titleEl = document.getElementById('quick-action-result-title');
-
-            if (titleEl) {
-                titleEl.textContent = actionLabel + ' 结果';
-            }
-
-            if (sqlBox) {
-                sqlBox.innerHTML = highlight_sql(resp.sql || '');
-                sqlBox.classList.add('sql-visible');
-            }
-
-            var columns = resp.columns || [];
-            var data = resp.data || [];
-
-            if (data.length === 0) {
-                if (resultWrapper) { resultWrapper.classList.add('hidden'); }
-                if (emptyBox) emptyBox.classList.add('empty-visible');
-                return;
-            }
-
-            if (emptyBox) emptyBox.classList.remove('empty-visible');
-            if (resultWrapper) { resultWrapper.classList.remove('hidden'); resultWrapper.removeAttribute('style'); }
-
-            // 渲染表头
-            var thead = '<thead><tr>';
-            for (var i = 0; i < columns.length; i++) {
-                thead += '<th>' + escape_html(columns[i]) + '</th>';
-            }
-            thead += '</tr></thead>';
-
-            // 渲染表体
-            var tbody = '<tbody>';
-            for (var r = 0; r < data.length; r++) {
-                tbody += '<tr>';
-                for (var c = 0; c < columns.length; c++) {
-                    var val = data[r][columns[c]];
-                    if (typeof val === 'number' && !Number.isInteger(val)) {
-                        val = val.toFixed(2);
-                    }
-                    tbody += '<td>' + escape_html(val !== null && val !== undefined ? String(val) : '') + '</td>';
-                }
-                tbody += '</tr>';
-            }
-            tbody += '</tbody>';
-
-            if (table) table.innerHTML = thead + tbody;
-        }
-
-        // 初始化
-        initQuickActionCards();
-    })();
-
-    function render_stat_result(resp) {
-        var sql_box = document.getElementById('stat-sql');
-        var result_wrapper = document.getElementById('stat-result');
-        var empty_box = document.getElementById('stat-empty');
-        var table = document.getElementById('stat-table');
-        var btn_export = document.getElementById('btn-stat-export');
-
-        current_stat_sql = resp.sql || '';
-
-        sql_box.innerHTML = highlight_sql(resp.sql || '');
-        sql_box.classList.add('sql-visible');
-
-        var columns = resp.columns || [];
-        var data = resp.data || [];
-
-        if (data.length === 0) {
-            result_wrapper.classList.add('hidden');
-            btn_export.classList.add('hidden');
-            empty_box.classList.add('empty-visible');
-            return;
-        }
-
-        empty_box.classList.remove('empty-visible');
-        result_wrapper.classList.remove('hidden');
-        result_wrapper.removeAttribute('style');
-        btn_export.classList.remove('hidden');
-        btn_export.removeAttribute('style');
-
-        var thead = '<thead><tr>';
-        for (var i = 0; i < columns.length; i++) {
-            thead += '<th>' + escape_html(columns[i]) + '</th>';
-        }
-        thead += '</tr></thead>';
-
-        var tbody = '<tbody>';
-        for (var r = 0; r < data.length; r++) {
-            tbody += '<tr>';
-            for (var c = 0; c < columns.length; c++) {
-                var val = data[r][columns[c]];
-                if (typeof val === 'number' && !Number.isInteger(val)) {
-                    val = val.toFixed(2);
-                }
-                tbody += '<td>' + escape_html(val !== null && val !== undefined ? String(val) : '') + '</td>';
-            }
-            tbody += '</tr>';
-        }
-        tbody += '</tbody>';
-
-        table.innerHTML = thead + tbody;
-    }
-
-    // 统计导出
-    var btn_stat_export = document.getElementById('btn-stat-export');
-    if (btn_stat_export) {
-        btn_stat_export.addEventListener('click', function() {
-            if (!current_stat_sql) {
-                alert('请先执行统计查询');
-                return;
-            }
-            window.location.href = '/csv/export_filtered?sql=' + encodeURIComponent(current_stat_sql);
-        });
-    }
-
-    /* ---------- 3. SQL实训逻辑 ---------- */
-    var accordion_titles = document.querySelectorAll('.accordion-title');
-    for (var i = 0; i < accordion_titles.length; i++) {
-        accordion_titles[i].addEventListener('click', function() {
-            var item = this.parentNode;
-            var all_items = document.querySelectorAll('.accordion-item');
-            for (var j = 0; j < all_items.length; j++) {
-                if (all_items[j] !== item) {
-                    all_items[j].classList.remove('accordion-open');
-                }
-            }
-            item.classList.toggle('accordion-open');
-        });
-    }
-
-    var keyword_headers = document.querySelectorAll('.keyword-header');
-    for (var i = 0; i < keyword_headers.length; i++) {
-        keyword_headers[i].addEventListener('click', function() {
-            var card = this.parentNode;
-            card.classList.toggle('keyword-open');
-
-            if (card.classList.contains('keyword-open')) {
-                var detail = card.querySelector('.keyword-detail');
-                if (detail && !detail.getAttribute('data-loaded')) {
-                    var keyword = card.getAttribute('data-keyword');
-                    load_keyword_detail(keyword, detail);
-                }
-            }
-        });
-    }
-
-    function load_keyword_detail(keyword, detail_el) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/query/keyword?keyword=' + encodeURIComponent(keyword), true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    var resp = JSON.parse(xhr.responseText);
-                    render_keyword_detail(resp, detail_el);
-                    detail_el.setAttribute('data-loaded', 'true');
-                }
-            }
-        };
-        xhr.send();
-    }
-
-    function render_keyword_detail(info, detail_el) {
-        var html = '';
-
-        html += '<div class="keyword-desc">' + escape_html(info.description || '') + '</div>';
-
-        if (info.sql) {
-            html += '<div class="sql-display-box sql-visible">' + highlight_sql(info.sql) + '</div>';
-        }
-
-        if (info.executable) {
-            var is_admin = document.querySelector('.role-badge-admin') !== null;
-            html += '<button class="btn btn-primary btn-keyword-execute" data-keyword="' + escape_html(info.keyword || '') + '"' + (is_admin ? '' : ' disabled title="仅管理员可执行"') + '>执行</button>';
-        }
-        if (info.keyword === 'DROP_DATABASE' || info.keyword === 'DROP_TABLE') {
-            html += '<span class="keyword-danger-tag">危险</span>';
-        }
-
-        detail_el.innerHTML = html;
-
-        var exec_btn = detail_el.querySelector('.btn-keyword-execute');
-        if (exec_btn && !exec_btn.disabled) {
-            exec_btn.addEventListener('click', function() {
-                var kw = this.getAttribute('data-keyword');
-                if (kw === 'DROP_DATABASE' || kw === 'DROP_TABLE') {
-                    show_danger_confirm(kw);
-                } else {
-                    execute_keyword(kw);
-                }
-            });
-        }
-    }
-
-    function execute_keyword(keyword) {
-        ajax_post('/query/keyword/execute', { keyword: keyword }, function(success, resp) {
-            if (success) {
-                alert(resp.message || (resp.success ? '执行成功' : '执行失败'));
-            } else {
-                alert('执行失败');
-            }
-        }, true);
-    }
-
-    function show_danger_confirm(keyword) {
-        var overlay = document.getElementById('confirm-overlay');
-        var msg = document.getElementById('confirm-message');
-        var keyword_text = keyword === 'DROP_DATABASE' ? 'DROP DATABASE（删除数据库）' : 'DROP TABLE（删除数据表）';
-        msg.textContent = '即将执行危险操作：' + keyword_text + '，该操作不可恢复，是否确认？';
-        overlay.classList.remove('hidden');
-        overlay.removeAttribute('style');
-
-        var btn_yes = document.getElementById('btn-confirm-yes');
-        var btn_no = document.getElementById('btn-confirm-no');
-
-        var new_yes = btn_yes.cloneNode(true);
-        var new_no = btn_no.cloneNode(true);
-        btn_yes.parentNode.replaceChild(new_yes, btn_yes);
-        btn_no.parentNode.replaceChild(new_no, btn_no);
-
-        new_yes.addEventListener('click', function() {
-            overlay.classList.add('hidden');
-            execute_keyword(keyword);
-        });
-
-        new_no.addEventListener('click', function() {
-            overlay.classList.add('hidden');
-        });
-    }
-
-    /* ---------- 4. SQL关键字高亮渲染函数 ---------- */
-    function highlight_sql(sql) {
-        if (!sql) return '';
-        var keywords = [
-            'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN',
-            'LIKE', 'IS NULL', 'IS NOT NULL', 'GROUP BY', 'HAVING', 'ORDER BY',
-            'ASC', 'DESC', 'LIMIT', 'DISTINCT', 'AS', 'COUNT', 'SUM', 'AVG',
-            'MAX', 'MIN', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE',
-            'CREATE', 'DROP', 'ALTER', 'TABLE', 'DATABASE', 'PRIMARY KEY',
-            'AUTO_INCREMENT', 'UNIQUE', 'NOT NULL', 'DEFAULT', 'COMMENT',
-            'ENGINE', 'CHARSET', 'BEGIN', 'COMMIT', 'ROLLBACK', 'IF EXISTS',
-            'IF NOT EXISTS', 'CURRENT_TIMESTAMP'
-        ];
-
-        var escaped = escape_html(sql);
-
-        keywords.sort(function(a, b) { return b.length - a.length; });
-
-        for (var i = 0; i < keywords.length; i++) {
-            var kw = keywords[i];
-            var regex = new RegExp('\\b' + kw.replace(/ /g, '\\s+') + '\\b', 'gi');
-            escaped = escaped.replace(regex, '<span class="sql-keyword-highlight">$&</span>');
-        }
-
-        return escaped;
-    }
-})();
-
-/* ========== 场景化查询 ========== */
-var scene_select = document.getElementById('scene-select');
-var scene_params = document.getElementById('scene-params');
-var btn_scene_query = document.getElementById('btn-scene-query');
-var btn_scene_reset = document.getElementById('btn-scene-reset');
-var btn_scene_export = document.getElementById('btn-scene-export');
-
-// 场景参数模板
-var SCENE_PARAM_TEMPLATES = {
-    'by_student_no': '<div class="scene-param-row"><label>请输入学号：</label><input type="text" id="param-val1" placeholder="例如：2024001"></div>',
-    'by_student_name': '<div class="scene-param-row"><label>请输入姓名：</label><input type="text" id="param-val1" placeholder="例如：张三"></div>',
-    'by_major': '<div class="scene-param-row"><label>请输入专业名称：</label><input type="text" id="param-val1" placeholder="例如：计算机"></div>',
-    'by_dept': '<div class="scene-param-row"><label>请输入学院名称：</label><input type="text" id="param-val1" placeholder="例如：信息工程学院"></div>',
-    'by_grade': '<div class="scene-param-row"><label>请输入年级：</label><input type="text" id="param-val1" placeholder="例如：2022"></div>',
-    'by_age_range': '<div class="scene-param-row"><label>最小年龄：</label><input type="number" id="param-val1" placeholder="例如：18" min="1" max="150"><span class="param-separator">至</span><label>最大年龄：</label><input type="number" id="param-val2" placeholder="例如：22" min="1" max="150"></div>',
-    'by_gender': '<div class="scene-param-row"><label>请选择性别：</label><select id="param-val1"><option value="男">男</option><option value="女">女</option></select></div>',
-    'by_class': '<div class="scene-param-row"><label>请输入班级名称：</label><input type="text" id="param-val1" placeholder="例如：计科1班"></div>',
-    'by_name_like': '<div class="scene-param-row"><label>请输入姓名关键字：</label><input type="text" id="param-val1" placeholder="例如：张"></div>',
-    'by_major_or': '<div class="scene-param-row"><label>专业一：</label><input type="text" id="param-val1" placeholder="例如：计算机"><span class="param-separator">或</span><label>专业二：</label><input type="text" id="param-val2" placeholder="例如：软件工程"></div>',
-    'by_not_major': '<div class="scene-param-row"><label>要排除的专业：</label><input type="text" id="param-val1" placeholder="例如：计算机"></div>',
-    'by_major_and_grade': '<div class="scene-param-row"><label>专业：</label><input type="text" id="param-val1" placeholder="例如：计算机"><span class="param-separator"></span><label>年级：</label><input type="text" id="param-val2" placeholder="例如：2022"></div>',
-    'by_age_gt': '<div class="scene-param-row"><label>年龄大于：</label><input type="number" id="param-val1" placeholder="例如：20" min="1" max="150"></div>',
-    'by_age_lt': '<div class="scene-param-row"><label>年龄小于：</label><input type="number" id="param-val1" placeholder="例如：20" min="1" max="150"></div>'
-};
-
-if (scene_select) {
-    scene_select.addEventListener('change', function() {
-        var scene = scene_select.value;
-        scene_params.innerHTML = '';
-        if (scene && SCENE_PARAM_TEMPLATES[scene]) {
-            scene_params.innerHTML = SCENE_PARAM_TEMPLATES[scene];
-            scene_params.classList.remove('hidden');
-        } else {
-            scene_params.classList.add('hidden');
-        }
-    });
-
-    btn_scene_query.addEventListener('click', function() {
-        var scene = scene_select.value;
-        if (!scene) {
-            alert('请先选择查询场景');
-            return;
-        }
-
-        var params = {};
-        var val1 = document.getElementById('param-val1');
-        var val2 = document.getElementById('param-val2');
-        if (val1) params.val1 = val1.value.trim();
-        if (val2) params.val2 = val2.value.trim();
-
-        // 基本非空校验
-        if (scene !== 'by_age_range' && scene !== 'by_major_or' && scene !== 'by_major_and_grade') {
-            if (!params.val1) {
-                alert('请填写查询参数');
-                return;
-            }
-        } else if (scene === 'by_age_range') {
-            if (!params.val1 || !params.val2) {
-                alert('请填写完整的年龄范围');
-                return;
-            }
-        } else if (scene === 'by_major_or' || scene === 'by_major_and_grade') {
-            if (!params.val1 || !params.val2) {
-                alert('请填写完整的查询参数');
-                return;
-            }
-        }
-
-        show_loading();
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/scene', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        var resultDiv = document.getElementById('condition-result');
-                        var sqlDiv = document.getElementById('condition-sql');
-                        
-                        if (res.desc) {
-                            sqlDiv.innerHTML = '<div class="scene-desc">' + escape_html(res.desc) + '</div>';
-                        }
-                        if (res.sql) {
-                            sqlDiv.innerHTML += '<div class="sql-label">生成的SQL：</div><div class="sql-text">' + highlight_sql(escape_html(res.sql)) + '</div>';
-                        }
-                        
-                        if (res.data && res.data.length > 0) {
-                            var thead = document.getElementById('condition-thead');
-                            var tbody = document.getElementById('condition-tbody');
-                            thead.innerHTML = '';
-                            tbody.innerHTML = '';
-                            
-                            var tr = document.createElement('tr');
-                            res.columns.forEach(function(col) {
-                                var th = document.createElement('th');
-                                th.textContent = col;
-                                tr.appendChild(th);
-                            });
-                            thead.appendChild(tr);
-                            
-                            res.data.forEach(function(row) {
-                                var tr2 = document.createElement('tr');
-                                res.columns.forEach(function(col) {
-                                    var td = document.createElement('td');
-                                    td.textContent = row[col] !== null ? row[col] : '';
-                                    tr2.appendChild(td);
-                                });
-                                tbody.appendChild(tr2);
-                            });
-                            
-                            resultDiv.classList.remove('hidden');
-                            var emptyEl = document.getElementById('condition-empty');
-                            if (emptyEl) emptyEl.classList.add('hidden');
-                        } else {
-                            resultDiv.classList.remove('hidden');
-                            var tableEl = document.getElementById('condition-table');
-                            if (tableEl) tableEl.classList.add('hidden');
-                            var emptyEl = document.getElementById('condition-empty');
-                            if (emptyEl) emptyEl.classList.remove('hidden');
-                        }
-                    } catch (err) {
-                        alert('查询结果解析失败');
-                    }
-                } else {
-                    alert('查询请求失败');
-                }
-            }
-        };
-        xhr.send(JSON.stringify({scene: scene, params: params}));
-    });
-
-    btn_scene_reset.addEventListener('click', function() {
-        scene_select.value = '';
-        scene_params.innerHTML = '';
-        scene_params.classList.add('hidden');
-        document.getElementById('condition-result').classList.add('hidden');
-        document.getElementById('condition-sql').innerHTML = '';
-    });
-
-    btn_scene_export.addEventListener('click', function() {
-        var scene = scene_select.value;
-        if (!scene) {
-            alert('请先执行查询再导出');
-            return;
-        }
-        var params = {};
-        var val1 = document.getElementById('param-val1');
-        var val2 = document.getElementById('param-val2');
-        if (val1) params.val1 = val1.value.trim();
-        if (val2) params.val2 = val2.value.trim();
-        
-        show_loading();
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/scene', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-        xhr.responseType = 'blob';
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (xhr.status === 200) {
-                    var blob = new Blob([xhr.response], {type: 'text/csv'});
-                    var link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'scene_query_result.csv';
-                    link.click();
-                } else {
-                    alert('导出失败');
-                }
-            }
-        };
-        xhr.send(JSON.stringify({scene: scene, params: params, export: true}));
-    });
-}
-
-/* ========== 排序浏览 - 多字段排序 ========== */
-(function() {
-    // 排序字段选项配置
-    var SORT_FIELD_OPTIONS = [
-        { value: 'student_no', label: '学号' },
-        { value: 'student_name', label: '姓名' },
-        { value: 'gender', label: '性别' },
-        { value: 'age', label: '年龄' },
-        { value: 'class_name', label: '班级' },
-        { value: 'grade', label: '年级' },
-        { value: 'major_name', label: '专业' },
-        { value: 'dept_name', label: '学院' }
-    ];
-
-    var MAX_SORT_FIELDS = 5;
-    var sortFields = []; // 存储排序字段配置
-    var sortCurrentPage = 1;
-    var sortTotalPages = 1;
-
-    // 初始化多字段排序模块
-    function initMultiSort() {
-        var container = document.getElementById('multi-sort-container');
-        var btnAdd = document.getElementById('btn-add-sort-field');
-        var btnApply = document.getElementById('btn-sort-apply');
-        var btnReset = document.getElementById('btn-sort-reset');
-
-        if (!container) return;
-
-        // 绑定添加排序字段按钮
-        if (btnAdd) {
-            btnAdd.addEventListener('click', function() {
-                addSortField();
-            });
-        }
-
-        // 绑定应用排序按钮
-        if (btnApply) {
-            btnApply.addEventListener('click', function() {
-                sortCurrentPage = 1;
-                executeMultiSort(1);
-            });
-        }
-
-        // 绑定重置按钮
-        if (btnReset) {
-            btnReset.addEventListener('click', function() {
-                resetSortFields();
-            });
-        }
-
-        // 默认添加一个排序字段
-        addSortField();
-
-        // 绑定分页按钮
-        var btnPrev = document.getElementById('sort-page-prev');
-        var btnNext = document.getElementById('sort-page-next');
-
-        if (btnPrev) {
-            btnPrev.addEventListener('click', function() {
-                if (sortCurrentPage > 1) {
-                    executeMultiSort(sortCurrentPage - 1);
-                }
-            });
-        }
-
-        if (btnNext) {
-            btnNext.addEventListener('click', function() {
-                if (sortCurrentPage < sortTotalPages) {
-                    executeMultiSort(sortCurrentPage + 1);
-                }
-            });
-        }
-    }
-
-    // 添加排序字段
-    function addSortField() {
-        if (sortFields.length >= MAX_SORT_FIELDS) {
-            alert('最多只能添加' + MAX_SORT_FIELDS + '个排序字段');
-            return;
-        }
-
-        var container = document.getElementById('multi-sort-fields');
-        if (!container) return;
-
-        var fieldId = 'sort-field-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        var priority = sortFields.length + 1;
-
-        var fieldConfig = {
-            id: fieldId,
-            field: SORT_FIELD_OPTIONS[0].value,
-            order: 'asc'
-        };
-        sortFields.push(fieldConfig);
-
-        var html = '<div class="sort-field-row" id="' + fieldId + '">';
-        html += '<span class="sort-priority">第' + priority + '排序</span>';
-        html += '<select class="form-control sort-field-select" data-id="' + fieldId + '">';
-        for (var i = 0; i < SORT_FIELD_OPTIONS.length; i++) {
-            var opt = SORT_FIELD_OPTIONS[i];
-            html += '<option value="' + opt.value + '">' + escape_html(opt.label) + '</option>';
-        }
-        html += '</select>';
-        html += '<div class="sort-order-group">';
-        html += '<label class="sort-order-label"><input type="radio" name="order-' + fieldId + '" value="asc" checked> 升序</label>';
-        html += '<label class="sort-order-label"><input type="radio" name="order-' + fieldId + '" value="desc"> 降序</label>';
-        html += '</div>';
-        html += '<button class="btn btn-danger btn-remove-sort" data-id="' + fieldId + '">删除</button>';
-        html += '</div>';
-
-        container.insertAdjacentHTML('beforeend', html);
-
-        // 绑定字段选择变化事件
-        var select = container.querySelector('#' + fieldId + ' .sort-field-select');
-        if (select) {
-            select.addEventListener('change', function() {
-                updateSortFieldConfig(fieldId, 'field', this.value);
-            });
-        }
-
-        // 绑定排序方向变化事件
-        var radios = container.querySelectorAll('input[name="order-' + fieldId + '"]');
-        for (var r = 0; r < radios.length; r++) {
-            radios[r].addEventListener('change', function() {
-                if (this.checked) {
-                    updateSortFieldConfig(fieldId, 'order', this.value);
-                }
-            });
-        }
-
-        // 绑定删除按钮事件
-        var removeBtn = container.querySelector('#' + fieldId + ' .btn-remove-sort');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                removeSortField(fieldId);
-            });
-        }
-
-        // 更新添加按钮状态
-        updateAddButtonState();
-    }
-
-    // 更新排序字段配置
-    function updateSortFieldConfig(fieldId, key, value) {
-        for (var i = 0; i < sortFields.length; i++) {
-            if (sortFields[i].id === fieldId) {
-                sortFields[i][key] = value;
-                break;
-            }
-        }
-    }
-
-    // 删除排序字段
-    function removeSortField(fieldId) {
-        var row = document.getElementById(fieldId);
-        if (row) row.remove();
-
-        // 从数组中移除
-        for (var i = 0; i < sortFields.length; i++) {
-            if (sortFields[i].id === fieldId) {
-                sortFields.splice(i, 1);
-                break;
-            }
-        }
-
-        // 更新优先级显示
-        updatePriorityLabels();
-        // 更新添加按钮状态
-        updateAddButtonState();
-    }
-
-    // 更新优先级标签
-    function updatePriorityLabels() {
-        var container = document.getElementById('multi-sort-fields');
-        if (!container) return;
-
-        var rows = container.querySelectorAll('.sort-field-row');
-        for (var i = 0; i < rows.length; i++) {
-            var priorityLabel = rows[i].querySelector('.sort-priority');
-            if (priorityLabel) {
-                priorityLabel.textContent = '第' + (i + 1) + '排序';
-            }
-        }
-    }
-
-    // 更新添加按钮状态
-    function updateAddButtonState() {
-        var btnAdd = document.getElementById('btn-add-sort-field');
-        if (btnAdd) {
-            btnAdd.disabled = sortFields.length >= MAX_SORT_FIELDS;
-            if (sortFields.length >= MAX_SORT_FIELDS) {
-                btnAdd.title = '最多只能添加' + MAX_SORT_FIELDS + '个排序字段';
-            } else {
-                btnAdd.title = '';
-            }
-        }
-    }
-
-    // 重置排序字段
-    function resetSortFields() {
-        var container = document.getElementById('multi-sort-fields');
-        if (container) container.innerHTML = '';
-        sortFields = [];
-        addSortField();
-
-        // 清空结果区域
-        var resultWrapper = document.getElementById('sort-result');
-        var sqlBox = document.getElementById('sort-sql');
-        var emptyBox = document.getElementById('sort-empty');
-
-        if (resultWrapper) { resultWrapper.classList.add('hidden'); }
-        if (sqlBox) {
-            sqlBox.innerHTML = '';
-            sqlBox.classList.remove('sql-visible');
-        }
-        if (emptyBox) emptyBox.classList.remove('empty-visible');
-
-        sortCurrentPage = 1;
-        sortTotalPages = 1;
-        updatePaginationInfo();
-    }
-
-    // 执行多字段排序查询
-    function executeMultiSort(page) {
-        if (sortFields.length === 0) {
-            alert('请至少添加一个排序字段');
-            return;
-        }
-
-        // 构建排序参数
-        var sortParams = [];
-        for (var i = 0; i < sortFields.length; i++) {
-            sortParams.push({
-                field: sortFields[i].field,
-                order: sortFields[i].order
-            });
-        }
-
-        show_loading();
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/query/sort', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                hide_loading();
-                if (xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText);
-                        if (resp.ok !== false) {
-                            renderMultiSortResult(resp);
-                            sortCurrentPage = resp.page || 1;
-                            sortTotalPages = resp.total_pages || 1;
-                            updatePaginationInfo();
-                        } else {
-                            alert(resp.message || '查询失败');
-                        }
-                    } catch (e) {
-                        alert('响应解析失败');
-                    }
-                } else {
-                    alert('请求失败');
-                }
-            }
-        };
-        xhr.send(JSON.stringify({
-            sort_fields: sortParams,
-            page: page
-        }));
-    }
-
-    // 渲染多字段排序结果
-    function renderMultiSortResult(resp) {
-        var sqlBox = document.getElementById('sort-sql');
-        var resultWrapper = document.getElementById('sort-result');
-        var emptyBox = document.getElementById('sort-empty');
-        var table = document.getElementById('sort-table');
-
-        if (sqlBox) {
-            sqlBox.innerHTML = highlight_sql(resp.sql || '');
-            sqlBox.classList.add('sql-visible');
-        }
-
-        var columns = resp.columns || ['student_no', 'student_name', 'gender', 'age', 'class_name', 'grade', 'major_name', 'dept_name'];
-        var data = resp.data || [];
-
-        if (data.length === 0) {
-            if (resultWrapper) { resultWrapper.classList.add('hidden'); }
-            if (emptyBox) emptyBox.classList.add('empty-visible');
-            return;
-        }
-
-        if (emptyBox) emptyBox.classList.remove('empty-visible');
-        if (resultWrapper) { resultWrapper.classList.remove('hidden'); resultWrapper.removeAttribute('style'); }
-
-        // 渲染表头
-        var thead = '<thead><tr>';
-        for (var i = 0; i < columns.length; i++) {
-            thead += '<th>' + escape_html(columns[i]) + '</th>';
-        }
-        thead += '</tr></thead>';
-
-        // 渲染表体
-        var tbody = '<tbody>';
-        for (var r = 0; r < data.length; r++) {
-            tbody += '<tr>';
-            for (var c = 0; c < columns.length; c++) {
-                var val = data[r][columns[c]];
-                tbody += '<td>' + escape_html(val !== null && val !== undefined ? String(val) : '') + '</td>';
-            }
-            tbody += '</tr>';
-        }
-        tbody += '</tbody>';
-
-        if (table) table.innerHTML = thead + tbody;
-    }
-
-    // 更新分页信息
-    function updatePaginationInfo() {
-        var pageInfo = document.getElementById('sort-page-info');
-        var btnPrev = document.getElementById('sort-page-prev');
-        var btnNext = document.getElementById('sort-page-next');
-
-        if (pageInfo) {
-            pageInfo.textContent = '第 ' + sortCurrentPage + ' 页 / 共 ' + sortTotalPages + ' 页';
-        }
-
-        if (btnPrev) {
-            btnPrev.disabled = sortCurrentPage <= 1;
-        }
-
-        if (btnNext) {
-            btnNext.disabled = sortCurrentPage >= sortTotalPages;
-        }
-    }
-
-    // 选择排序面板时自动加载
-    var sortTab = document.querySelector('[data-tab="sort"]');
-    if (sortTab) {
-        sortTab.addEventListener('click', function() {
-            setTimeout(function() {
-                initMultiSort();
-            }, 100);
-        });
-    }
-
-    // 如果当前就在排序面板，立即初始化
-    if (document.getElementById('panel-sort') && document.getElementById('panel-sort').classList.contains('panel-active')) {
-        initMultiSort();
-    }
-})();
-
-
-
-/* ========== 快查指令 - 展示功能 ========== */
-(function() {
-    // SQL 复制按钮
-    document.querySelectorAll('.btn-sql-copy').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var pre = this.parentElement.querySelector('pre.ref-sql');
-            if (pre) {
-                var text = pre.textContent.trim();
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(function() {
-                        show_copy_feedback(btn);
-                    }).catch(function() {
-                        fallback_copy(text);
-                        show_copy_feedback(btn);
-                    });
-                } else {
-                    fallback_copy(text);
-                    show_copy_feedback(btn);
-                }
-            }
-        });
-
-        function show_copy_feedback(btn) {
-            btn.textContent = '已复制!';
-            setTimeout(function() { btn.textContent = '复制'; }, 1500);
-        }
-
-        function fallback_copy(text) {
-            var ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.left = '-9999px';
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-        }
-    });
-
-    // ref-card 点击展开
-    document.querySelectorAll('.ref-card-header').forEach(function(header) {
-        header.addEventListener('click', function() {
-            var card = this.parentElement;
-            card.classList.toggle('open');
-        });
-    });
-
-    // keyword 网格项点击 -- 复制关键词到剪贴板
-    document.querySelectorAll('.kw-item').forEach(function(item) {
-        item.addEventListener('click', function() {
-            var kw = this.getAttribute('data-keyword');
-            if (kw) {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(kw + ' ');
-                } else {
-                    var ta = document.createElement('textarea');
-                    ta.value = kw + ' ';
-                    ta.style.position = 'fixed';
-                    ta.style.left = '-9999px';
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(ta);
-                }
-                this.style.background = '#e8f4fd';
-                var self = this;
-                setTimeout(function() { self.style.background = ''; }, 600);
-            }
-        });
-    });
-})();
-
-/* ========== Tab 参数处理 ========== */
-(function() {
-    var params = new URLSearchParams(window.location.search);
-    var tab = params.get('tab');
-    if (tab) {
-        var tab_btn = document.querySelector('.tab-item[data-tab="' + tab + '"]');
-        if (tab_btn) {
-            tab_btn.click();
-        }
-    }
-})();
 
 /* ========== 侧边栏状态恢复 ========== */
 (function() {
@@ -2268,6 +537,26 @@ if (scene_select) {
             mainWrapper.classList.add('expanded');
         }
     }
+})();
+
+/* ========== 侧边栏滚动位置保存与恢复 ========== */
+(function() {
+    var sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+
+    // 页面加载时恢复侧边栏滚动位置
+    var savedScrollTop = sessionStorage.getItem('sidebarScrollTop');
+    if (savedScrollTop !== null) {
+        sidebar.scrollTop = parseInt(savedScrollTop, 10);
+    }
+
+    // 点击侧边栏链接时保存滚动位置
+    sidebar.addEventListener('click', function(e) {
+        var link = e.target.closest('a');
+        if (link && link.getAttribute('href')) {
+            sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
+        }
+    });
 })();
 
 /* ========== 统一筛选模块（增强版） ========== */
@@ -2292,7 +581,9 @@ function getOperatorsForType(type) {
         return [
             {value: 'eq', label: '等于'},
             {value: 'neq', label: '不等于'},
-            {value: 'in', label: '多选（逗号分隔）'}
+            {value: 'contains', label: '包含'},
+            {value: 'startswith', label: '以...开头'},
+            {value: 'endswith', label: '以...结尾'}
         ];
     } else {
         // text 类型
@@ -2301,8 +592,7 @@ function getOperatorsForType(type) {
             {value: 'eq', label: '等于'},
             {value: 'neq', label: '不等于'},
             {value: 'startswith', label: '以...开头'},
-            {value: 'endswith', label: '以...结尾'},
-            {value: 'in', label: '多值（逗号分隔）'}
+            {value: 'endswith', label: '以...结尾'}
         ];
     }
 }
@@ -2372,6 +662,12 @@ function initFilterModule(config) {
     var applyBtn = container.querySelector('.btn-apply-filters');
     var resetBtn = container.querySelector('.btn-reset-filters');
 
+    // 将字段配置存储到容器上，支持动态更新选项
+    container._fieldConfigs = {};
+    for (var i = 0; i < config.fields.length; i++) {
+        container._fieldConfigs[config.fields[i].name] = config.fields[i];
+    }
+
     // 构建字段选项 HTML（不包含可选的占位项，自动默认选中第一个字段）
     function buildFieldOptions(selectedName) {
         var html = '';
@@ -2419,21 +715,26 @@ function initFilterModule(config) {
         }
 
         if (type === 'select' && fieldConfig.options) {
-            var selectHtml = '<select class="filter-value-input" style="flex:1;min-width:120px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
-            selectHtml += '<option value="">请选择</option>';
-            var curVal = currentValues && currentValues.length > 0 ? currentValues[0] : '';
-            for (var i = 0; i < fieldConfig.options.length; i++) {
-                var sel = (fieldConfig.options[i] === curVal) ? ' selected' : '';
-                selectHtml += '<option value="' + fieldConfig.options[i] + '"' + sel + '>' + fieldConfig.options[i] + '</option>';
+            // 精确匹配（eq/neq）使用下拉选择，模糊匹配使用文本输入框
+            if (operator === 'eq' || operator === 'neq') {
+                var selectHtml = '<select class="filter-value-input" style="flex:1;min-width:120px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
+                selectHtml += '<option value="">请选择</option>';
+                var curVal = currentValues && currentValues.length > 0 ? currentValues[0] : '';
+                for (var i = 0; i < fieldConfig.options.length; i++) {
+                    var opt = fieldConfig.options[i];
+                    var optValue = (typeof opt === 'object' && opt.value !== undefined) ? opt.value : opt;
+                    var optLabel = (typeof opt === 'object' && opt.label !== undefined) ? opt.label : opt;
+                    var sel = (optValue === curVal) ? ' selected' : '';
+                    selectHtml += '<option value="' + optValue + '"' + sel + '>' + optLabel + '</option>';
+                }
+                selectHtml += '</select>';
+                return selectHtml;
             }
-            selectHtml += '</select>';
-            return selectHtml;
         }
 
         // text / number 默认输入框
-        var placeholder = (operator === 'in') ? '多个值用逗号分隔' : '请输入筛选值';
         var curVal = currentValues && currentValues.length > 0 ? currentValues[0] : '';
-        return '<input type="' + (type === 'number' ? 'number' : 'text') + '" class="filter-value-input" placeholder="' + placeholder + '" value="' + curVal.replace(/"/g, '&quot;') + '" style="flex:1;min-width:150px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
+        return '<input type="' + (type === 'number' ? 'number' : 'text') + '" class="filter-value-input" placeholder="请输入筛选值" value="' + curVal.replace(/"/g, '&quot;') + '" style="flex:1;min-width:150px;padding:8px 12px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">';
     }
 
     // 更新单行的运算符和值输入
@@ -2568,7 +869,7 @@ function initBatchImport(config) {
         return;
     }
 
-    var containerId = config.containerId || 'batch_import_area';
+    var containerId = config.containerId || 'batchImportModal';
     var container = document.getElementById(containerId);
     if (!container) return;
 
@@ -2589,6 +890,7 @@ function initBatchImport(config) {
     var previewErrors = container.querySelector('#batch_import_preview_errors');
     var confirmBtn = container.querySelector('#batch_import_confirm_btn');
     var cancelBtn = container.querySelector('#batch_import_cancel_btn');
+    var closeBtn = container.querySelector('#batchImportModalClose');
 
     var pendingData = null;
 
@@ -2731,6 +1033,31 @@ function initBatchImport(config) {
     if (cancelBtn) {
         cancelBtn.addEventListener('click', cancel_batch_preview);
     }
+
+    // ── 弹窗关闭 ──
+    function closeImportModal() {
+        container.classList.remove('active');
+        cancel_batch_preview();
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeImportModal);
+    }
+    container.addEventListener('click', function(e) {
+        if (e.target === container) {
+            closeImportModal();
+        }
+    });
+}
+
+/**
+ * 打开批量导入/导出弹窗（由页面按钮调用）
+ */
+function openBatchImportModal() {
+    var modal = document.getElementById('batchImportModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
 }
 
 /**
@@ -2772,6 +1099,72 @@ function validate_batch_csv_data(rows, requiredFieldIndex, requiredFieldName) {
     }
 
     return {valid_data: valid_data, errors: errors};
+}
+
+/* ========== 可排序列头 ========== */
+
+/**
+ * 初始化可排序列头
+ * @param {object} config
+ * @param {string} config.tableId     - 表格容器 ID（用于定位 th）
+ * @param {function} config.onSort    - 排序回调，接收 { sort_by, sort_order }
+ * @param {object} config.initialSort - 初始排序 { sort_by, sort_order }，可选
+ */
+function initSortableTable(config) {
+    if (!config || !config.tableId || !config.onSort) return;
+
+    var table = document.getElementById(config.tableId);
+    if (!table) return;
+
+    var state = {
+        sort_by: (config.initialSort && config.initialSort.sort_by) || '',
+        sort_order: (config.initialSort && config.initialSort.sort_order) || 'asc'
+    };
+
+    var headers = table.querySelectorAll('th[data-sort]');
+
+    // 恢复初始排序指示
+    if (state.sort_by) {
+        headers.forEach(function(th) {
+            if (th.getAttribute('data-sort') === state.sort_by) {
+                th.classList.add('sortable', state.sort_order === 'asc' ? 'sort-asc' : 'sort-desc');
+            } else {
+                th.classList.add('sortable');
+            }
+        });
+    } else {
+        headers.forEach(function(th) { th.classList.add('sortable'); });
+    }
+
+    headers.forEach(function(th) {
+        th.addEventListener('click', function() {
+            var field = th.getAttribute('data-sort');
+            if (!field) return;
+
+            // 切换排序方向
+            if (state.sort_by === field) {
+                state.sort_order = state.sort_order === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sort_by = field;
+                state.sort_order = 'asc';
+            }
+
+            // 更新样式
+            headers.forEach(function(h) {
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+            th.classList.add(state.sort_order === 'asc' ? 'sort-asc' : 'sort-desc');
+
+            // 触发回调
+            config.onSort({
+                sort_by: state.sort_by,
+                sort_order: state.sort_order
+            });
+        });
+    });
+
+    // 返回状态，可用于外部读取
+    return state;
 }
 
 /* ========== 全局错误处理 ========== */
@@ -2893,5 +1286,487 @@ function submitMockData() {
     };
     xhr.send(JSON.stringify({ tables: tables }));
 }
+
+/* ========== 综合查询 ========== */
+(function() {
+    // 仅在综合查询页面执行
+    if (!document.getElementById('panel-comprehensive') && !document.getElementById('comp-main-table')) return;
+
+    var compState = {
+        mainTable: '',
+        availableRelations: [],
+        selectedJoins: [],
+        allFields: [],
+        currentPage: 1,
+        totalPages: 0,
+        currentFilters: [],
+        compPager: null,
+    };
+
+    // 元素引用
+    var mainTableSelect = document.getElementById('comp-main-table');
+    var relationsSection = document.getElementById('comp-relations-section');
+    var relationsList = document.getElementById('comp-relations-list');
+    var relationsEmpty = document.getElementById('comp-relations-empty');
+    var fieldsPreview = document.getElementById('comp-fields-preview');
+    var fieldsTags = document.getElementById('comp-fields-tags');
+    var filterSection = document.getElementById('comp-filter-section');
+    var actionsDiv = document.getElementById('comp-actions');
+    var btnQuery = document.getElementById('comp-btn-query');
+    var btnResetAll = document.getElementById('comp-btn-reset-all');
+    var btnAddFilter = document.getElementById('comp-btn-add-filter');
+    var btnResetFilters = document.getElementById('comp-btn-reset-filters');
+    var filterRows = document.getElementById('comp-filter-rows');
+    var resultDiv = document.getElementById('comp-result');
+    var emptyDiv = document.getElementById('comp-empty');
+    var tableEl = document.getElementById('comp-table');
+    var resultStats = document.getElementById('comp-result-stats');
+    var paginationDiv = document.getElementById('comp-pagination');
+    var loadingDiv = document.getElementById('comp-loading');
+
+    // 1. 加载主表列表
+    function loadMainTables() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/query/comprehensive/tables', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.ok && resp.data) {
+                        renderMainTableOptions(resp.data);
+                    }
+                } catch (e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    function renderMainTableOptions(tables) {
+        var html = '<option value="">-- 请选择主表 --</option>';
+        for (var i = 0; i < tables.length; i++) {
+            html += '<option value="' + tables[i].name + '">' +
+                escape_html(tables[i].label) + ' (' + tables[i].column_count + ' 个字段)</option>';
+        }
+        mainTableSelect.innerHTML = html;
+    }
+
+    // 2. 主表切换
+    mainTableSelect.addEventListener('change', function() {
+        var tableName = this.value;
+        resetAll(true);
+
+        if (!tableName) {
+            compState.mainTable = '';
+            hideSections();
+            return;
+        }
+
+        compState.mainTable = tableName;
+        loadTableRelations(tableName);
+        loadTableFields(tableName);
+        filterSection.style.display = '';
+        actionsDiv.style.display = '';
+    });
+
+    function loadTableRelations(tableName) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/query/comprehensive/table/' + tableName + '/relations', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.ok) {
+                        compState.availableRelations = resp.data || [];
+                        renderRelations(compState.availableRelations);
+                    }
+                } catch (e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    function renderRelations(relations) {
+        relationsSection.style.display = '';
+
+        if (relations.length === 0) {
+            relationsList.innerHTML = '';
+            relationsEmpty.style.display = '';
+            compState.selectedJoins = [];
+            return;
+        }
+
+        relationsEmpty.style.display = 'none';
+        var html = '';
+        for (var i = 0; i < relations.length; i++) {
+            var rel = relations[i];
+            html += '<label class="comp-relation-item">';
+            html += '<input type="checkbox" class="comp-relation-cb" ' +
+                'data-join=\'' + JSON.stringify(rel) + '\'> ';
+            html += '<span class="comp-relation-text">' +
+                escape_html(rel.from_label) + '.' + escape_html(rel.from_column) +
+                ' \u2192 ' +
+                escape_html(rel.to_label) + '.' + escape_html(rel.to_column) +
+                '</span>';
+            html += '</label>';
+        }
+        relationsList.innerHTML = html;
+
+        var cbs = relationsList.querySelectorAll('.comp-relation-cb');
+        for (var j = 0; j < cbs.length; j++) {
+            cbs[j].addEventListener('change', function() {
+                updateSelectedJoins();
+                refreshFilterFields();
+            });
+        }
+    }
+
+    function updateSelectedJoins() {
+        var cbs = relationsList.querySelectorAll('.comp-relation-cb:checked');
+        compState.selectedJoins = [];
+        for (var i = 0; i < cbs.length; i++) {
+            try {
+                var joinData = JSON.parse(cbs[i].getAttribute('data-join'));
+                compState.selectedJoins.push(joinData);
+            } catch (e) {}
+        }
+    }
+
+    function loadTableFields(tableName) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/query/comprehensive/table/' + tableName + '/fields', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.ok && resp.data) {
+                        renderFieldsPreview(resp.data, tableName);
+                        refreshFilterFields();
+                    }
+                } catch (e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    function renderFieldsPreview(fields, tableName) {
+        fieldsPreview.style.display = '';
+        var html = '<h4>主表字段 (' + fields.length + ' 个)</h4><div class="comp-fields-tags">';
+        for (var i = 0; i < fields.length; i++) {
+            var f = fields[i];
+            html += '<span class="comp-field-tag" title="' + f.type + '">' +
+                escape_html(f.label) + (f.is_pk ? ' \uD83D\uDD11' : '') + '</span>';
+        }
+        html += '</div>';
+        fieldsTags.innerHTML = html;
+    }
+
+    function refreshFilterFields() {
+        var tablesToLoad = [compState.mainTable];
+        for (var i = 0; i < compState.selectedJoins.length; i++) {
+            var toTable = compState.selectedJoins[i].to_table;
+            if (tablesToLoad.indexOf(toTable) === -1) {
+                tablesToLoad.push(toTable);
+            }
+        }
+
+        var loaded = 0;
+        compState.allFields = [];
+
+        for (var j = 0; j < tablesToLoad.length; j++) {
+            (function(tbl) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/query/comprehensive/table/' + tbl + '/fields', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        try {
+                            var resp = JSON.parse(xhr.responseText);
+                            if (resp.ok && resp.data) {
+                                for (var k = 0; k < resp.data.length; k++) {
+                                    var f = resp.data[k];
+                                    compState.allFields.push({
+                                        table: tbl,
+                                        name: f.name,
+                                        label: f.label,
+                                        type: f.type,
+                                    });
+                                }
+                            }
+                        } catch (e) {}
+                        loaded++;
+                        if (loaded >= tablesToLoad.length) {
+                            renderFilterRows();
+                        }
+                    }
+                };
+                xhr.send();
+            })(tablesToLoad[j]);
+        }
+    }
+
+    // 3. 筛选条件
+    var COMP_FILTER_ROW_COUNT = 0;
+
+    function addCompFilterRow() {
+        COMP_FILTER_ROW_COUNT++;
+        var rowId = 'comp-filter-row-' + COMP_FILTER_ROW_COUNT;
+
+        var fieldOptions = '<option value="">选择字段</option>';
+        for (var i = 0; i < compState.allFields.length; i++) {
+            var f = compState.allFields[i];
+            fieldOptions += '<option value="' + f.table + '|' + f.name + '">' +
+                escape_html(f.label) + '</option>';
+        }
+
+        var operatorOptions = '<option value="=">等于</option>' +
+            '<option value="!=">不等于</option>' +
+            '<option value="LIKE">包含</option>' +
+            '<option value=">">大于</option>' +
+            '<option value="<">小于</option>' +
+            '<option value=">=">大于等于</option>' +
+            '<option value="<=">小于等于</option>' +
+            '<option value="IN">多值</option>';
+
+        var row = document.createElement('div');
+        row.className = 'filter-row';
+        row.id = rowId;
+        row.innerHTML =
+            '<select class="comp-filter-field" style="min-width:130px;padding:8px;border:1px solid #cbd5e0;border-radius:4px;">' +
+                fieldOptions +
+            '</select>' +
+            '<select class="comp-filter-operator" style="min-width:100px;padding:8px;border:1px solid #cbd5e0;border-radius:4px;">' +
+                operatorOptions +
+            '</select>' +
+            '<input type="text" class="comp-filter-value" placeholder="筛选值" style="flex:1;min-width:150px;padding:8px;border:1px solid #cbd5e0;border-radius:4px;">' +
+            '<button class="comp-filter-remove">删除</button>';
+
+        filterRows.appendChild(row);
+
+        var hint = document.getElementById('comp-filter-empty-hint');
+        if (hint) hint.style.display = 'none';
+
+        row.querySelector('.comp-filter-remove').addEventListener('click', function() {
+            filterRows.removeChild(row);
+            var remaining = filterRows.querySelectorAll('.filter-row');
+            if (remaining.length === 0) {
+                var h = document.getElementById('comp-filter-empty-hint');
+                if (h) h.style.display = '';
+            }
+        });
+    }
+
+    function collectCompFilters() {
+        var rows = filterRows.querySelectorAll('.filter-row');
+        var filters = [];
+        for (var i = 0; i < rows.length; i++) {
+            var fieldSelect = rows[i].querySelector('.comp-filter-field');
+            var opSelect = rows[i].querySelector('.comp-filter-operator');
+            var valInput = rows[i].querySelector('.comp-filter-value');
+
+            if (!fieldSelect || !opSelect || !valInput) continue;
+            var fieldVal = fieldSelect.value;
+            if (!fieldVal) continue;
+            var parts = fieldVal.split('|');
+            var table = parts[0];
+            var field = parts[1];
+            var operator = opSelect.value;
+            var value = valInput.value.trim();
+            if (!value && operator !== 'IS NULL' && operator !== 'IS NOT NULL') continue;
+
+            filters.push({
+                table: table,
+                field: field,
+                operator: operator,
+                value: value,
+            });
+        }
+        return filters;
+    }
+
+    function renderFilterRows() {
+        var existingRows = filterRows.querySelectorAll('.filter-row');
+        for (var i = 0; i < existingRows.length; i++) {
+            existingRows[i].remove();
+        }
+        COMP_FILTER_ROW_COUNT = 0;
+        var hint = document.getElementById('comp-filter-empty-hint');
+        if (hint) hint.style.display = '';
+    }
+
+    if (btnAddFilter) {
+        btnAddFilter.addEventListener('click', function() {
+            if (compState.allFields.length === 0) {
+                alert('请先选择主表');
+                return;
+            }
+            addCompFilterRow();
+        });
+    }
+
+    if (btnResetFilters) {
+        btnResetFilters.addEventListener('click', function() {
+            renderFilterRows();
+        });
+    }
+
+    // 4. 执行查询
+    if (btnQuery) {
+        btnQuery.addEventListener('click', function() {
+            compState.currentPage = 1;
+            executeQuery(1);
+        });
+    }
+
+    function executeQuery(page) {
+        var filters = collectCompFilters();
+        compState.currentFilters = filters;
+        compState.currentPage = page;
+
+        var payload = {
+            main_table: compState.mainTable,
+            joins: compState.selectedJoins,
+            filters: filters,
+            page: page,
+        };
+
+        loadingDiv.style.display = 'flex';
+        resultDiv.style.display = 'none';
+        emptyDiv.style.display = 'none';
+        resultStats.style.display = 'none';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/query/comprehensive/execute', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRF-Token', _csrf_token);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                loadingDiv.style.display = 'none';
+                if (xhr.status === 200) {
+                    try {
+                        var resp = JSON.parse(xhr.responseText);
+                        renderResults(resp);
+                    } catch (e) {
+                        alert('响应解析失败');
+                    }
+                } else {
+                    alert('查询请求失败');
+                }
+            }
+        };
+        xhr.send(JSON.stringify(payload));
+    }
+
+    function renderResults(resp) {
+        if (!resp.ok) {
+            alert(resp.error || '查询失败');
+            return;
+        }
+
+        var columns = resp.columns || [];
+        var data = resp.data || [];
+        var total = resp.total || 0;
+
+        resultStats.style.display = '';
+        document.getElementById('comp-total-count').textContent = total;
+
+        if (data.length === 0) {
+            resultDiv.style.display = '';
+            tableEl.innerHTML = '<thead></thead><tbody></tbody>';
+            emptyDiv.style.display = 'block';
+            paginationDiv.style.display = 'none';
+            return;
+        }
+
+        emptyDiv.style.display = 'none';
+        resultDiv.style.display = '';
+
+        var thead = '<thead><tr>';
+        for (var i = 0; i < columns.length; i++) {
+            thead += '<th title="' + escape_html(columns[i].key) + '">' +
+                escape_html(columns[i].label) + '</th>';
+        }
+        thead += '</tr></thead>';
+
+        var tbody = '<tbody>';
+        for (var r = 0; r < data.length; r++) {
+            tbody += '<tr>';
+            for (var c = 0; c < columns.length; c++) {
+                var val = data[r][columns[c].key];
+                tbody += '<td>' + escape_html(val !== null && val !== undefined ? String(val) : '') + '</td>';
+            }
+            tbody += '</tr>';
+        }
+        tbody += '</tbody>';
+
+        tableEl.innerHTML = thead + tbody;
+
+        updateCompPagination(resp.page || 1, resp.total_pages || 1, total);
+    }
+
+    function updateCompPagination(page, totalPages, total) {
+        if (totalPages <= 1 && total <= 20) {
+            paginationDiv.style.display = 'none';
+            return;
+        }
+        paginationDiv.style.display = '';
+
+        if (!compState.compPager) {
+            compState.compPager = new Pagination({
+                container: paginationDiv,
+                totalPages: totalPages,
+                currentPage: page,
+                total: total,
+                onChange: function(p) {
+                    executeQuery(p);
+                },
+            });
+        } else {
+            compState.compPager.update({
+                currentPage: page,
+                totalPages: totalPages,
+                total: total,
+            });
+        }
+    }
+
+    // 5. 重置
+    function resetAll(keepMainTable) {
+        resultDiv.style.display = 'none';
+        emptyDiv.style.display = 'none';
+        resultStats.style.display = 'none';
+        paginationDiv.style.display = 'none';
+        if (tableEl) tableEl.innerHTML = '';
+
+        if (!keepMainTable) {
+            compState.mainTable = '';
+            mainTableSelect.value = '';
+        }
+
+        compState.availableRelations = [];
+        compState.selectedJoins = [];
+        compState.allFields = [];
+        hideSections();
+
+        renderFilterRows();
+        compState.currentPage = 1;
+        compState.compPager = null;
+    }
+
+    function hideSections() {
+        relationsSection.style.display = 'none';
+        relationsList.innerHTML = '';
+        relationsEmpty.style.display = 'none';
+        fieldsPreview.style.display = 'none';
+        fieldsTags.innerHTML = '';
+    }
+
+    if (btnResetAll) {
+        btnResetAll.addEventListener('click', function() {
+            resetAll(false);
+        });
+    }
+
+    // 初始化
+    loadMainTables();
+})();
 
 

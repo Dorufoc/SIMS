@@ -1,11 +1,16 @@
 """授课表"""
-from sqlalchemy import Column, Integer, String, SmallInteger, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, Integer, String, SmallInteger, TIMESTAMP, ForeignKey, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class Teaching(Base):
     __tablename__ = 'teaching'
+    __table_args__ = (
+        Index('idx_teaching_schedule', 'schedule'),
+        Index('idx_teaching_classroom', 'classroom'),
+        Index('idx_teaching_capacity', 'capacity'),
+    )
 
     teaching_id = Column(Integer, primary_key=True, autoincrement=True)
     course_id = Column(String(20), ForeignKey('courses.course_id'), nullable=False)
@@ -20,4 +25,3 @@ class Teaching(Base):
     teacher = relationship('Teacher', back_populates='teachings')
     semester = relationship('Semester', back_populates='teachings')
     enrollments = relationship('Enrollment', back_populates='teaching', lazy='dynamic')
-    enroll_logs = relationship('EnrollLog', back_populates='teaching', lazy='dynamic')

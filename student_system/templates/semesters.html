@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学期管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'semesters' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>学期管理</h1>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="openModal()">新增学期</button>
+                        </div>
+                    </div>
+
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="academic_year">学年</th>
+                                    <th data-sort="semester_name">学期名称</th>
+                                    <th data-sort="start_date">开始日期</th>
+                                    <th data-sort="end_date">结束日期</th>
+                                    <th data-sort="is_current">当前学期</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="semesterTable">
+                                <tr><td colspan="7" class="empty-row">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/编辑模态框 -->
+    <div id="semesterModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增学期</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="semesterForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="semesterId">
+                <div class="form-group">
+                    <label>学年 *</label>
+                    <input type="text" id="academicYear" required placeholder="如：2024-2025">
+                </div>
+                <div class="form-group">
+                    <label>学期名称 *</label>
+                    <input type="text" id="semesterName" required placeholder="如：第一学期">
+                </div>
+                <div class="form-group">
+                    <label>开始日期 *</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                <div class="form-group">
+                    <label>结束日期 *</label>
+                    <input type="date" id="endDate" required>
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+
+    {% include '_batch_import.html' %}
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
+    <script>
+        let pager = null;
+
+        // 加载学期列表
+        function loadSemesters(page = 1) {
+            let url = `/api/semesters?page=${page}&page_size=10`;
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('semesterTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '';
+                var emptyTr = document.createElement('tr');
+                var emptyTd = document.createElement('td');
+                emptyTd.colSpan = 7;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(function(semester, index) {
+                var rowIdx = (pager.currentPage - 1) * 10 + index + 1;
+                const tr = document.createElement('tr');
+
+                var cells = [rowIdx, semester.academic_year, semester.semester_name, semester.start_date, semester.end_date, semester.is_current ? '是' : '否'];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var td = document.createElement('td');
+                    td.textContent = String(cells[ci]);
+                    tr.appendChild(td);
+                }
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'action-cell';
+
+                const btnSetCurrent = document.createElement('button');
+                btnSetCurrent.className = 'btn btn-sm btn-primary';
+                btnSetCurrent.textContent = '设为当前学期';
+                btnSetCurrent.onclick = function() { setCurrentSemester(semester.semester_id); };
+                if (semester.is_current) {
+                    btnSetCurrent.disabled = true;
+                }
+                tdActions.appendChild(btnSetCurrent);
+
+                tdActions.appendChild(document.createTextNode(' '));
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-sm btn-primary';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editSemester(semester.semester_id); };
+                tdActions.appendChild(btnEdit);
+
+                tdActions.appendChild(document.createTextNode(' '));
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-sm btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteSemester(semester.semester_id, semester.semester_name); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 初始化分页
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadSemesters(page); }
+        });
+
+        // 打开模态框
+        function openModal() {
+            document.getElementById('semesterModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '新增学期';
+            document.getElementById('semesterForm').reset();
+            document.getElementById('semesterId').value = '';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('semesterModal').classList.remove('active');
+        }
+
+        // 编辑学期
+        function editSemester(id) {
+            fetch(`/api/semesters/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const semester = data.data;
+                        document.getElementById('semesterModal').classList.add('active');
+                        document.getElementById('modalTitle').textContent = '编辑学期';
+                        document.getElementById('semesterId').value = semester.semester_id;
+                        document.getElementById('academicYear').value = semester.academic_year;
+                        document.getElementById('semesterName').value = semester.semester_name;
+                        document.getElementById('startDate').value = semester.start_date;
+                        document.getElementById('endDate').value = semester.end_date;
+                    }
+                });
+        }
+
+        // 提交表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('semesterId').value;
+            const data = {
+                academic_year: document.getElementById('academicYear').value,
+                semester_name: document.getElementById('semesterName').value,
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value
+            };
+
+            const url = id ? `/api/semesters/${id}` : '/api/semesters';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadSemesters(pager.currentPage);
+                }
+            });
+        }
+
+        // 删除学期
+        function deleteSemester(id, name) {
+            if (!confirm(`确定要删除学期 "${name}" 吗？`)) return;
+
+            fetch(`/api/semesters/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrf_token } })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.msg);
+                    if (data.code === 0) loadSemesters(pager.currentPage);
+                });
+        }
+
+        // 设为当前学期
+        function setCurrentSemester(id) {
+            if (!confirm('确定要将该学期设为当前学期吗？')) return;
+
+            fetch(`/api/semesters/${id}/set_current`, {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': _csrf_token }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.msg);
+                    if (data.code === 0) loadSemesters(pager.currentPage);
+                });
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        }
+    </script>
+
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'academic_year', label: '学年', type: 'text'},
+                {name: 'semester_name', label: '学期名称', type: 'text'}
+            ],
+            onApply: function(filters) { loadSemesters(1); },
+            onReset: function(filters) { loadSemesters(1); }
+        });
+        loadSemesters();
+
+        initSortableTable({
+            tableId: 'semesterTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadSemesters(1);
+            }
+        });
+
+        initBatchImport({
+            entityType: 'semester',
+            previewColumns: ['学年', '学期名称', '开始日期', '结束日期'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学年',
+            onImportSuccess: function() { loadSemesters(1); }
+        });
+    </script>
+</body>
+</html>

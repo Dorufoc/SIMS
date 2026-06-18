@@ -1,7 +1,6 @@
 """成绩服务"""
 from repository.enrollment_repo import EnrollmentRepo
 from entity.enrollment import Enrollment
-from entity.grade_scale import GradeScale
 from sqlalchemy import func
 
 
@@ -13,14 +12,23 @@ class GradeService:
         self.repo.close()
 
     def _calc_grade_point(self, score):
-        """根据成绩计算绩点"""
-        scales = self.repo.db.query(GradeScale).order_by(
-            GradeScale.min_score.desc()
-        ).all()
-        for s in scales:
-            if score is not None and s.min_score is not None and s.max_score is not None and float(score) >= float(s.min_score) and float(score) <= float(s.max_score):
-                return float(s.grade_point)
-        return 0.0
+        """根据成绩计算绩点（硬编码映射）"""
+        if score is None:
+            return 0.0
+        try:
+            score = float(score)
+        except (ValueError, TypeError):
+            return 0.0
+        if score >= 90:
+            return 4.0
+        elif score >= 80:
+            return 3.0
+        elif score >= 70:
+            return 2.0
+        elif score >= 60:
+            return 1.0
+        else:
+            return 0.0
 
     def set_score(self, enroll_id: int, score):
         """录入/修改单个成绩"""

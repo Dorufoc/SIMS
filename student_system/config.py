@@ -17,7 +17,7 @@ ENV_BAK_PATH = Path(__file__).resolve().parent / '.env.bak'
 
 
 def _test_db_connection(db_url: str) -> bool:
-    """测试数据库连接（自动识别 MySQL / PostgreSQL），返回是否可用"""
+    """测试数据库是否可达。连接 postgres 默认库检查服务器是否存活，不依赖目标数据库是否存在。"""
     try:
         from urllib.parse import urlparse
         parsed = urlparse(db_url)
@@ -28,13 +28,15 @@ def _test_db_connection(db_url: str) -> bool:
                 port=parsed.port or 3306,
                 user=parsed.username or 'root',
                 password=parsed.password or '',
-                database=parsed.path.lstrip('/'),
+                database='mysql',
                 connect_timeout=5,
             )
             conn.close()
         else:
             import psycopg2
-            conn = psycopg2.connect(db_url, connect_timeout=5)
+            # 连接到 postgres 默认库而非目标数据库，避免因目标库不存在而误判
+            test_url = f"{parsed.scheme}://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port or 5432}/postgres"
+            conn = psycopg2.connect(test_url, connect_timeout=5)
             conn.close()
         return True
     except Exception:

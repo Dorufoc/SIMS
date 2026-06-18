@@ -10,6 +10,9 @@ class SemesterService:
     def close(self):
         self.repo.close()
 
+    def get_by_id(self, semester_id):
+        return self.repo.get_by_id(semester_id)
+
     def get_all(self):
         return self.repo.db.query(Semester).order_by(
             Semester.academic_year.desc(), Semester.semester_name
@@ -29,7 +32,7 @@ class SemesterService:
         if not sem:
             return None
         for k, v in filtered_data.items():
-            if hasattr(sem, k):
+            if v is not None and v != '' and hasattr(sem, k):
                 setattr(sem, k, v)
         self.repo.db.commit()
         return sem

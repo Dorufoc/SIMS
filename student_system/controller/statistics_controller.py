@@ -77,10 +77,10 @@ def api_grade_stats():
 @statistics_bp.route('/api/statistics/class_grades', methods=['GET'])
 @require_login
 def api_class_grade_stats():
-    from service.statistics_service import StatisticsService as SS
-    svc = SS()
+    semester_id = request.args.get('semester_id', type=int)
+    svc = StatisticsService()
     try:
-        data = svc.grade_distribution()
+        data = svc.class_grade_stats(semester_id)
         return jsonify({'code': 0, 'data': data})
     finally:
         svc.close()

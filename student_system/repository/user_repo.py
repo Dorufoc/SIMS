@@ -13,6 +13,7 @@ class UserRepo(BaseRepo):
         'email': 'email',
         'phone': 'phone',
         'uuid': 'uuid',
+        'created_at': 'created_at',
     }
 
     def find_by_username(self, username: str):
@@ -31,10 +32,7 @@ class UserRepo(BaseRepo):
         return self.find_by(phone=phone)
 
     def find_by_identifier(self, identifier: str):
-        """通过用户名/学号/邮箱/手机号查找用户"""
+        """通过学号/工号查找用户（管理员通过用户名查找）"""
         return self.db.query(User).filter(
-            (User.username == identifier) |
-            (User.ref_id == identifier) |
-            (User.email == identifier) |
-            (User.phone == identifier)
+            (User.ref_id == identifier) | ((User.username == identifier) & (User.role == 'admin'))
         ).first()

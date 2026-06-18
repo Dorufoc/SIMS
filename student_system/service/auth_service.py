@@ -6,15 +6,10 @@ from utils.password_utils import encrypt_password, verify_password
 from utils.permission_utils import generate_uuid, init_user_permissions
 
 
-# 离线模式默认管理员凭据（从环境变量读取，未设置则使用随机密码）
-import os
-_offline_password = os.getenv('OFFLINE_ADMIN_PASSWORD')
-if not _offline_password:
-    import secrets
-    _offline_password = secrets.token_urlsafe(16)
+# 离线模式默认管理员凭据
 _OFFLINE_ADMIN = {
     'username': 'admin',
-    'password': _offline_password,
+    'password': 'admin',
 }
 
 
@@ -59,6 +54,22 @@ class AuthService:
         if needs_upgrade and upgraded_hash:
             user.password_hash = upgraded_hash
 
+        # 登录时自动关联：若用户有 ref_id，补齐人员信息
+        if user.ref_id and user.role == 'student':
+            from entity.student import Student
+            person = self.user_repo.db.query(Student).filter(
+                Student.student_id == user.ref_id
+            ).first()
+            if person and not user.real_name and person.name:
+                user.real_name = person.name
+        elif user.ref_id and user.role == 'teacher':
+            from entity.teacher import Teacher
+            person = self.user_repo.db.query(Teacher).filter(
+                Teacher.teacher_id == user.ref_id
+            ).first()
+            if person and not user.real_name and person.name:
+                user.real_name = person.name
+
         # 更新最后登录时间
         from datetime import datetime
         user.last_login = datetime.now()
@@ -79,67 +90,13 @@ class AuthService:
             'username_changed': user.username_changed,
         }
 
-    def _link_person(self, user, role: str, register_method: str, register_value: str):
-        """根据注册信息（学号/工号/手机/邮箱）在 students/teachers 表中匹配已有记录，
-        匹配成功则设置 user.ref_id 并补齐缺失的联系方式。"""
-        from entity.student import Student
-        from entity.teacher import Teacher
-
-        if role == 'student':
-            person = None
-            # 1. 优先精确匹配 ref_id（学号）
-            if register_method == 'ref_id':
-                person = self.user_repo.db.query(Student).filter(
-                    Student.student_id == register_value
-                ).first()
-            # 2. 多字段模糊匹配
-            if not person:
-                person = self.user_repo.db.query(Student).filter(
-                    (Student.student_id == register_value) |
-                    (Student.phone == register_value) |
-                    (Student.email == register_value)
-                ).first()
-            if person:
-                user.ref_id = person.student_id
-                if not user.phone and person.phone:
-                    user.phone = person.phone
-                if not user.email and person.email:
-                    user.email = person.email
-                if not user.real_name and person.name:
-                    user.real_name = person.name
-                return True
-
-        elif role == 'teacher':
-            person = None
-            if register_method == 'ref_id':
-                person = self.user_repo.db.query(Teacher).filter(
-                    Teacher.teacher_id == register_value
-                ).first()
-            if not person:
-                person = self.user_repo.db.query(Teacher).filter(
-                    (Teacher.teacher_id == register_value) |
-                    (Teacher.phone == register_value) |
-                    (Teacher.email == register_value)
-                ).first()
-            if person:
-                user.ref_id = person.teacher_id
-                if not user.phone and person.phone:
-                    user.phone = person.phone
-                if not user.email and person.email:
-                    user.email = person.email
-                if not user.real_name and person.name:
-                    user.real_name = person.name
-                return True
-
-        return False
-
     def register(self, password: str, real_name: str, role: str,
                  register_method: str, register_value: str):
         """用户注册，返回 (success, message, user_dict_or_none)"""
         if role not in ['admin', 'teacher', 'student']:
             role = 'student'
 
-        if register_method not in ['ref_id', 'phone', 'email']:
+        if register_method != 'ref_id':
             return False, '请选择有效的注册方式', None
 
         if not register_value:
@@ -149,12 +106,26 @@ class AuthService:
             return False, '密码长度不能少于6位', None
 
         # 检查是否已被注册
-        field_map = {'ref_id': 'ref_id', 'phone': 'phone', 'email': 'email'}
-        field_names = {'ref_id': '学号', 'phone': '手机号', 'email': '邮箱'}
-        field = field_map[register_method]
-        existing = self.user_repo.find_by(**{field: register_value})
+        existing = self.user_repo.find_by(ref_id=register_value)
         if existing:
-            return False, f'该{field_names[register_method]}已被注册', None
+            return False, '该编号已被注册', None
+
+        # 根据角色在对应库中做前置校验
+        from entity.student import Student
+        from entity.teacher import Teacher
+
+        person = None
+        if role == 'student':
+            person = self.user_repo.db.query(Student).filter(
+                Student.student_id == register_value
+            ).first()
+        elif role == 'teacher':
+            person = self.user_repo.db.query(Teacher).filter(
+                Teacher.teacher_id == register_value
+            ).first()
+
+        if not person:
+            return False, '未在该角色库中找到该编号，请核对后重试；如确认无误请联系管理员补充基础信息', None
 
         try:
             user_uuid = generate_uuid()
@@ -168,13 +139,19 @@ class AuthService:
                 'role': role,
                 'real_name': real_name or '',
                 'username_changed': False,
-                field: register_value,
+                'ref_id': register_value,
             }
             user = self.user_repo.create(self.user_repo.model(**user_data))
 
-            # 尝试关联到已有的学生/教师记录并持久化
-            if self._link_person(user, role, register_method, register_value):
-                self.user_repo.db.commit()
+            # 直接设置关联信息
+            if role == 'student':
+                user.ref_id = person.student_id
+                user.real_name = person.name
+            elif role == 'teacher':
+                user.ref_id = person.teacher_id
+                user.real_name = person.name
+
+            self.user_repo.db.commit()
 
             # 初始化权限
             init_user_permissions(self.perm_repo, user_uuid, role)

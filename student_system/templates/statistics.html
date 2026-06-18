@@ -143,29 +143,16 @@
                 .then(data => {
                     if (data.code === 0) {
                         const d = data.data;
-                        const overview = d.overview;
-                        const dorm = d.dormitory;
-                        const payment = d.payment;
-
-                        const totalCapacity = dorm.total_capacity || 0;
-                        const totalOccupied = dorm.total_occupied || 0;
-                        const dormRate = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
-
-                        const totalDue = payment.total_due || 0;
-                        const totalPaid = payment.total_paid || 0;
-                        const paymentRate = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0;
 
                         const container = document.getElementById('overviewStats');
                         container.innerHTML = '';
                         const items = [
-                            { label: '学生总数', value: overview.student_count },
-                            { label: '教师总数', value: overview.teacher_count },
-                            { label: '课程总数', value: overview.course_count },
-                            { label: '院系总数', value: overview.dept_count },
-                            { label: '班级总数', value: overview.class_count },
-                            { label: '宿舍入住率', value: dormRate + '%', sub: totalOccupied + '/' + totalCapacity + ' 床位' },
-                            { label: '缴费完成率', value: paymentRate + '%', sub: (payment.unpaid_count || 0) + ' 笔待缴' },
-                            { label: '本学期选课', value: overview.current_enrollment_count }
+                            { label: '学生总数', value: d.student_count },
+                            { label: '教师总数', value: d.teacher_count },
+                            { label: '课程总数', value: d.course_count },
+                            { label: '院系总数', value: d.dept_count },
+                            { label: '班级总数', value: d.class_count },
+                            { label: '本学期选课', value: d.active_enrollments },
                         ];
                         items.forEach(item => {
                             const card = document.createElement('div');
@@ -177,12 +164,6 @@
                             valDiv.className = 'value';
                             valDiv.textContent = item.value;
                             card.appendChild(valDiv);
-                            if (item.sub) {
-                                const subDiv = document.createElement('div');
-                                subDiv.className = 'sub-value';
-                                subDiv.textContent = item.sub;
-                                card.appendChild(subDiv);
-                            }
                             container.appendChild(card);
                         });
                     }
@@ -197,7 +178,9 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.code === 0) {
-                        const rows = data.data;
+                        // API 返回 {by_dept: [...], by_major: [...], by_class: [...], by_year: [...]}
+                        const groupKey = groupBy === 'department' ? 'by_dept' : groupBy === 'major' ? 'by_major' : 'by_class';
+                        const rows = data.data[groupKey] || [];
                         const total = rows.reduce((sum, r) => sum + r.count, 0);
 
                         const tbody = document.querySelector('#studentDistTable tbody');
@@ -232,12 +215,12 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.code === 0) {
-                        const total = data.data.total;
-                        const totalCount = total.reduce((sum, t) => sum + t.count, 0);
+                        const rows = data.data;
+                        const totalCount = rows.reduce((sum, t) => sum + t.count, 0);
 
                         const tbody = document.querySelector('#genderTable tbody');
                         tbody.innerHTML = '';
-                        total.forEach(t => {
+                        rows.forEach(t => {
                             const pct = totalCount > 0 ? ((t.count / totalCount) * 100).toFixed(1) : 0;
                             const tr = document.createElement('tr');
                             const tdGender = document.createElement('td');

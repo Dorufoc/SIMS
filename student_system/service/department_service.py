@@ -29,7 +29,7 @@ class DepartmentService:
         if not dept:
             return None
         for k, v in filtered_data.items():
-            if hasattr(dept, k):
+            if v is not None and v != '' and hasattr(dept, k):
                 setattr(dept, k, v)
         self.repo.db.commit()
         return dept

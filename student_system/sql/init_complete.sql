@@ -77,7 +77,11 @@ CREATE TABLE IF NOT EXISTS `students` (
   INDEX `idx_student_class` (`class_id`),
   INDEX `idx_student_year` (`enrollment_year`),
   INDEX `idx_student_status` (`status`),
-  INDEX `idx_student_name` (`name`)
+  INDEX `idx_student_name` (`name`),
+  INDEX `idx_student_gender` (`gender`),
+  INDEX `idx_student_phone` (`phone`),
+  INDEX `idx_student_birth_date` (`birth_date`),
+  INDEX `idx_student_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='学生表';
 
 -- ============================================
@@ -94,7 +98,10 @@ CREATE TABLE IF NOT EXISTS `teachers` (
   `created_at`  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   FOREIGN KEY (`dept_id`) REFERENCES `departments`(`dept_id`) ON DELETE SET NULL,
   INDEX `idx_teacher_dept` (`dept_id`),
-  INDEX `idx_teacher_name` (`name`)
+  INDEX `idx_teacher_name` (`name`),
+  INDEX `idx_teacher_title` (`title`),
+  INDEX `idx_teacher_gender` (`gender`),
+  INDEX `idx_teacher_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='教师表';
 
 -- ============================================
@@ -146,7 +153,10 @@ CREATE TABLE IF NOT EXISTS `teaching` (
   FOREIGN KEY (`semester_id`) REFERENCES `semesters`(`semester_id`) ON DELETE RESTRICT,
   INDEX `idx_teaching_course` (`course_id`),
   INDEX `idx_teaching_teacher` (`teacher_id`),
-  INDEX `idx_teaching_semester` (`semester_id`)
+  INDEX `idx_teaching_semester` (`semester_id`),
+  INDEX `idx_teaching_schedule` (`schedule`),
+  INDEX `idx_teaching_classroom` (`classroom`),
+  INDEX `idx_teaching_capacity` (`capacity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='授课表';
 
 -- ============================================
@@ -167,19 +177,27 @@ CREATE TABLE IF NOT EXISTS `enrollments` (
   UNIQUE KEY `uk_enrollment` (`student_id`, `teaching_id`),
   INDEX `idx_enroll_student` (`student_id`),
   INDEX `idx_enroll_teaching` (`teaching_id`),
-  INDEX `idx_enroll_status` (`status`)
+  INDEX `idx_enroll_status` (`status`),
+  INDEX `idx_enroll_score` (`score`),
+  INDEX `idx_enroll_grade_point` (`grade_point`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='选课/成绩表';
 
 -- ============================================
--- 10. 成绩等级表 (grade_scale)
+-- 10. 教室表 (classrooms)
 -- ============================================
-CREATE TABLE IF NOT EXISTS `grade_scale` (
-  `grade_level` CHAR(1)      PRIMARY KEY COMMENT '等级（A、B、C、D、F）',
-  `min_score`   DECIMAL(5,2) NOT NULL COMMENT '最低分数',
-  `max_score`   DECIMAL(5,2) NOT NULL COMMENT '最高分数',
-  `grade_point` DECIMAL(3,2) NOT NULL COMMENT '对应绩点',
-  `description` VARCHAR(50)  COMMENT '描述（如"优秀"）'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='成绩等级表';
+CREATE TABLE IF NOT EXISTS `classrooms` (
+  `classroom_id`    INT         PRIMARY KEY AUTO_INCREMENT COMMENT '教室唯一编号',
+  `classroom_name`  VARCHAR(50) NOT NULL COMMENT '教室名称/编号，如 A101',
+  `building`        VARCHAR(50) COMMENT '所属楼栋',
+  `floor`           TINYINT     COMMENT '楼层',
+  `capacity`        SMALLINT    DEFAULT 30 COMMENT '容纳人数',
+  `type`            VARCHAR(20) DEFAULT '普通教室' COMMENT '教室类型：普通教室/多媒体教室/实验室/机房',
+  `created_at`      TIMESTAMP   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  INDEX `idx_classroom_building` (`building`),
+  INDEX `idx_classroom_type` (`type`),
+  INDEX `idx_classroom_name` (`classroom_name`),
+  INDEX `idx_classroom_floor` (`floor`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='教室表';
 
 -- ============================================
 -- 11. 用户表 (users)
@@ -201,7 +219,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   INDEX `idx_user_username` (`username`),
   INDEX `idx_user_uuid` (`uuid`),
   INDEX `idx_user_email` (`email`),
-  INDEX `idx_user_phone` (`phone`)
+  INDEX `idx_user_phone` (`phone`),
+  INDEX `idx_user_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='用户表';
 
 -- 为已有数据库添加 email 和 phone 字段的迁移语句
@@ -233,11 +252,9 @@ CREATE TABLE IF NOT EXISTS `rewards_punishments` (
   `rp_id`             INT          PRIMARY KEY AUTO_INCREMENT COMMENT '奖惩记录ID',
   `student_id`        VARCHAR(20)  NOT NULL COMMENT '学生学号',
   `rp_type`           ENUM('奖励','处分') NOT NULL COMMENT '类型',
-  `title`             VARCHAR(100) NOT NULL COMMENT '奖惩名称（如"三好学生"、"记过"）',
-  `level`             VARCHAR(50)  COMMENT '级别（校级/院级；奖励分一等/二等；处分分警告/记过等）',
+  `title`             VARCHAR(100) NOT NULL COMMENT '奖惩名称（如"三好学生"、"开除"）',
   `date`              DATE         NOT NULL COMMENT '发生或公布日期',
   `reason`            TEXT         COMMENT '原因/事由',
-  `issuing_authority` VARCHAR(100) COMMENT '颁发或处分单位',
   `remark`            TEXT         COMMENT '备注（如撤销日期、文件编号）',
   `created_at`        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   FOREIGN KEY (`student_id`) REFERENCES `students`(`student_id`) ON DELETE CASCADE,
@@ -267,6 +284,10 @@ CREATE TABLE IF NOT EXISTS `payments` (
   INDEX `idx_payment_student` (`student_id`),
   INDEX `idx_payment_year` (`academic_year`),
   INDEX `idx_payment_status` (`status`),
+  INDEX `idx_payment_fee_type` (`fee_type`),
+  INDEX `idx_payment_amount_due` (`amount_due`),
+  INDEX `idx_payment_amount_paid` (`amount_paid`),
+  INDEX `idx_payment_payment_date` (`payment_date`),
   INDEX `idx_payment_student_year` (`student_id`, `academic_year`, `semester`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='缴费表';
 
@@ -284,7 +305,9 @@ CREATE TABLE IF NOT EXISTS `dorm_rooms` (
   `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   UNIQUE KEY `uk_dorm_room` (`building`, `room_number`),
   INDEX `idx_dorm_building` (`building`),
-  INDEX `idx_dorm_gender` (`gender_limit`)
+  INDEX `idx_dorm_gender` (`gender_limit`),
+  INDEX `idx_dorm_capacity` (`capacity`),
+  INDEX `idx_dorm_occupied` (`occupied`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='宿舍房间表';
 
 -- ============================================
@@ -306,65 +329,13 @@ CREATE TABLE IF NOT EXISTS `dorm_assignments` (
   INDEX `idx_dorm_assign_room` (`room_id`),
   INDEX `idx_dorm_assign_status` (`status`),
   INDEX `idx_dorm_assign_student_status` (`student_id`, `status`),
-  INDEX `idx_dorm_assign_room_status` (`room_id`, `status`)
+  INDEX `idx_dorm_assign_room_status` (`room_id`, `status`),
+  INDEX `idx_dorm_assign_checkin_date` (`check_in_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='住宿分配表';
-
--- ============================================
--- 16. 培养计划表 (curriculum)
--- ============================================
-CREATE TABLE IF NOT EXISTS `curriculum` (
-  `plan_id`           INT          PRIMARY KEY AUTO_INCREMENT COMMENT '培养计划项ID',
-  `major_id`          INT          NOT NULL COMMENT '专业ID',
-  `enrollment_year`   YEAR         NOT NULL COMMENT '入学年份（适用该计划的学生年级）',
-  `course_id`         VARCHAR(20)  NOT NULL COMMENT '课程ID',
-  `course_type`       ENUM('必修','选修','公共') DEFAULT '必修' COMMENT '课程性质',
-  `recommended_term`  VARCHAR(20)  COMMENT '建议修读学期（如"第3学期"）',
-  `min_grade`         DECIMAL(4,1) COMMENT '要求的最低成绩或绩点（如60或1.0）',
-  `is_core`           BOOLEAN      DEFAULT FALSE COMMENT '是否专业核心课',
-  `remark`            TEXT         COMMENT '备注',
-  `created_at`        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  FOREIGN KEY (`major_id`) REFERENCES `majors`(`major_id`) ON DELETE CASCADE,
-  FOREIGN KEY (`course_id`) REFERENCES `courses`(`course_id`) ON DELETE CASCADE,
-  UNIQUE KEY `uk_curriculum` (`major_id`, `enrollment_year`, `course_id`),
-  INDEX `idx_curriculum_major` (`major_id`),
-  INDEX `idx_curriculum_course` (`course_id`),
-  INDEX `idx_curriculum_year` (`enrollment_year`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='培养计划表';
-
--- ============================================
--- 17. 选课日志表 (enroll_logs)
--- ============================================
-CREATE TABLE IF NOT EXISTS `enroll_logs` (
-  `log_id`          BIGINT       PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
-  `student_id`      VARCHAR(20)  NOT NULL COMMENT '学生学号',
-  `teaching_id`     INT          NOT NULL COMMENT '授课ID',
-  `operation_type`  ENUM('选课','退课','成绩修改','状态变更') NOT NULL COMMENT '操作类型',
-  `old_value`       TEXT         COMMENT '变更前的值',
-  `new_value`       TEXT         COMMENT '变更后的值',
-  `operator`        VARCHAR(50)  COMMENT '操作人（管理员/教师/系统）',
-  `operator_ip`     VARCHAR(45)  COMMENT '操作IP地址',
-  `reason`          TEXT         COMMENT '操作原因',
-  `created_at`      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间戳',
-  FOREIGN KEY (`student_id`) REFERENCES `students`(`student_id`) ON DELETE CASCADE,
-  FOREIGN KEY (`teaching_id`) REFERENCES `teaching`(`teaching_id`) ON DELETE CASCADE,
-  INDEX `idx_log_student` (`student_id`),
-  INDEX `idx_log_teaching` (`teaching_id`),
-  INDEX `idx_log_type` (`operation_type`),
-  INDEX `idx_log_student_time` (`student_id`, `created_at`),
-  INDEX `idx_log_teaching_type` (`teaching_id`, `operation_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='选课日志表';
 
 -- ============================================
 -- 初始化基础数据
 -- ============================================
-
--- 初始化成绩等级标准（4.0绩点制）
-INSERT INTO `grade_scale` (`grade_level`, `min_score`, `max_score`, `grade_point`, `description`) VALUES
-('A', 90.00, 100.00, 4.00, '优秀'),
-('B', 80.00, 89.99, 3.00, '良好'),
-('C', 70.00, 79.99, 2.00, '中等'),
-('D', 60.00, 69.99, 1.00, '及格'),
-('F', 0.00, 59.99, 0.00, '不及格');
 
 -- 初始化院系数据
 INSERT INTO `departments` (`dept_name`, `dean`, `phone`) VALUES

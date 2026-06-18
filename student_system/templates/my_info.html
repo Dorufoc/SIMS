@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         .my-info-main {
-            margin-left: 0 !important;
             max-width: 900px;
             margin: 0 auto;
             padding-top: 0;
@@ -304,30 +303,6 @@
                     </div>
                 </div>
 
-                <!-- ====== 培养计划（学生） ====== -->
-                <div class="info-section" id="curriculum-section" style="display:none;">
-                    <div class="info-section-header">
-                        <h2>培养计划</h2>
-                        <span class="badge badge-student" id="curriculum-count">0 门课程</span>
-                    </div>
-                    <div class="info-table-wrap">
-                        <table class="info-table">
-                            <thead>
-                                <tr>
-                                    <th>课程名称</th>
-                                    <th>学分</th>
-                                    <th>学时</th>
-                                    <th>学期</th>
-                                    <th>是否必修</th>
-                                </tr>
-                            </thead>
-                            <tbody id="curriculum-tbody">
-                                <tr><td colspan="5" class="empty-row">暂无培养计划</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <!-- ====== 授课列表（教师） ====== -->
                 <div class="info-section" id="teachings-section" style="display:none;">
                     <div class="info-section-header">
@@ -427,7 +402,6 @@
             hideSection('enrollments-section');
             hideSection('scores-section');
             hideSection('rewards-section');
-            hideSection('curriculum-section');
             hideSection('teachings-section');
             hideSection('no-data-section');
             hideSection('unknown-role-section');
@@ -523,7 +497,6 @@
                         loadStudentEnrollments(studentId);
                         loadStudentScores(studentId);
                         loadStudentRewards(studentId);
-                        loadStudentCurriculum(studentId);
                         loadStudentDorm();
                     } else {
                         showNoData('尚未关联学生信息，请联系管理员');
@@ -547,9 +520,11 @@
             grid.innerHTML = '';
             grid.appendChild(inputField('姓名', 'input_name', data.name, false));
             grid.appendChild(inputField('学号', 'input_student_id', data.student_id, false));
-            grid.appendChild(inputField('性别', 'input_gender', data.gender, false));
+            var genderText = data.gender === 'M' ? '男' : (data.gender === 'F' ? '女' : data.gender);
+            grid.appendChild(inputField('性别', 'input_gender', genderText, false));
             grid.appendChild(inputField('出生日期', 'input_birth_date', data.birth_date, false));
-            grid.appendChild(inputField('入学年份', 'input_enrollment_year', data.enrollment_year, false));
+            var gradeText = data.enrollment_year ? data.enrollment_year + '级' : '';
+            grid.appendChild(inputField('年级', 'input_enrollment_year', gradeText || '-', false));
             grid.appendChild(inputField('院系', 'input_dept', data.dept_name, false));
             grid.appendChild(inputField('专业', 'input_major', data.major_name, false));
             grid.appendChild(inputField('班级', 'input_class', data.class_name, false));
@@ -661,28 +636,6 @@
                 .catch(function() { showSection('rewards-section'); });
         }
 
-        function loadStudentCurriculum(studentId) {
-            fetch('/api/students/' + studentId + '/curriculum')
-                .then(function(r) { return r.json(); })
-                .then(function(d) {
-                    if (d.code === 0) {
-                        var curriculum = d.data || [];
-                        document.getElementById('curriculum-count').textContent = curriculum.length + ' 门课程';
-                        var tbody = document.getElementById('curriculum-tbody');
-                        if (curriculum.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="5" class="empty-row">暂无培养计划</td></tr>';
-                        } else {
-                            tbody.innerHTML = curriculum.map(function(c) {
-                                var typeHtml = c.course_type === '必修' ? '<span class="status-tag active">必修</span>' : '<span class="status-tag warning">' + (c.course_type || '选修') + '</span>';
-                                return '<tr><td>' + (c.course_name || '-') + '</td><td>' + (c.credits || '-') + '</td><td>' + (c.hours || '-') + '</td><td>' + (c.recommended_term || '-') + '</td><td>' + typeHtml + '</td></tr>';
-                            }).join('');
-                        }
-                        showSection('curriculum-section');
-                    }
-                })
-                .catch(function() { showSection('curriculum-section'); });
-        }
-
         // ========== 加载教师信息 ==========
         function loadTeacherInfo(teacherId) {
             fetch('/api/teachers/' + teacherId)
@@ -710,7 +663,8 @@
             grid.innerHTML = '';
             grid.appendChild(inputField('姓名', 'input_name', data.name, false));
             grid.appendChild(inputField('工号', 'input_teacher_id', data.teacher_id, false));
-            grid.appendChild(inputField('性别', 'input_gender', data.gender, false));
+            var genderText = data.gender === 'M' ? '男' : (data.gender === 'F' ? '女' : data.gender);
+            grid.appendChild(inputField('性别', 'input_gender', genderText, false));
             grid.appendChild(inputField('职称', 'input_title', data.title, false));
             grid.appendChild(inputField('所属院系', 'input_dept', data.dept_name, false));
             grid.appendChild(inputField('联系电话', 'input_phone', data.phone, true, '请输入联系电话'));

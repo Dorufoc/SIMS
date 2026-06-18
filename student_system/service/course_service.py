@@ -27,7 +27,7 @@ class CourseService:
         if not course:
             return None
         for k, v in filtered_data.items():
-            if hasattr(course, k):
+            if v is not None and v != '' and hasattr(course, k):
                 setattr(course, k, v)
         self.repo.db.commit()
         return course

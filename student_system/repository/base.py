@@ -1,6 +1,7 @@
 """基础 Repository 类，提供通用 CRUD 和分页功能"""
 from typing import Optional, List, Tuple, Type, Any, Dict
 from sqlalchemy.orm import Session
+from sqlalchemy import cast, String, Integer, Date, DateTime
 from entity.base import SessionLocal
 
 
@@ -91,7 +92,7 @@ class BaseRepo:
                         order_by=None) -> Tuple[List, int]:
         """带筛选条件的分页查询
         filters: list of dict with keys: field, op, value
-        支持的操作符: eq, neq, contains, startswith, endswith, gt, gte, lt, lte, in_, between
+        支持的操作符: eq, neq, contains, startswith, endswith, gt, gte, lt, lte, between
         """
         q = self.db.query(self.model)
 
@@ -116,6 +117,12 @@ class BaseRepo:
             if column is None:
                 continue
 
+            # 对整数、日期列使用字符串运算符时自动转型
+            if isinstance(column.type, Integer) and op in ('contains', 'startswith', 'endswith'):
+                column = cast(column, String)
+            if isinstance(column.type, (Date, DateTime)) and op in ('contains', 'startswith', 'endswith'):
+                column = cast(column, String)
+
             if op == 'eq':
                 q = q.filter(column == value)
             elif op == 'neq':
@@ -134,10 +141,6 @@ class BaseRepo:
                 q = q.filter(column < value)
             elif op == 'lte':
                 q = q.filter(column <= value)
-            elif op == 'in_':
-                values = [v.strip() for v in value.split(',') if v.strip()]
-                if values:
-                    q = q.filter(column.in_(values))
             elif op == 'between':
                 parts = [v.strip() for v in value.split(',', 1)]
                 if len(parts) == 2 and parts[0] and parts[1]:

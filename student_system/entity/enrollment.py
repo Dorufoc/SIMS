@@ -1,12 +1,17 @@
 """选课/成绩表"""
-from sqlalchemy import Column, Integer, String, Numeric, TIMESTAMP, ForeignKey, func, DateTime, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, TIMESTAMP, ForeignKey, func, DateTime, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class Enrollment(Base):
     __tablename__ = 'enrollments'
-    __table_args__ = (UniqueConstraint('student_id', 'teaching_id'),)
+    __table_args__ = (
+        UniqueConstraint('student_id', 'teaching_id'),
+        Index('idx_enroll_score', 'score'),
+        Index('idx_enroll_grade_point', 'grade_point'),
+        Index('idx_enroll_status', 'status'),
+    )
 
     enroll_id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String(20), ForeignKey('students.student_id'), nullable=False)

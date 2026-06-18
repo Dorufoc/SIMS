@@ -1,10 +1,36 @@
+# Python
 __pycache__/
+*.pyc
+*.pyo
+__pypackages__/
+
+# IDE / Editor
 .trae/
-PLAN.MD
+.vscode/
+.idea/
+
+# Environment variables (sensitive)
 .env
-student_system/.env
-student_system/__pycache__/
-student_system/.*/
+.env.bak
+
+# Test coverage
+.coverage
+coverage_reports/
+
+# Pytest
+pytest.ini
+.pytest_cache/
+.coveragerc
+tests/
+
+# ORM / Schema cache
+.schema_cache
+
+# Flask instance folder (if used)
+instance/
+
+# Project-specific
+PLAN.MD
+docs/
+run_tests_all.ps1
 .*/
-student_system/tests/__pycache__/
-student_system/__pypackages__/

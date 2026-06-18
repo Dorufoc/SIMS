@@ -127,8 +127,6 @@
                             <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="payments"><span>缴费 (payments)</span></label>
                             <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="dorm_rooms"><span>宿舍房间 (dorm_rooms)</span></label>
                             <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="dorm_assignments"><span>住宿分配 (dorm_assignments)</span></label>
-                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="curriculum"><span>培养计划 (curriculum)</span></label>
-                            <label class="checkbox-label"><input type="checkbox" class="mock-table-cb" value="enroll_logs"><span>选课日志 (enroll_logs)</span></label>
                         </div>
                     </div>
                     <div class="table-group">
@@ -160,7 +158,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.code === 0) {
-                        const overview = data.data.overview;
+                        const overview = data.data;
                         document.getElementById('stat-students').textContent = overview.student_count || 0;
                         document.getElementById('stat-teachers').textContent = overview.teacher_count || 0;
                         document.getElementById('stat-departments').textContent = overview.dept_count || 0;
@@ -191,7 +189,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.code === 0) {
-                        renderDeptChart(data.data);
+                        renderDeptChart(data.data.by_dept);
                     }
                 })
                 .catch(err => console.error('加载院系数据失败:', err));
@@ -255,7 +253,7 @@
         // 渲染性别比例图表
         function renderGenderChart(data) {
             const canvas = document.getElementById('genderChartCanvas');
-            if (!canvas || !data || !data.total) {
+            if (!canvas || !data || data.length === 0) {
                 document.getElementById('gender-chart').innerHTML = '<p>暂无数据</p>';
                 return;
             }
@@ -265,7 +263,7 @@
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
 
-            const total = data.total.reduce((sum, item) => sum + item.count, 0);
+            const total = data.reduce((sum, item) => sum + item.count, 0);
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2 + 10;
             const radius = Math.min(canvas.width, canvas.height) / 3;
@@ -274,7 +272,7 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            data.total.forEach((item, index) => {
+            data.forEach((item, index) => {
                 const percentage = item.count / total;
                 const angle = percentage * Math.PI * 2;
 
@@ -283,7 +281,7 @@
                 ctx.moveTo(centerX, centerY);
                 ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + angle);
                 ctx.closePath();
-                ctx.fillStyle = item.gender === 'M' ? '#cc3336' : (item.gender === 'F' ? '#e83e8c' : '#718096');
+                ctx.fillStyle = item.gender === '男' ? '#cc3336' : (item.gender === '女' ? '#e83e8c' : '#718096');
                 ctx.fill();
 
                 // 绘制标签

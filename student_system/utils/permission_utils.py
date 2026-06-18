@@ -62,14 +62,14 @@ def init_user_permissions(perm_repo, user_uuid, role):
     """初始化新用户权限（公共逻辑，供 AuthService / UserService 共用）"""
     all_tables = [
         'departments', 'majors', 'classes', 'students', 'teachers', 'courses',
-        'semesters', 'teaching', 'enrollments', 'grade_scale', 'rewards_punishments',
-        'payments', 'dorm_rooms', 'dorm_assignments', 'curriculum', 'enroll_logs'
+        'semesters', 'teaching', 'enrollments', 'rewards_punishments',
+        'payments', 'dorm_rooms', 'dorm_assignments'
     ]
 
     if role == 'student':
         perm_map = {
             'students': '600', 'enrollments': '400', 'courses': '400',
-            'curriculum': '400', 'rewards_punishments': '400',
+            'rewards_punishments': '400',
         }
     elif role == 'teacher':
         perm_map = {

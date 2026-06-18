@@ -1,11 +1,17 @@
 """学生表"""
-from sqlalchemy import Column, String, Date, Integer, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, String, Date, Integer, TIMESTAMP, ForeignKey, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class Student(Base):
     __tablename__ = 'students'
+    __table_args__ = (
+        Index('idx_student_gender', 'gender'),
+        Index('idx_student_phone', 'phone'),
+        Index('idx_student_birth_date', 'birth_date'),
+        Index('idx_student_email', 'email'),
+    )
 
     student_id = Column(String(20), primary_key=True)
     name = Column(String(50), nullable=False)
@@ -28,4 +34,3 @@ class Student(Base):
     rewards_punishments = relationship('RewardPunishment', back_populates='student', lazy='dynamic')
     payments = relationship('Payment', back_populates='student', lazy='dynamic')
     dorm_assignments = relationship('DormAssignment', back_populates='student', lazy='dynamic')
-    enroll_logs = relationship('EnrollLog', back_populates='student', lazy='dynamic')

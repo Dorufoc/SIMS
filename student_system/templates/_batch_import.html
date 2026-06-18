@@ -1,31 +1,39 @@
-<!-- 批量导入组件 — 可复用于任何表页面 -->
-<section class="batch-import-area" id="batch_import_area">
-    <h2>批量导入</h2>
-    <div class="batch-import-actions">
-        <a id="batch_import_template_link" class="btn btn-secondary" href="#" download>下载导入模板</a>
-
-        <div class="batch-import-section">
-            <input type="file" id="batch_import_file_input" accept=".csv" class="file-input">
-            <button type="button" id="batch_import_preview_btn" class="btn btn-primary">批量导入</button>
+<!-- 批量导入导出弹窗组件 — 可复用于任何表页面 -->
+<div class="modal-overlay" id="batchImportModal">
+    <div class="modal-content" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2>批量导入/导出</h2>
+            <span class="modal-close" id="batchImportModalClose">&times;</span>
         </div>
+        <div class="modal-body" style="padding: 20px;">
+            <!-- 操作区域 -->
+            <div class="batch-import-actions">
+                <a id="batch_import_template_link" class="btn btn-secondary" href="#" download>下载导入模板</a>
 
-        <a id="batch_export_link" class="btn btn-secondary" href="#" download>导出数据</a>
+                <div class="batch-import-section">
+                    <input type="file" id="batch_import_file_input" accept=".csv" class="file-input">
+                    <button type="button" id="batch_import_preview_btn" class="btn btn-primary">批量导入</button>
+                </div>
+
+                <a id="batch_export_link" class="btn btn-secondary" href="#" download>导出数据</a>
+            </div>
+
+            <!-- 导入预览区 -->
+            <div id="batch_import_preview_area" class="csv-preview-area" style="display:none;">
+                <h3>导入预览</h3>
+                <div id="batch_import_preview_errors" class="msg-box msg-error" style="display:none;"></div>
+                <div class="table-wrapper">
+                    <table id="batch_import_preview_table" class="permission-table">
+                        <thead id="batch_import_preview_thead">
+                        </thead>
+                        <tbody id="batch_import_preview_tbody"></tbody>
+                    </table>
+                </div>
+                <div class="preview-actions">
+                    <button type="button" id="batch_import_confirm_btn" class="btn btn-primary">确认导入</button>
+                    <button type="button" id="batch_import_cancel_btn" class="btn btn-secondary">取消</button>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- 导入预览区 -->
-    <div id="batch_import_preview_area" class="csv-preview-area" style="display:none;">
-        <h3>导入预览</h3>
-        <div id="batch_import_preview_errors" class="msg-box msg-error" style="display:none;"></div>
-        <div class="table-wrapper">
-            <table id="batch_import_preview_table" class="data-table">
-                <thead id="batch_import_preview_thead">
-                </thead>
-                <tbody id="batch_import_preview_tbody"></tbody>
-            </table>
-        </div>
-        <div class="preview-actions">
-            <button type="button" id="batch_import_confirm_btn" class="btn btn-primary">确认导入</button>
-            <button type="button" id="batch_import_cancel_btn" class="btn btn-secondary">取消</button>
-        </div>
-    </div>
-</section>
+</div>

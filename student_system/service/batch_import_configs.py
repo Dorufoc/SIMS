@@ -9,7 +9,11 @@ from repository.class_repo import ClassRepo
 from repository.dorm_room_repo import DormRoomRepo
 from repository.dorm_assignment_repo import DormAssignmentRepo
 from repository.reward_punishment_repo import RewardPunishmentRepo
+from repository.enrollment_repo import EnrollmentRepo
+from repository.user_repo import UserRepo
 from entity.student import Student
+from entity.enrollment import Enrollment
+from entity.user import User
 from entity.teacher import Teacher
 from entity.course import Course
 from entity.department import Department
@@ -429,6 +433,85 @@ REWARD_IMPORT_CONFIG = {
 }
 
 
+# ==================== 选课记录 ====================
+
+def _enrollment_find_existing(repo, item: dict):
+    return repo.find_by(student_id=item['student_id'], teaching_id=item.get('teaching_id'))
+
+
+def _enrollment_export_row(e):
+    return [
+        e.enroll_id, e.student_id, e.teaching_id or '',
+        float(e.score) if e.score else '', e.status or '正常'
+    ]
+
+
+ENROLLMENT_IMPORT_CONFIG = {
+    'repo': EnrollmentRepo,
+    'model': Enrollment,
+    'template_headers': ['学号', '授课编号', '成绩', '状态(正常/退课/缺考/违纪)'],
+    'template_example': ['2024001', '1', '85', '正常'],
+    'export_headers': ['选课编号', '学号', '授课编号', '成绩', '状态'],
+    'header_check_field': '学号',
+    'field_map': {
+        '学号': 'student_id', '授课编号': 'teaching_id',
+        '成绩': 'score', '状态(正常/退课/缺考/违纪)': 'status'
+    },
+    'required_fields': ['student_id', 'teaching_id'],
+    'field_labels': {'student_id': '学号', 'teaching_id': '授课编号'},
+    'find_existing': _enrollment_find_existing,
+    'export_row': _enrollment_export_row,
+    'preview_columns': ['学号', '授课编号', '成绩', '状态'],
+}
+
+# ==================== 用户账号 ====================
+
+def _user_create_entity(item: dict):
+    """创建用户时自动生成 uuid 和密码哈希"""
+    import uuid
+    from utils.password_utils import encrypt_password
+    entity = User(
+        uuid=str(uuid.uuid4()),
+        username=item['username'],
+        password_hash=encrypt_password(item.get('password', '123456')),
+        role=item.get('role', 'student'),
+        ref_id=item.get('ref_id'),
+        real_name=item.get('real_name'),
+        email=item.get('email'),
+        phone=item.get('phone'),
+    )
+    return entity
+
+
+def _user_find_existing(repo, item: dict):
+    return repo.find_by(username=item['username'])
+
+
+def _user_export_row(u):
+    return [u.user_id, u.username, u.role, u.ref_id or '',
+            u.real_name or '', u.email or '', u.phone or '']
+
+
+USER_IMPORT_CONFIG = {
+    'repo': UserRepo,
+    'model': User,
+    'template_headers': ['用户名', '密码(默认123456)', '角色(admin/teacher/student)', '关联ID', '真实姓名', '邮箱', '电话'],
+    'template_example': ['zhangsan', '123456', 'student', '2024001', '张三', 'zhangsan@example.com', '13800000001'],
+    'export_headers': ['用户ID', '用户名', '角色', '关联ID', '真实姓名', '邮箱', '电话'],
+    'header_check_field': '用户名',
+    'field_map': {
+        '用户名': 'username', '密码(默认123456)': 'password', '角色(admin/teacher/student)': 'role',
+        '关联ID': 'ref_id', '真实姓名': 'real_name', '邮箱': 'email', '电话': 'phone'
+    },
+    'required_fields': ['username', 'role'],
+    'field_labels': {'username': '用户名', 'role': '角色'},
+    'create_entity': _user_create_entity,
+    'find_existing': _user_find_existing,
+    'export_row': _user_export_row,
+    'preview_columns': ['用户名', '角色', '关联ID', '真实姓名'],
+}
+
+
 # ── 注册所有配置 ──
 
 from service.batch_import_service import BatchImportService
@@ -442,3 +525,5 @@ BatchImportService.register('class', **CLASS_IMPORT_CONFIG)
 BatchImportService.register('dorm_room', **DORM_ROOM_IMPORT_CONFIG)
 BatchImportService.register('dorm_assignment', **DORM_ASSIGN_IMPORT_CONFIG)
 BatchImportService.register('reward', **REWARD_IMPORT_CONFIG)
+BatchImportService.register('enrollment', **ENROLLMENT_IMPORT_CONFIG)
+BatchImportService.register('user', **USER_IMPORT_CONFIG)

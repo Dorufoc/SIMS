@@ -1,12 +1,15 @@
 """住宿分配表"""
-from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, ForeignKey, func, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, ForeignKey, func, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class DormAssignment(Base):
     __tablename__ = 'dorm_assignments'
-    __table_args__ = (UniqueConstraint('room_id', 'bed_number'),)
+    __table_args__ = (
+        UniqueConstraint('room_id', 'bed_number'),
+        Index('idx_dorm_assign_checkin_date', 'check_in_date'),
+    )
 
     assign_id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String(20), ForeignKey('students.student_id'), nullable=False)

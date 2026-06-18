@@ -1,11 +1,15 @@
 """宿舍房间表"""
-from sqlalchemy import Column, Integer, String, SmallInteger, TIMESTAMP, func
+from sqlalchemy import Column, Integer, String, SmallInteger, TIMESTAMP, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class DormRoom(Base):
     __tablename__ = 'dorm_rooms'
+    __table_args__ = (
+        Index('idx_dorm_room_capacity', 'capacity'),
+        Index('idx_dorm_room_occupied', 'occupied'),
+    )
 
     room_id = Column(Integer, primary_key=True, autoincrement=True)
     building = Column(String(50), nullable=False)

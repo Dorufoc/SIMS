@@ -1,6 +1,11 @@
 <!-- 统一顶栏组件 -->
 <!-- 使用前需设置 active_page 变量，可选值: 'dashboard', 'manage', 'query' -->
 <header class="top-header">
+    {% if active_page is not defined or active_page != 'my_info' %}
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="菜单">
+        <span class="hamburger-icon"></span>
+    </button>
+    {% endif %}
     <div class="header-brand">
         <span>学生信息管理系统</span>
     </div>

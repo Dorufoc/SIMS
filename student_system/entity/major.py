@@ -11,8 +11,9 @@ class Major(Base):
     major_name = Column(String(100), nullable=False)
     dept_id = Column(Integer, ForeignKey('departments.dept_id'), nullable=False)
     duration = Column(SmallInteger, default=4)
+    degree_type = Column(String(20), default='学士')
+    description = Column(String(200))
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     department = relationship('Department', back_populates='majors')
     classes = relationship('Class', back_populates='major', lazy='dynamic')
-    curricula = relationship('Curriculum', back_populates='major', lazy='dynamic')

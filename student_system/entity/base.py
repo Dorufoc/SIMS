@@ -242,31 +242,31 @@ def _sync_all_metadata(force: bool = False):
 
 
 def _seed_default_admin():
-    """插入默认管理员账号，如已存在则跳过。密码从环境变量读取，未设置则生成随机密码。"""
-    import os
+    """插入或更新默认管理员账号，密码固定为 admin。"""
     from utils.password_utils import encrypt_password
 
     with SessionLocal() as db:
         from entity.user import User
-        if db.query(User).filter(User.username == 'admin').first():
-            return
 
-        default_password = os.getenv('DEFAULT_ADMIN_PASSWORD')
-        if not default_password:
-            import secrets
-            default_password = secrets.token_urlsafe(16)
-            print(f'[DB] 环境变量 DEFAULT_ADMIN_PASSWORD 未设置，已生成随机密码')
+        DEFAULT_PASSWORD = 'admin'
+
+        existing = db.query(User).filter(User.username == 'admin').first()
+        if existing:
+            existing.password_hash = encrypt_password(DEFAULT_PASSWORD)
+            db.commit()
+            print('[DB] 默认管理员密码已设置为 admin')
+            return
 
         admin = User(
             uuid='00000000-0000-0000-0000-000000000001',
             username='admin',
-            password_hash=encrypt_password(default_password),
+            password_hash=encrypt_password(DEFAULT_PASSWORD),
             role='admin',
             username_changed=True,
         )
         db.add(admin)
         db.commit()
-        print('[DB] 默认管理员已创建 (admin / <密码来自环境变量或随机生成>)')
+        print('[DB] 默认管理员已创建 (admin/admin)')
 
 
 def init_db():

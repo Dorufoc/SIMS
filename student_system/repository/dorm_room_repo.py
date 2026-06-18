@@ -12,4 +12,5 @@ class DormRoomRepo(BaseRepo):
         'capacity': 'capacity',
         'occupied': 'occupied',
         'gender_limit': 'gender_limit',
+        'phone': 'phone',
     }

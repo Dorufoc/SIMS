@@ -1,11 +1,17 @@
 """缴费表"""
-from sqlalchemy import Column, Integer, String, Date, Numeric, Text, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Date, Numeric, Text, TIMESTAMP, ForeignKey, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class Payment(Base):
     __tablename__ = 'payments'
+    __table_args__ = (
+        Index('idx_payment_fee_type', 'fee_type'),
+        Index('idx_payment_amount_due', 'amount_due'),
+        Index('idx_payment_amount_paid', 'amount_paid'),
+        Index('idx_payment_payment_date', 'payment_date'),
+    )
 
     payment_id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String(20), ForeignKey('students.student_id'), nullable=False)

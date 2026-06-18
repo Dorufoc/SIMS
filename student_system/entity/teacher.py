@@ -1,11 +1,16 @@
 """教师表"""
-from sqlalchemy import Column, String, Integer, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, String, Integer, TIMESTAMP, ForeignKey, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class Teacher(Base):
     __tablename__ = 'teachers'
+    __table_args__ = (
+        Index('idx_teacher_title', 'title'),
+        Index('idx_teacher_gender', 'gender'),
+        Index('idx_teacher_phone', 'phone'),
+    )
 
     teacher_id = Column(String(20), primary_key=True)
     name = Column(String(50), nullable=False)

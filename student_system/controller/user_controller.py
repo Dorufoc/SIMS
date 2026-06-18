@@ -35,10 +35,20 @@ def api_users_list():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     svc = UserService()
     try:
-        items, total = svc.get_list(page, page_size, keyword=keyword)
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+            user_items, total = svc.user_repo.filter_paginate(filters, page, page_size, svc.user_repo.model.created_at.desc())
+            items = [(u.user_id, u.uuid, u.username, u.role, u.ref_id, u.last_login, u.created_at) for u in user_items]
+        else:
+            items, total = svc.get_list(page, page_size, keyword=keyword)
         total_pages = (total + page_size - 1) // page_size
         data = []
         for u in items:

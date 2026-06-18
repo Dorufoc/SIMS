@@ -12,13 +12,13 @@ from controller.enrollment_controller import enrollment_bp
 from controller.reward_controller import reward_bp
 from controller.payment_controller import payment_bp
 from controller.dorm_controller import dorm_bp
-from controller.curriculum_controller import curriculum_bp
 from controller.statistics_controller import statistics_bp
-from controller.query_controller import query_bp
 from controller.csv_controller import csv_bp
 from controller.user_controller import user_bp
 from controller.mock_data_controller import mock_data_bp
 from controller.settings_controller import settings_bp
+from controller.classroom_controller import classroom_bp
+from controller.query_controller import query_bp
 
 
 def register_all(app):
@@ -36,10 +36,10 @@ def register_all(app):
     app.register_blueprint(reward_bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(dorm_bp)
-    app.register_blueprint(curriculum_bp)
     app.register_blueprint(statistics_bp)
-    app.register_blueprint(query_bp)
     app.register_blueprint(csv_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(mock_data_bp)
+    app.register_blueprint(classroom_bp)
+    app.register_blueprint(query_bp)

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新增学生</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=9">
 </head>
 <body>
     {% include '_header.html' %}
@@ -24,7 +24,7 @@
                     </div>
                     <div class="form-group">
                         <label for="student_name">姓名</label>
-                        <input type="text" id="student_name" name="student_name" required placeholder="请输入姓名">
+                        <input type="text" id="student_name" name="name" required placeholder="请输入姓名">
                     </div>
                 </div>
                 <div class="form-row">
@@ -43,30 +43,41 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label for="enrollment_year">入学年份</label>
+                        <input type="number" id="enrollment_year" name="enrollment_year" placeholder="如：2024" min="2000" max="2099">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">联系电话</label>
+                        <input type="text" id="phone" name="phone" placeholder="请输入电话">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label for="dept_select">学院</label>
-                        <select id="dept_select" required>
+                        <select id="dept_select" name="dept_id" required>
                             <option value="">-- 请选择学院 --</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="major_select">专业</label>
-                        <select id="major_select" required>
+                        <select id="major_select" name="major_id" required>
                             <option value="">-- 请先选择学院 --</option>
                         </select>
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group full-width">
+                    <div class="form-group">
                         <label for="class_select">班级</label>
                         <select id="class_select" name="class_id" required>
                             <option value="">-- 请先选择专业 --</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="email">邮箱</label>
+                        <input type="email" id="email" name="email" placeholder="请输入邮箱">
+                    </div>
                 </div>
-                <div class="form-group form-group-actions">
-                    <button type="submit" class="btn btn-primary">提交</button>
-                    <button type="reset" class="btn btn-secondary">重置</button>
-                </div>
+                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1; justify-self: center; min-width: 120px;">提交</button>
             </form>
             <div id="msg_box" class="msg-box" style="display:none;"></div>
                 </div>
@@ -142,7 +153,7 @@
         // 加载学院列表
         function load_departments() {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/departments', true);
+            xhr.open('GET', '/api/departments?simple=1', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
@@ -171,7 +182,7 @@
             if (!dept_id) return;
             
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/majors?dept_id=' + dept_id, true);
+            xhr.open('GET', '/api/majors?dept_id=' + dept_id + '&simple=1', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
@@ -201,7 +212,9 @@
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
-                        var classes = JSON.parse(xhr.responseText);
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code !== 0) return;
+                        var classes = res.data || [];
                         classes.forEach(function(c) {
                             var opt = document.createElement('option');
                             opt.value = c.class_id;

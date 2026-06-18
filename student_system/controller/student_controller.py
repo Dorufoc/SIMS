@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, redirect
 from service.student_service import StudentService
 from middleware.auth_middleware import require_login, csrf_protect
+from repository.base import escape_like
 import logging
 
 student_bp = Blueprint('student', __name__)
@@ -68,11 +69,13 @@ def api_student_detail(student_id):
             'student_id': student.student_id,
             'name': student.name,
             'gender': student.gender,
+            'gender_text': '男' if student.gender == 'M' else ('女' if student.gender == 'F' else ''),
             'birth_date': str(student.birth_date) if student.birth_date else None,
             'phone': student.phone,
             'email': student.email,
             'address': student.address,
             'status': student.status,
+            'enrollment_year': student.enrollment_year,
             'class_id': student.class_id,
             'class_name': student.class_.class_name if student.class_ else None,
             'major_name': student.class_.major.major_name if student.class_ and student.class_.major else None,
@@ -120,6 +123,7 @@ def edit_student(student_id):
                     'student_id': student.student_id,
                     'name': student.name,
                     'gender': student.gender,
+                    'gender_text': '男' if student.gender == 'M' else ('女' if student.gender == 'F' else ''),
                     'birth_date': str(student.birth_date) if student.birth_date else None,
                     'phone': student.phone,
                     'email': student.email,
@@ -175,17 +179,64 @@ def api_students_list():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
     keyword = request.args.get('keyword', '').strip()
+    filters_json = request.args.get('filters', '')
 
     svc = StudentService()
     try:
-        items, total = svc.get_list(page, page_size, keyword=keyword)
+        from entity.student import Student
+        from entity.class_ import Class
+        from entity.major import Major
+        from entity.department import Department
+        from sqlalchemy.orm import joinedload
+
+        SORT_FIELDS = {
+            'student_id': Student.student_id,
+            'student_name': Student.name,
+            'gender': Student.gender,
+            'birth_date': Student.birth_date,
+            'enrollment_year': Student.enrollment_year,
+            'status': Student.status,
+            'phone': Student.phone,
+            'email': Student.email,
+        }
+        sort_by = request.args.get('sort_by', '')
+        sort_order = request.args.get('sort_order', '')
+        order_col = SORT_FIELDS.get(sort_by)
+        if order_col is not None:
+            if sort_order == 'desc':
+                order_col = order_col.desc()
+
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+            items, total = svc.repo.filter_paginate(filters, page, page_size, order_col)
+        else:
+            q = svc.repo.db.query(Student).options(
+                joinedload(Student.class_).joinedload(Class.major).joinedload(Major.department)
+            )
+            if keyword:
+                escaped = escape_like(keyword)
+                q = q.filter(
+                    (Student.student_id.like(f'%{escaped}%', escape='\\')) |
+                    (Student.name.like(f'%{escaped}%', escape='\\')) |
+                    (Student.phone.like(f'%{escaped}%', escape='\\'))
+                )
+            if order_col is not None:
+                q = q.order_by(order_col)
+            else:
+                q = q.order_by(Student.student_id)
+            items, total = svc.repo.paginate(page, page_size, q)
         data = []
         for s in items:
             data.append({
                 'student_id': s.student_id,
                 'name': s.name,
                 'student_name': s.name,  # 前端 manage.html 使用 student_name
-                'gender': '男' if s.gender == 'M' else ('女' if s.gender == 'F' else ''),
+                'gender': s.gender or '',
+                'gender_text': '男' if s.gender == 'M' else ('女' if s.gender == 'F' else ''),
                 'birth_date': str(s.birth_date) if s.birth_date else '',
                 'enrollment_year': s.enrollment_year,
                 'status': s.status,

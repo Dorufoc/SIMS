@@ -1,5 +1,5 @@
 """学期管理 API"""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from service.semester_service import SemesterService
 from middleware.auth_middleware import require_login, csrf_protect
 import logging
@@ -7,15 +7,93 @@ import logging
 semester_bp = Blueprint('semester', __name__)
 
 
+@semester_bp.route('/semesters')
+def semesters_page():
+    return render_template('semesters.html')
+
+
 @semester_bp.route('/api/semesters', methods=['GET'])
 @require_login
 def api_semesters():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
+    filters_json = request.args.get('filters', '')
 
     svc = SemesterService()
     try:
-        items, total = svc.get_list(page, page_size)
+        from entity.semester import Semester
+        from repository.base import escape_like
+
+        SORT_FIELDS = {
+            'semester_id': Semester.semester_id,
+            'academic_year': Semester.academic_year,
+            'semester_name': Semester.semester_name,
+            'is_current': Semester.is_current,
+        }
+        sort_by = request.args.get('sort_by', '')
+        sort_order = request.args.get('sort_order', '')
+        order_col = SORT_FIELDS.get(sort_by)
+        if order_col is not None:
+            if sort_order == 'desc':
+                order_col = order_col.desc()
+
+        q = svc.repo.db.query(Semester)
+
+        # 处理筛选条件
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+
+            FIELD_MAP = getattr(svc.repo, 'field_map', {})
+            for f in filters:
+                field = f.get('field', '')
+                op = f.get('op', 'eq')
+                value = f.get('value', '')
+                if not field:
+                    continue
+                if FIELD_MAP and field not in FIELD_MAP:
+                    continue
+                col_name = FIELD_MAP.get(field, field)
+                column = getattr(Semester, col_name, None)
+                if column is None:
+                    continue
+
+                if op == 'eq':
+                    # is_current 是布尔类型，需要特殊处理
+                    if column.type.python_type == bool:
+                        q = q.filter(column == (value == 'True' or value is True))
+                    else:
+                        q = q.filter(column == value)
+                elif op == 'neq':
+                    q = q.filter(column != value)
+                elif op == 'contains':
+                    q = q.filter(column.like(f'%{escape_like(value)}%', escape='\\'))
+                elif op == 'startswith':
+                    q = q.filter(column.like(f'{escape_like(value)}%', escape='\\'))
+                elif op == 'endswith':
+                    q = q.filter(column.like(f'%{escape_like(value)}', escape='\\'))
+                elif op == 'gt':
+                    q = q.filter(column > value)
+                elif op == 'gte':
+                    q = q.filter(column >= value)
+                elif op == 'lt':
+                    q = q.filter(column < value)
+                elif op == 'lte':
+                    q = q.filter(column <= value)
+                elif op == 'between':
+                    parts = [v.strip() for v in value.split(',', 1)]
+                    if len(parts) == 2 and parts[0] and parts[1]:
+                        q = q.filter(column.between(parts[0], parts[1]))
+
+        if order_col is not None:
+            q = q.order_by(order_col)
+        else:
+            q = q.order_by(Semester.academic_year.desc())
+
+        items, total = svc.repo.paginate(page, page_size, q)
         total_pages = (total + page_size - 1) // page_size
         data = [{'semester_id': s.semester_id, 'academic_year': s.academic_year,
                  'semester_name': s.semester_name, 'start_date': str(s.start_date),
@@ -41,6 +119,22 @@ def api_create_semester():
     except Exception as e:
         logging.exception('创建学期失败')
         return jsonify({'code': 1, 'msg': '创建失败，请稍后重试'})
+    finally:
+        svc.close()
+
+
+@semester_bp.route('/api/semesters/<int:semester_id>', methods=['GET'])
+@require_login
+def api_get_semester(semester_id):
+    svc = SemesterService()
+    try:
+        s = svc.get_by_id(semester_id)
+        if not s:
+            return jsonify({'code': 1, 'msg': '学期不存在'})
+        data = {'semester_id': s.semester_id, 'academic_year': s.academic_year,
+                'semester_name': s.semester_name, 'start_date': str(s.start_date),
+                'end_date': str(s.end_date), 'is_current': s.is_current}
+        return jsonify({'code': 0, 'data': data})
     finally:
         svc.close()
 

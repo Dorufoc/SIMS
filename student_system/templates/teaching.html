@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教学安排管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'teaching' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>教学安排管理</h1>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="openModal()">新增教学安排</button>
+                        </div>
+                    </div>
+
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="course_name">课程名称</th>
+                                    <th data-sort="teacher_name">授课教师</th>
+                                    <th data-sort="semester">学期</th>
+                                    <th data-sort="classroom">教室</th>
+                                    <th data-sort="schedule">上课时间</th>
+                                    <th data-sort="capacity">容量</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teachingTable">
+                                <tr><td colspan="8" class="empty-row">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/编辑模态框 -->
+    <div id="teachingModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增教学安排</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="teachingForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="teachingId">
+                <div class="form-group">
+                    <label>课程 *</label>
+                    <select id="courseId" required>
+                        <option value="">请选择课程</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>授课教师 *</label>
+                    <select id="teacherId" required>
+                        <option value="">请选择教师</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>学期 *</label>
+                    <select id="semesterId" required>
+                        <option value="">请选择学期</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>教室 *</label>
+                    <select id="classroom" required>
+                        <option value="">请选择教室</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>上课时间 *</label>
+                    <input type="text" id="schedule" required placeholder="如：周一 1-2节">
+                </div>
+                <div class="form-group">
+                    <label>容量 *</label>
+                    <input type="number" id="capacity" min="1" max="200" value="30" required>
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+
+    {% include '_batch_import.html' %}
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
+    <script>
+        let pager = null;
+        let courses = [];
+        let teachers = [];
+        let semesters = [];
+        let classrooms = [];
+        var currentSort = { sort_by: '', sort_order: 'asc' };
+
+        // 加载课程列表（下拉框）
+        function loadCoursesForSelect() {
+            fetch('/api/courses?page=-1')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        courses = data.data;
+                        const select = document.getElementById('courseId');
+                        const options = courses.map(c => `<option value="${c.course_id}">${c.course_name}</option>`).join('');
+                        select.innerHTML = '<option value="">请选择课程</option>' + options;
+                    }
+                });
+        }
+
+        // 加载教师列表（下拉框）
+        function loadTeachersForSelect() {
+            fetch('/api/teachers?page=-1')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        teachers = data.data;
+                        const select = document.getElementById('teacherId');
+                        const options = teachers.map(t => `<option value="${t.teacher_id}">${t.name || t.teacher_name || t.teacher_id}</option>`).join('');
+                        select.innerHTML = '<option value="">请选择教师</option>' + options;
+                    }
+                });
+        }
+
+        // 加载教室列表（下拉框）
+        function loadClassroomsForSelect() {
+            fetch('/api/classrooms?page=-1')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        classrooms = data.data;
+                        const select = document.getElementById('classroom');
+                        const options = classrooms.map(c => {
+                            var label = c.classroom_name;
+                            if (c.building) label = c.building + ' ' + label;
+                            if (c.capacity) label += ' (' + c.capacity + '人)';
+                            return `<option value="${c.classroom_name}">${label}</option>`;
+                        }).join('');
+                        select.innerHTML = '<option value="">请选择教室</option>' + options;
+                    }
+                });
+        }
+
+        // 加载学期列表（下拉框）
+        function loadSemestersForSelect() {
+            fetch('/api/semesters?page=-1')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        semesters = data.data;
+                        const select = document.getElementById('semesterId');
+                        const options = semesters.map(s => `<option value="${s.semester_id}">${s.academic_year} ${s.semester_name}</option>`).join('');
+                        select.innerHTML = '<option value="">请选择学期</option>' + options;
+                    }
+                });
+        }
+
+        // 加载教学安排列表
+        function loadTeachings(page = 1) {
+            let url = `/api/teaching?page=${page}&page_size=10`;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
+                    }
+                });
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('teachingTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '';
+                var emptyTr = document.createElement('tr');
+                var emptyTd = document.createElement('td');
+                emptyTd.colSpan = 8;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(function(item, index) {
+                var rowIdx = (pager.currentPage - 1) * 10 + index + 1;
+                const tr = document.createElement('tr');
+
+                var cells = [rowIdx, item.course_name || '-', item.teacher_name || '-', item.semester_label || (item.academic_year ? item.academic_year + ' ' + (item.semester_name || '') : '-'), item.classroom || '-', item.schedule || '-', item.capacity || '-'];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var td = document.createElement('td');
+                    td.textContent = String(cells[ci]);
+                    tr.appendChild(td);
+                }
+
+                // 操作
+                const tdActions = document.createElement('td');
+                tdActions.className = 'action-cell';
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = 'btn btn-sm btn-primary';
+                btnEdit.textContent = '编辑';
+                btnEdit.onclick = function() { editTeaching(item.teaching_id); };
+                tdActions.appendChild(btnEdit);
+
+                tdActions.appendChild(document.createTextNode(' '));
+
+                const btnDelete = document.createElement('button');
+                btnDelete.className = 'btn btn-sm btn-danger';
+                btnDelete.textContent = '删除';
+                btnDelete.onclick = function() { deleteTeaching(item.teaching_id); };
+                tdActions.appendChild(btnDelete);
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 打开模态框
+        function openModal() {
+            document.getElementById('teachingModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '新增教学安排';
+            document.getElementById('teachingForm').reset();
+            document.getElementById('teachingId').value = '';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('teachingModal').classList.remove('active');
+        }
+
+        // 编辑教学安排
+        function editTeaching(id) {
+            fetch(`/api/teaching/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        const item = data.data;
+                        document.getElementById('teachingModal').classList.add('active');
+                        document.getElementById('modalTitle').textContent = '编辑教学安排';
+                        document.getElementById('teachingId').value = item.teaching_id;
+                        document.getElementById('courseId').value = item.course_id;
+                        document.getElementById('teacherId').value = item.teacher_id;
+                        document.getElementById('semesterId').value = item.semester_id;
+                        document.getElementById('classroom').value = item.classroom || '';
+                        document.getElementById('schedule').value = item.schedule || '';
+                        document.getElementById('capacity').value = item.capacity || 30;
+                    }
+                });
+        }
+
+        // 提交表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('teachingId').value;
+            const data = {
+                course_id: document.getElementById('courseId').value,
+                teacher_id: document.getElementById('teacherId').value,
+                semester_id: parseInt(document.getElementById('semesterId').value),
+                classroom: document.getElementById('classroom').value,
+                schedule: document.getElementById('schedule').value,
+                capacity: parseInt(document.getElementById('capacity').value)
+            };
+
+            const url = id ? `/api/teaching/${id}` : '/api/teaching';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadTeachings(pager.currentPage);
+                }
+            });
+        }
+
+        // 删除教学安排
+        function deleteTeaching(id) {
+            if (!confirm('确定要删除该教学安排吗？')) return;
+
+            fetch(`/api/teaching/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrf_token } })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.msg);
+                    if (data.code === 0) loadTeachings(pager.currentPage);
+                });
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        }
+    </script>
+
+    <script>
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'course_name', label: '课程名称', type: 'text'},
+                {name: 'teacher_name', label: '授课教师', type: 'text'},
+                {name: 'classroom', label: '教室', type: 'text'},
+                {name: 'schedule', label: '上课时间', type: 'text'},
+                {name: 'capacity', label: '容量', type: 'number'}
+            ],
+            onApply: function(filters) { loadTeachings(1); },
+            onReset: function(filters) { loadTeachings(1); }
+        });
+        loadCoursesForSelect();
+        loadTeachersForSelect();
+        loadClassroomsForSelect();
+        loadSemestersForSelect();
+        // 初始化分页
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadTeachings(page); }
+        });
+        loadTeachings();
+
+        initSortableTable({
+            tableId: 'teachingTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadTeachings(1);
+            }
+        });
+
+        initBatchImport({
+            entityType: 'teaching',
+            previewColumns: ['课程名称', '授课教师', '学期', '教室', '上课时间', '容量'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '课程名称',
+            onImportSuccess: function() { loadTeachings(1); }
+        });
+    </script>
+</body>
+</html>

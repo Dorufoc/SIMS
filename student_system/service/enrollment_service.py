@@ -13,13 +13,14 @@ class EnrollmentService:
         self.repo.close()
 
     def get_available_courses(self, student_id: str):
-        """获取可选课程列表"""
-        # 简单实现：返回所有未被该学生选的课程
+        """获取可选课程列表 — 返回所有未选的课程"""
+        # 已选课程ID（排除退课）
         enrolled_ids = self.repo.db.query(Enrollment.teaching_id).filter(
             Enrollment.student_id == student_id,
             Enrollment.status != '退课'
         ).subquery()
 
+        # 返回所有未选的课程
         q = self.repo.db.query(Teaching).filter(
             ~Teaching.teaching_id.in_(enrolled_ids)
         ).order_by(Teaching.teaching_id)

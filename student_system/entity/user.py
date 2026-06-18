@@ -1,11 +1,14 @@
 """用户表"""
-from sqlalchemy import Column, Integer, String, TIMESTAMP, DateTime, Boolean, func
+from sqlalchemy import Column, Integer, String, TIMESTAMP, DateTime, Boolean, func, Index
 from sqlalchemy.orm import relationship
 from entity.base import Base
 
 
 class User(Base):
     __tablename__ = 'users'
+    __table_args__ = (
+        Index('idx_user_created_at', 'created_at'),
+    )
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(String(36), unique=True, nullable=False)

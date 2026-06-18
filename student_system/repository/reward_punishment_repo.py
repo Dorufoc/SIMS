@@ -11,5 +11,4 @@ class RewardPunishmentRepo(BaseRepo):
         'rp_type': 'rp_type',
         'title': 'title',
         'date': 'date',
-        'level': 'level',
     }

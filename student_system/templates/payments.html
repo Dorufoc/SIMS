@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>缴费管理 - 学生信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    {% set active_page = 'payments' %}
+    {% include '_header.html' %}
+
+    <div class="layout-wrapper">
+        {% include '_sidebar.html' %}
+        <main class="main-wrapper" id="main-wrapper">
+            <div class="content-area">
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>缴费管理</h1>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="openModal()">新增缴费</button>
+                        </div>
+                    </div>
+
+                    <!-- 缴费统计 -->
+                    <div class="dashboard-grid" id="statsSummary">
+                        <div class="stat-card-dashboard">
+                            <div class="stat-icon icon-payment-due">¥</div>
+                            <div class="stat-info">
+                                <div class="stat-label">应缴总额</div>
+                                <div class="stat-value" id="statTotalDue" style="color:#cc3336;">0.00</div>
+                                <div style="font-size:12px;color:#a0aec0;">所有缴费记录应缴合计</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-dashboard">
+                            <div class="stat-icon icon-payment-paid">¥</div>
+                            <div class="stat-info">
+                                <div class="stat-label">已缴总额</div>
+                                <div class="stat-value" id="statTotalPaid" style="color:#38a169;">0.00</div>
+                                <div style="font-size:12px;color:#a0aec0;">所有缴费记录已缴合计</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-dashboard">
+                            <div class="stat-icon icon-payment-unpaid">¥</div>
+                            <div class="stat-info">
+                                <div class="stat-label">欠费总额</div>
+                                <div class="stat-value" id="statUnpaid" style="color:#e53e3e;">0.00</div>
+                                <div style="font-size:12px;color:#a0aec0;">尚未缴纳的费用合计</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-dashboard">
+                            <div class="stat-icon icon-payment-count">#</div>
+                            <div class="stat-info">
+                                <div class="stat-label">缴费记录数</div>
+                                <div class="stat-value" id="statCount" style="color:#3182ce;">0</div>
+                                <div style="font-size:12px;color:#a0aec0;">系统中缴费记录总数</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="student_id">学号</th>
+                                    <th data-sort="student_name">学生姓名</th>
+                                    <th data-sort="fee_type">费用类型</th>
+                                    <th data-sort="academic_year">学年</th>
+                                    <th data-sort="semester">学期</th>
+                                    <th data-sort="amount_due">应缴金额</th>
+                                    <th data-sort="amount_paid">已缴金额</th>
+                                    <th>欠费金额</th>
+                                    <th data-sort="payment_date">缴费日期</th>
+                                    <th data-sort="status">状态</th>
+                                    <th>缴费方式</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentTable">
+                                <tr><td colspan="13" class="empty-row">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增缴费模态框 -->
+    <div id="paymentModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增缴费</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="paymentForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="paymentId">
+                <div class="form-group">
+                    <label>学号 *</label>
+                    <input type="text" id="studentId" required placeholder="请输入学号">
+                </div>
+                <div class="form-group">
+                    <label>费用类型 *</label>
+                    <select id="feeType" required>
+                        <option value="">请选择费用类型</option>
+                        <option value="学费">学费</option>
+                        <option value="住宿费">住宿费</option>
+                        <option value="教材费">教材费</option>
+                        <option value="体检费">体检费</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>学年 *</label>
+                    <input type="text" id="academicYear" required placeholder="如：2024-2025">
+                </div>
+                <div class="form-group">
+                    <label>学期</label>
+                    <select id="semester">
+                        <option value="">请选择学期</option>
+                        <option value="第一学期">第一学期</option>
+                        <option value="第二学期">第二学期</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>应缴金额 *</label>
+                    <input type="number" id="amountDue" step="0.01" min="0" required placeholder="请输入金额">
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 登记缴费模态框 -->
+    <div id="payModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>登记缴费</h2>
+                <span class="close" onclick="closePayModal()">&times;</span>
+            </div>
+            <form id="payForm" onsubmit="handlePaySubmit(event)">
+                <input type="hidden" id="payPaymentId">
+                <div class="form-group">
+                    <label>学号</label>
+                    <p id="payStudentId" style="margin:0;padding:8px 0;font-weight:600;"></p>
+                </div>
+                <div class="form-group">
+                    <label>费用类型</label>
+                    <p id="payFeeType" style="margin:0;padding:8px 0;"></p>
+                </div>
+                <div class="form-group">
+                    <label>应缴金额</label>
+                    <p id="payAmountDue" style="margin:0;padding:8px 0;"></p>
+                </div>
+                <div class="form-group">
+                    <label>已缴金额</label>
+                    <p id="payAmountPaid" style="margin:0;padding:8px 0;"></p>
+                </div>
+                <div class="form-group">
+                    <label>本次缴费金额 *</label>
+                    <input type="number" id="payAmount" step="0.01" min="0.01" required placeholder="请输入缴费金额">
+                </div>
+                <div class="form-group">
+                    <label>缴费方式 *</label>
+                    <select id="payMethod" required>
+                        <option value="">请选择缴费方式</option>
+                        <option value="微信">微信</option>
+                        <option value="支付宝">支付宝</option>
+                        <option value="银行转账">银行转账</option>
+                        <option value="现金">现金</option>
+                        <option value="刷卡">刷卡</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">确认缴费</button>
+            </form>
+        </div>
+    </div>
+
+    {% include '_batch_import.html' %}
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
+    <script>
+        // 加载缴费统计
+        function loadStats() {
+            fetch('/api/payments/stats')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        document.getElementById('statTotalDue').textContent = (data.data.total_due || 0).toFixed(2);
+                        document.getElementById('statTotalPaid').textContent = (data.data.total_paid || 0).toFixed(2);
+                        document.getElementById('statUnpaid').textContent = (data.data.unpaid || 0).toFixed(2);
+                        document.getElementById('statCount').textContent = data.data.count || 0;
+                    }
+                })
+                .catch(function(err) {
+                    console.error('加载缴费统计失败:', err);
+                });
+        }
+
+        // 加载缴费列表
+        function loadPayments(page = 1) {
+            let url = `/api/payments?page=${page}&page_size=10`;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
+            const filters = collectFilterValues('filterModule');
+            if (filters.length > 0) {
+                url += '&' + encodeFilters(filters);
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        renderTable(data.data);
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
+                    } else {
+                        renderError(data.msg || '请求失败');
+                    }
+                })
+                .catch(function(err) {
+                    renderError('网络错误，请检查登录状态后重试');
+                });
+        }
+
+        // 渲染错误信息
+        function renderError(msg) {
+            const tbody = document.getElementById('paymentTable');
+            tbody.innerHTML = '';
+            const emptyTr = document.createElement('tr');
+            const emptyTd = document.createElement('td');
+            emptyTd.colSpan = 13;
+            emptyTd.className = 'empty-row';
+            emptyTd.textContent = msg;
+            emptyTd.style.color = '#e53e3e';
+            emptyTr.appendChild(emptyTd);
+            tbody.appendChild(emptyTr);
+        }
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('paymentTable');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '';
+                const emptyTr = document.createElement('tr');
+                const emptyTd = document.createElement('td');
+                emptyTd.colSpan = 13;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+
+                // 序号
+                const tdIndex = document.createElement('td');
+                tdIndex.textContent = (pager.currentPage - 1) * 10 + index + 1;
+                tr.appendChild(tdIndex);
+
+                // 学号
+                const tdStudentId = document.createElement('td');
+                tdStudentId.textContent = item.student_id;
+                tr.appendChild(tdStudentId);
+
+                // 学生姓名
+                const tdStudentName = document.createElement('td');
+                tdStudentName.textContent = item.student_name || '-';
+                if (item.student_name) tdStudentName.style.color = '#2b6cb0';
+                tr.appendChild(tdStudentName);
+
+                // 费用类型
+                const tdFeeType = document.createElement('td');
+                tdFeeType.textContent = item.fee_type;
+                tr.appendChild(tdFeeType);
+
+                // 学年
+                const tdAcademicYear = document.createElement('td');
+                tdAcademicYear.textContent = item.academic_year;
+                tr.appendChild(tdAcademicYear);
+
+                // 学期
+                const tdSemester = document.createElement('td');
+                tdSemester.textContent = item.semester || '-';
+                tr.appendChild(tdSemester);
+
+                // 应缴金额
+                const tdAmountDue = document.createElement('td');
+                tdAmountDue.textContent = (item.amount_due || 0).toFixed(2);
+                tr.appendChild(tdAmountDue);
+
+                // 已缴金额
+                const tdAmountPaid = document.createElement('td');
+                tdAmountPaid.textContent = (item.amount_paid || 0).toFixed(2);
+                tr.appendChild(tdAmountPaid);
+
+                // 欠费金额
+                const tdBalance = document.createElement('td');
+                const balance = (item.amount_due || 0) - (item.amount_paid || 0);
+                tdBalance.textContent = balance.toFixed(2);
+                if ((item.status === '未缴' || item.status === '部分缴') && balance > 0) {
+                    tdBalance.style.color = '#e53e3e';
+                    tdBalance.style.fontWeight = 'bold';
+                }
+                tr.appendChild(tdBalance);
+
+                // 缴费日期
+                const tdDate = document.createElement('td');
+                tdDate.textContent = item.payment_date || '-';
+                tr.appendChild(tdDate);
+
+                // 状态
+                const tdStatus = document.createElement('td');
+                const statusSpan = document.createElement('span');
+                statusSpan.textContent = item.status || '-';
+                if (item.status === '已缴') {
+                    statusSpan.style.color = '#38a169';
+                    statusSpan.style.fontWeight = 'bold';
+                } else if (item.status === '未缴' || item.status === '部分缴') {
+                    statusSpan.style.color = '#e53e3e';
+                    statusSpan.style.fontWeight = 'bold';
+                    if (balance > 0) {
+                        statusSpan.textContent = item.status + '(欠费' + balance.toFixed(2) + '元)';
+                    }
+                } else if (item.status === '退款') {
+                    statusSpan.style.color = '#a0aec0';
+                }
+                tdStatus.appendChild(statusSpan);
+                tr.appendChild(tdStatus);
+
+                // 缴费方式
+                const tdMethod = document.createElement('td');
+                tdMethod.textContent = item.payment_method || '-';
+                tr.appendChild(tdMethod);
+
+                // 操作
+                const tdActions = document.createElement('td');
+                tdActions.className = 'action-cell';
+
+                if (item.status !== '已缴') {
+                    const btnPay = document.createElement('button');
+                    btnPay.className = 'btn btn-primary';
+                    btnPay.textContent = '登记缴费';
+                    btnPay.onclick = function() { openPayModal(item); };
+                    tdActions.appendChild(btnPay);
+                } else {
+                    const spanDone = document.createElement('span');
+                    spanDone.textContent = '已缴清';
+                    spanDone.style.color = '#38a169';
+                    tdActions.appendChild(spanDone);
+                }
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 打开新增模态框
+        function openModal() {
+            document.getElementById('paymentModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '新增缴费';
+            document.getElementById('paymentForm').reset();
+            document.getElementById('paymentId').value = '';
+        }
+
+        // 关闭新增模态框
+        function closeModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+        }
+
+        // 打开登记缴费模态框
+        function openPayModal(item) {
+            document.getElementById('payModal').classList.add('active');
+            document.getElementById('payPaymentId').value = item.payment_id;
+            document.getElementById('payStudentId').textContent = item.student_id;
+            document.getElementById('payFeeType').textContent = item.fee_type;
+            document.getElementById('payAmountDue').textContent = (item.amount_due || 0).toFixed(2);
+            document.getElementById('payAmountPaid').textContent = (item.amount_paid || 0).toFixed(2);
+            document.getElementById('payForm').reset();
+            document.getElementById('payAmount').removeAttribute('disabled');
+        }
+
+        // 关闭登记缴费模态框
+        function closePayModal() {
+            document.getElementById('payModal').classList.remove('active');
+        }
+
+        // 提交新增缴费表单
+        function handleSubmit(e) {
+            e.preventDefault();
+            const data = {
+                student_id: document.getElementById('studentId').value.trim(),
+                fee_type: document.getElementById('feeType').value,
+                academic_year: document.getElementById('academicYear').value.trim(),
+                semester: document.getElementById('semester').value,
+                amount_due: parseFloat(document.getElementById('amountDue').value)
+            };
+
+            fetch('/api/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closeModal();
+                    loadPayments(pager.currentPage);
+                    loadStats();
+                }
+            });
+        }
+
+        // 提交登记缴费表单
+        function handlePaySubmit(e) {
+            e.preventDefault();
+            const paymentId = document.getElementById('payPaymentId').value;
+            const amount = parseFloat(document.getElementById('payAmount').value);
+            const method = document.getElementById('payMethod').value;
+
+            if (!amount || amount <= 0) {
+                alert('请输入有效的缴费金额');
+                return;
+            }
+            if (!method) {
+                alert('请选择缴费方式');
+                return;
+            }
+
+            document.getElementById('payAmount').disabled = true;
+
+            fetch('/api/payments/' + paymentId + '/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
+                body: JSON.stringify({ amount: amount, method: method })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.msg);
+                if (data.code === 0) {
+                    closePayModal();
+                    loadPayments(pager.currentPage);
+                    loadStats();
+                } else {
+                    document.getElementById('payAmount').disabled = false;
+                }
+            })
+            .catch(function() {
+                document.getElementById('payAmount').disabled = false;
+            });
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal-overlay')) {
+                if (e.target.id === 'paymentModal') closeModal();
+                if (e.target.id === 'payModal') closePayModal();
+            }
+        };
+    </script>
+
+    <script>
+        // 全局变量声明
+        var currentSort = { sort_by: '', sort_order: 'asc' };
+        var pager = null;
+
+        initFilterModule({
+            containerId: 'filterModule',
+            fields: [
+                {name: 'student_id', label: '学号', type: 'text'},
+                {name: 'fee_type', label: '费用类型', type: 'text'},
+                {name: 'status', label: '状态', type: 'select', options: ['未缴', '部分缴', '已缴', '退款']}
+            ],
+            onApply: function(filters) { loadPayments(1); },
+            onReset: function(filters) { loadPayments(1); }
+        });
+
+        // 先初始化分页组件（确保 pager 可用）
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadPayments(page); }
+        });
+
+        loadStats();
+        loadPayments();
+
+        initSortableTable({
+            tableId: 'paymentTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadPayments(1);
+            }
+        });
+
+        initBatchImport({
+            entityType: 'payment',
+            previewColumns: ['学号', '费用类型', '学年', '学期', '应缴金额'],
+            requiredFieldIndex: 0,
+            requiredFieldName: '学号',
+            onImportSuccess: function() { loadPayments(1); loadStats(); }
+        });
+    </script>
+</body>
+</html>

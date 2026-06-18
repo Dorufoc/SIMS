@@ -17,11 +17,11 @@
                 <div class="permission-page">
                     <div class="permission-page-header">
                         <h1>专业管理</h1>
-                        <button class="btn btn-primary" onclick="openModal()">新增专业</button>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="openModal()">新增专业</button>
+                        </div>
                     </div>
-
-                    <!-- 批量导入导出 -->
-                    {% include '_batch_import.html' %}
 
                     <div id="filterModule" class="filter-builder">
                         <div class="filter-builder-header">
@@ -41,16 +41,17 @@
                         <table class="permission-table">
                             <thead>
                                 <tr>
-                                    <th>专业编号</th>
-                                    <th>专业名称</th>
-                                    <th>所属院系</th>
-                                    <th>学制(年)</th>
-                                    <th>学位类型</th>
+                                    <th>序号</th>
+                                    <th data-sort="major_id">专业编号</th>
+                                    <th data-sort="major_name">专业名称</th>
+                                    <th data-sort="dept_name">所属院系</th>
+                                    <th data-sort="duration">学制(年)</th>
+                                    <th data-sort="degree_type">学位类型</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
                             <tbody id="majorTable">
-                                <!-- 数据将通过JS加载 -->
+                                <tr><td colspan="7" class="empty-row">加载中...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -101,11 +102,13 @@
         </div>
     </div>
 
+    {% include '_batch_import.html' %}
+
     <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
     <script>
-        let currentPage = 1;
-        let totalPages = 1;
         let departments = [];
+        var currentSort = { sort_by: '', sort_order: 'asc' };
 
         // 加载院系列表
         function loadDepartments() {
@@ -123,8 +126,10 @@
 
         // 加载专业列表
         function loadMajors(page = 1) {
-            currentPage = page;
             let url = `/api/majors?page=${page}&page_size=10`;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
             const filters = collectFilterValues('filterModule');
             if (filters.length > 0) {
                 url += '&' + encodeFilters(filters);
@@ -135,8 +140,7 @@
                 .then(data => {
                     if (data.code === 0) {
                         renderTable(data.data);
-                        totalPages = data.total_pages || 1;
-                        renderPagination();
+                        pager.update({ currentPage: page, totalPages: data.total_pages || 1 });
                     }
                 });
         }
@@ -145,47 +149,42 @@
         function renderTable(data) {
             const tbody = document.getElementById('majorTable');
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">暂无数据</td></tr>';
+                tbody.innerHTML = '';
+                var emptyTr = document.createElement('tr');
+                var emptyTd = document.createElement('td');
+                emptyTd.colSpan = 7;
+                emptyTd.className = 'empty-row';
+                emptyTd.textContent = '暂无数据';
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
                 return;
             }
 
             tbody.innerHTML = '';
-            data.forEach(major => {
-                const dept = departments.find(d => d.dept_id === major.dept_id);
-
+            data.forEach(function(major, i) {
+                var rowIdx = (pager.currentPage - 1) * 10 + i + 1;
                 const tr = document.createElement('tr');
 
-                const tdId = document.createElement('td');
-                tdId.textContent = major.major_id;
-                tr.appendChild(tdId);
-
-                const tdName = document.createElement('td');
-                tdName.textContent = major.major_name;
-                tr.appendChild(tdName);
-
-                const tdDept = document.createElement('td');
-                tdDept.textContent = dept ? dept.dept_name : '-';
-                tr.appendChild(tdDept);
-
-                const tdDuration = document.createElement('td');
-                tdDuration.textContent = major.duration;
-                tr.appendChild(tdDuration);
-
-                const tdDegree = document.createElement('td');
-                tdDegree.textContent = major.degree_type || '-';
-                tr.appendChild(tdDegree);
+                var cells = [rowIdx, major.major_id, major.major_name, major.dept_name || '-', major.duration, major.degree_type || '-'];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var td = document.createElement('td');
+                    td.textContent = String(cells[ci]);
+                    tr.appendChild(td);
+                }
 
                 const tdActions = document.createElement('td');
-                tdActions.className = 'actions';
+                tdActions.className = 'action-cell';
 
                 const btnEdit = document.createElement('button');
-                btnEdit.className = 'btn btn-warning';
+                btnEdit.className = 'btn btn-sm btn-primary';
                 btnEdit.textContent = '编辑';
                 btnEdit.onclick = function() { editMajor(major.major_id); };
                 tdActions.appendChild(btnEdit);
 
+                tdActions.appendChild(document.createTextNode(' '));
+
                 const btnDelete = document.createElement('button');
-                btnDelete.className = 'btn btn-danger';
+                btnDelete.className = 'btn btn-sm btn-danger';
                 btnDelete.textContent = '删除';
                 btnDelete.onclick = function() { deleteMajor(major.major_id, major.major_name); };
                 tdActions.appendChild(btnDelete);
@@ -195,20 +194,14 @@
             });
         }
 
-        // 渲染分页
-        function renderPagination() {
-            const pagination = document.getElementById('pagination');
-            let html = `<button class="page-btn" onclick="loadMajors(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
-            for (let i = 1; i <= totalPages; i++) {
-                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
-                    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadMajors(${i})">${i}</button>`;
-                } else if (i === currentPage - 3 || i === currentPage + 3) {
-                    html += `<span>...</span>`;
-                }
-            }
-            html += `<button class="page-btn" onclick="loadMajors(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
-            pagination.innerHTML = html;
-        }
+        // 初始化分页
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function (page) { loadMajors(page); }
+        });
 
         // 打开模态框
         function openModal() {
@@ -259,7 +252,7 @@
 
             fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf_token },
                 body: JSON.stringify(data)
             })
             .then(res => res.json())
@@ -267,7 +260,7 @@
                 alert(data.msg);
                 if (data.code === 0) {
                     closeModal();
-                    loadMajors(currentPage);
+                    loadMajors(pager.currentPage);
                 }
             });
         }
@@ -276,11 +269,11 @@
         function deleteMajor(id, name) {
             if (!confirm(`确定要删除专业 "${name}" 吗？`)) return;
 
-            fetch(`/api/majors/${id}`, { method: 'DELETE' })
+            fetch(`/api/majors/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrf_token } })
                 .then(res => res.json())
                 .then(data => {
                     alert(data.msg);
-                    if (data.code === 0) loadMajors(currentPage);
+                    if (data.code === 0) loadMajors(pager.currentPage);
                 });
         }
 
@@ -304,6 +297,14 @@
         loadDepartments();
         loadMajors();
 
+        initSortableTable({
+            tableId: 'majorTable',
+            onSort: function(sort) {
+                currentSort = sort;
+                loadMajors(1);
+            }
+        });
+
         initBatchImport({
             entityType: 'major',
             previewColumns: ['专业名称', '所属院系编号', '学制(年)'],
@@ -312,6 +313,5 @@
             onImportSuccess: function() { loadMajors(1); }
         });
     </script>
-
 </body>
 </html>

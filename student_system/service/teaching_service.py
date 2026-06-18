@@ -31,7 +31,7 @@ class TeachingService:
         if not t:
             return None
         for k, v in filtered_data.items():
-            if hasattr(t, k):
+            if v is not None and v != '' and hasattr(t, k):
                 setattr(t, k, v)
         self.repo.db.commit()
         return t

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据管理</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=9">
 </head>
 <body>
     {% set active_page = 'manage' %}
@@ -14,63 +14,56 @@
         {% include '_sidebar.html' %}
         <main class="main-wrapper" id="main-wrapper">
             <div class="content-area">
-        <!-- 批量导入导出 -->
-        {% include '_batch_import.html' %}
+                <div class="permission-page">
+                    <div class="permission-page-header">
+                        <h1>数据管理</h1>
+                        <div>
+                            <button class="btn btn-secondary" onclick="openBatchImportModal()">批量导入/导出</button>
+                            <button class="btn btn-primary" onclick="open_add_modal()">新增学生</button>
+                        </div>
+                    </div>
 
-        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-            <button type="button" class="btn btn-primary" onclick="open_add_modal()">+ 手动添加</button>
-        </div>
+                    <div id="filterModule" class="filter-builder">
+                        <div class="filter-builder-header">
+                            <h3>筛选条件</h3>
+                            <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
+                        </div>
+                        <div class="filter-rows-container">
+                            <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
+                        </div>
+                        <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
+                            <button class="btn btn-primary btn-apply-filters">查询</button>
+                            <button class="btn btn-secondary btn-reset-filters">重置</button>
+                        </div>
+                    </div>
 
-        <!-- 筛选模块 -->
-        <section class="data-section">
-            <h2>筛选条件</h2>
-            <div id="filterModule" class="filter-builder" style="margin-bottom:0;">
-                <div class="filter-builder-header">
-                    <h3>筛选条件</h3>
-                    <button class="btn btn-sm btn-primary btn-add-filter">+ 添加筛选条件</button>
-                </div>
-                <div class="filter-rows-container">
-                    <div class="filter-empty-hint">暂无筛选条件，点击上方"添加筛选条件"按钮添加</div>
-                </div>
-                <div class="filter-actions" style="margin-top:15px;margin-bottom:0;">
-                    <button class="btn btn-primary btn-apply-filters">查询</button>
-                    <button class="btn btn-secondary btn-reset-filters">重置</button>
+                    <div class="permission-table-container">
+                        <table class="permission-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th data-sort="student_id">学号</th>
+                                    <th data-sort="student_name">姓名</th>
+                                    <th data-sort="gender">性别</th>
+                                    <th data-sort="birth_date">年龄</th>
+                                    <th data-sort="class_name">班级</th>
+                                    <th data-sort="enrollment_year">年级</th>
+                                    <th data-sort="major_name">专业</th>
+                                    <th data-sort="dept_name">学院</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="student-table-body">
+                                <tr>
+                                    <td colspan="10" class="empty-row">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
                 </div>
             </div>
-        </section>
-
-        <!-- 学生数据表格 -->
-        <section class="data-section">
-            <h2>学生数据</h2>
-            <div class="table-wrapper">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>序号</th>
-                            <th>学号</th>
-                            <th>姓名</th>
-                            <th>性别</th>
-                            <th>年龄</th>
-                            <th>班级</th>
-                            <th>年级</th>
-                            <th>专业</th>
-                            <th>学院</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="student-table-body">
-                        <tr>
-                            <td colspan="10" class="empty-row">加载中...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- 分页导航 -->
-            <nav class="page-nav" id="pagination"></nav>
-                </div>
-            </section>
-        </div>
     </main>
 </div>
 
@@ -89,7 +82,7 @@
                 </div>
                 <div class="form-group">
                     <label for="edit_student_name">姓名</label>
-                    <input type="text" id="edit_student_name" name="student_name" required>
+                    <input type="text" id="edit_student_name" name="name" required>
                 </div>
                 <div class="form-group">
                     <label for="edit_gender">性别</label>
@@ -109,10 +102,7 @@
                         <option value="">-- 请选择班级 --</option>
                     </select>
                 </div>
-                <div class="form-group form-group-actions">
-                    <button type="submit" class="btn btn-primary">保存</button>
-                    <button type="button" class="btn btn-secondary" onclick="close_edit_modal()">取消</button>
-                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
             </form>
             <div id="edit_msg_box" class="msg-box" style="display:none;"></div>
         </div>
@@ -125,77 +115,79 @@
                 <h3>新增学生</h3>
                 <button type="button" class="modal-close" onclick="close_add_modal()">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="add_stu_form_modal">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>学号 *</label>
-                            <input type="text" id="add_student_no" name="student_id" required placeholder="请输入学号">
-                        </div>
-                        <div class="form-group">
-                            <label>姓名 *</label>
-                            <input type="text" id="add_name" name="name" required placeholder="请输入姓名">
-                        </div>
+            <form id="add_stu_form_modal">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>学号 *</label>
+                        <input type="text" id="add_student_no" name="student_id" required placeholder="请输入学号">
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>性别</label>
-                            <select id="add_gender" name="gender">
-                                <option value="">请选择</option>
-                                <option value="M">男</option>
-                                <option value="F">女</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>入学年份</label>
-                            <input type="number" id="add_enrollment_year" name="enrollment_year" placeholder="如：2024" min="2000" max="2099">
-                        </div>
+                    <div class="form-group">
+                        <label>姓名 *</label>
+                        <input type="text" id="add_name" name="name" required placeholder="请输入姓名">
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>学院</label>
-                            <select id="add_dept_select">
-                                <option value="">-- 请选择学院 --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>专业</label>
-                            <select id="add_major_select">
-                                <option value="">-- 请先选择学院 --</option>
-                            </select>
-                        </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>性别</label>
+                        <select id="add_gender" name="gender">
+                            <option value="">请选择</option>
+                            <option value="M">男</option>
+                            <option value="F">女</option>
+                        </select>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group full-width">
-                            <label>班级</label>
-                            <select id="add_class_select" name="class_id">
-                                <option value="">-- 请先选择专业 --</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label>出生日期</label>
+                        <input type="date" id="add_birth_date" name="birth_date">
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>联系电话</label>
-                            <input type="text" id="add_phone" name="phone" placeholder="请输入电话">
-                        </div>
-                        <div class="form-group">
-                            <label>邮箱</label>
-                            <input type="email" id="add_email" name="email" placeholder="请输入邮箱">
-                        </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>入学年份</label>
+                        <input type="number" id="add_enrollment_year" name="enrollment_year" placeholder="如：2024" min="2000" max="2099">
                     </div>
-                    <div class="form-group form-group-actions">
-                        <button type="submit" class="btn btn-primary">提交</button>
-                        <button type="button" class="btn btn-secondary" onclick="close_add_modal()">取消</button>
+                    <div class="form-group">
+                        <label>联系电话</label>
+                        <input type="text" id="add_phone" name="phone" placeholder="请输入电话">
                     </div>
-                </form>
-                <div id="add_msg_box" class="msg-box" style="display:none;"></div>
-            </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>学院</label>
+                        <select id="add_dept_select">
+                            <option value="">-- 请选择学院 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>专业</label>
+                        <select id="add_major_select">
+                            <option value="">-- 请先选择学院 --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>班级</label>
+                        <select id="add_class_select" name="class_id">
+                            <option value="">-- 请先选择专业 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="add_email" name="email" placeholder="请输入邮箱">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">提交</button>
+            </form>
+            <div id="add_msg_box" class="msg-box" style="display:none;"></div>
         </div>
     </div>
 
     <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div></div>
 
+    {% include '_batch_import.html' %}
+
     <script src="/static/js/main.js"></script>
+    <script src="/static/js/pagination.js"></script>
     <script>
         /* ========== 批量导入初始化 ========== */
         initBatchImport({
@@ -257,11 +249,12 @@
             classSelect.innerHTML = '<option value="">-- 请选择班级 --</option>';
             
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/classes', true);
+            xhr.open('GET', '/api/classes?page=-1', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
-                        var classes = JSON.parse(xhr.responseText);
+                        var resp = JSON.parse(xhr.responseText);
+                        var classes = resp.code === 0 ? (resp.data || []) : [];
                         classes.forEach(function(c) {
                             var opt = document.createElement('option');
                             opt.value = c.class_id;
@@ -502,11 +495,14 @@
         });
 
         /* ========== 学生表格渲染 ========== */
-        var currentStudentPage = 1;
+        var pager = null;
+        var currentSort = { sort_by: '', sort_order: 'asc' };
 
         function loadStudents(page) {
-            currentStudentPage = page || 1;
-            var url = '/api/students?page=' + currentStudentPage;
+            var url = '/api/students?page=' + page;
+            if (currentSort.sort_by) {
+                url += '&sort_by=' + encodeURIComponent(currentSort.sort_by) + '&sort_order=' + encodeURIComponent(currentSort.sort_order);
+            }
             var filters = collectFilterValues('filterModule');
             if (filters.length > 0) {
                 url += '&' + encodeFilters(filters);
@@ -515,7 +511,7 @@
             fetch(url).then(function(r) { return r.json(); }).then(function(d) {
                 if (d.code === 0) {
                     renderStudentTable(d.data);
-                    renderStudentPagination(d.page, d.total_pages);
+                    pager.update({ currentPage: page, totalPages: d.total_pages || 1 });
                 }
             });
         }
@@ -536,8 +532,9 @@
             }
             tbody.innerHTML = '';
             students.forEach(function(s, i) {
-                var rowIdx = (currentStudentPage - 1) * 10 + i + 1;
+                var rowIdx = (pager.currentPage - 1) * 10 + i + 1;
                 var gender = s.gender || '';
+                var genderDisplay = s.gender_text || gender;
                 var birthDate = (s.birth_date !== null && s.birth_date !== undefined) ? s.birth_date : '';
                 var className = s.class_name || '';
                 var enrollmentYear = s.enrollment_year || '';
@@ -548,7 +545,7 @@
                 var tr = document.createElement('tr');
                 var cells = [
                     rowIdx, s.student_id || '', s.student_name || '',
-                    gender, birthDate, className, enrollmentYear, majorName, deptName
+                    genderDisplay, birthDate, className, enrollmentYear, majorName, deptName
                 ];
                 for (var ci = 0; ci < cells.length; ci++) {
                     var td = document.createElement('td');
@@ -597,58 +594,14 @@
             });
         }
 
-        function renderStudentPagination(page, totalPages) {
-            var container = document.getElementById('pagination');
-            if (!container) return;
-            if (!totalPages || totalPages <= 1) {
-                container.innerHTML = '';
-                return;
-            }
-            container.innerHTML = '';
-            if (page > 1) {
-                var prevLink = document.createElement('a');
-                prevLink.href = 'javascript:void(0)';
-                prevLink.className = 'page-link';
-                prevLink.textContent = '上一页';
-                prevLink.addEventListener('click', function() { loadStudents(page - 1); });
-                container.appendChild(prevLink);
-            } else {
-                var prevSpan = document.createElement('span');
-                prevSpan.className = 'page-link page-link-disabled';
-                prevSpan.textContent = '上一页';
-                container.appendChild(prevSpan);
-            }
-            for (var i = 1; i <= totalPages; i++) {
-                if (i === page) {
-                    var activeSpan = document.createElement('span');
-                    activeSpan.className = 'page-link page-link-active';
-                    activeSpan.textContent = String(i);
-                    container.appendChild(activeSpan);
-                } else {
-                    var pageLink = document.createElement('a');
-                    pageLink.href = 'javascript:void(0)';
-                    pageLink.className = 'page-link';
-                    pageLink.textContent = String(i);
-                    (function(pageNum) {
-                        pageLink.addEventListener('click', function() { loadStudents(pageNum); });
-                    })(i);
-                    container.appendChild(pageLink);
-                }
-            }
-            if (page < totalPages) {
-                var nextLink = document.createElement('a');
-                nextLink.href = 'javascript:void(0)';
-                nextLink.className = 'page-link';
-                nextLink.textContent = '下一页';
-                nextLink.addEventListener('click', function() { loadStudents(page + 1); });
-                container.appendChild(nextLink);
-            } else {
-                var nextSpan = document.createElement('span');
-                nextSpan.className = 'page-link page-link-disabled';
-                nextSpan.textContent = '下一页';
-                container.appendChild(nextSpan);
-            }
-        }
+        /* ========== 分页初始化 ========== */
+        pager = new Pagination({
+            container: 'pagination',
+            totalPages: 1,
+            currentPage: 1,
+            range: 2,
+            onChange: function(page) { loadStudents(page); }
+        });
 
         /* ========== 筛选模块初始化（使用main.js中的统一函数） ========== */
         initFilterModule({
@@ -656,10 +609,9 @@
             fields: [
                 {name: 'student_id', label: '学号', type: 'text'},
                 {name: 'student_name', label: '姓名', type: 'text'},
-                {name: 'gender', label: '性别', type: 'select', options: ['M', 'F']},
-                {name: 'birth_date', label: '出生日期', type: 'text'},
+                {name: 'gender', label: '性别', type: 'select', options: [{value: 'M', label: '男'}, {value: 'F', label: '女'}]},
                 {name: 'class_name', label: '班级', type: 'text'},
-                {name: 'enrollment_year', label: '入学年份', type: 'text'},
+                {name: 'enrollment_year', label: '入学年份', type: 'number'},
                 {name: 'major_name', label: '专业', type: 'text'},
                 {name: 'dept_name', label: '学院', type: 'text'}
             ],
@@ -667,6 +619,14 @@
                 loadStudents(1);
             },
             onReset: function() {
+                loadStudents(1);
+            }
+        });
+
+        initSortableTable({
+            tableId: 'student-table-body',
+            onSort: function(sort) {
+                currentSort = sort;
                 loadStudents(1);
             }
         });

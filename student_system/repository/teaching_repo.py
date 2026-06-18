@@ -11,5 +11,6 @@ class TeachingRepo(BaseRepo):
         'teacher_id': 'teacher_id',
         'semester_id': 'semester_id',
         'classroom': 'classroom',
+        'schedule': 'schedule',
         'capacity': 'capacity',
     }

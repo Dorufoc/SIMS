@@ -44,7 +44,7 @@ class DormService:
         if not room:
             return None
         for k, v in filtered_data.items():
-            if hasattr(room, k):
+            if v is not None and v != '' and hasattr(room, k):
                 setattr(room, k, v)
         self.room_repo.db.commit()
         return room

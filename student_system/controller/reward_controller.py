@@ -20,14 +20,50 @@ def rewards_page():
 def api_rewards():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
+    filters_json = request.args.get('filters', '')
 
     svc = RewardService()
     try:
-        items, total = svc.get_list(page, page_size)
+        from entity.reward_punishment import RewardPunishment
+
+        SORT_FIELDS = {
+            'rp_id': RewardPunishment.rp_id,
+            'student_id': RewardPunishment.student_id,
+            'rp_type': RewardPunishment.rp_type,
+            'title': RewardPunishment.title,
+            'date': RewardPunishment.date,
+        }
+        sort_by = request.args.get('sort_by', '')
+        sort_order = request.args.get('sort_order', '')
+        order_col = SORT_FIELDS.get(sort_by)
+        if order_col is not None:
+            if sort_order == 'desc':
+                order_col = order_col.desc()
+
+        if filters_json:
+            import json
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                filters = []
+            order_by = order_col if order_col is not None else svc.repo.model.date.desc()
+            items, total = svc.repo.filter_paginate(filters, page, page_size, order_by)
+        else:
+            from sqlalchemy.orm import joinedload
+            q = svc.repo.db.query(svc.repo.model).options(
+                joinedload(svc.repo.model.student)
+            )
+            if order_col is not None:
+                q = q.order_by(order_col)
+            else:
+                q = q.order_by(svc.repo.model.date.desc())
+            items, total = svc.repo.paginate(page, page_size, q)
         total_pages = (total + page_size - 1) // page_size
-        data = [{'rp_id': r.rp_id, 'student_id': r.student_id, 'rp_type': r.rp_type,
-                 'title': r.title, 'level': r.level, 'date': str(r.date),
-                 'reason': r.reason, 'issuing_authority': r.issuing_authority, 'remark': r.remark} for r in items]
+        data = [{'rp_id': r.rp_id, 'student_id': r.student_id,
+                 'student_name': r.student.name if r.student else '',
+                 'rp_type': r.rp_type,
+                 'title': r.title, 'date': str(r.date),
+                 'reason': r.reason, 'remark': r.remark} for r in items]
         return jsonify({'code': 0, 'data': data, 'total': total, 'page': page, 'total_pages': total_pages})
     finally:
         svc.close()
@@ -41,9 +77,8 @@ def api_create_reward():
     svc = RewardService()
     try:
         svc.create({'student_id': data.get('student_id', ''), 'rp_type': data.get('rp_type', ''),
-                    'title': data.get('title', ''), 'level': data.get('level', ''),
+                    'title': data.get('title', ''),
                     'date': data.get('date', ''), 'reason': data.get('reason', ''),
-                    'issuing_authority': data.get('issuing_authority', ''),
                     'remark': data.get('remark', '')})
         return jsonify({'code': 0, 'msg': '创建成功'})
     except Exception as e:
@@ -87,7 +122,7 @@ def api_student_rewards(student_id):
     try:
         rewards = svc.get_by_student(student_id)
         data = [{'rp_id': r.rp_id, 'rp_type': r.rp_type, 'title': r.title,
-                 'level': r.level, 'date': str(r.date), 'reason': r.reason} for r in rewards]
+                 'date': str(r.date), 'reason': r.reason} for r in rewards]
         return jsonify({'code': 0, 'data': data})
     finally:
         svc.close()

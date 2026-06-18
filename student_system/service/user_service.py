@@ -118,13 +118,10 @@ class UserService:
             {'name': 'semesters', 'label': '学期表'},
             {'name': 'teaching', 'label': '授课安排表'},
             {'name': 'enrollments', 'label': '选课表'},
-            {'name': 'grade_scale', 'label': '成绩等级表'},
             {'name': 'rewards_punishments', 'label': '奖惩表'},
             {'name': 'payments', 'label': '缴费表'},
             {'name': 'dorm_rooms', 'label': '宿舍表'},
             {'name': 'dorm_assignments', 'label': '住宿分配表'},
-            {'name': 'curriculum', 'label': '培养计划表'},
-            {'name': 'enroll_logs', 'label': '选课日志表'},
         ]
         return tables
 

@@ -1,7 +1,6 @@
 <!-- 统一侧边栏组件 -->
 <!-- 使用前需设置 active_page 变量 -->
 <aside class="sidebar" id="sidebar">
-    <div class="sidebar-toggle" onclick="toggleSidebar()"></div>
     <nav class="sidebar-menu">
         {% if offline_mode %}
         <div class="menu-section">系统</div>
@@ -21,12 +20,23 @@
         <div class="menu-divider"></div>
         <div class="menu-section">教学管理</div>
         <a href="/courses" class="menu-item {% if active_page == 'courses' %}active{% endif %}"><span class="menu-text">课程管理</span></a>
-        <a href="/dorm_rooms" class="menu-item {% if active_page == 'dorm' %}active{% endif %}"><span class="menu-text">宿舍管理</span></a>
-        <a href="/rewards" class="menu-item {% if active_page == 'rewards' %}active{% endif %}"><span class="menu-text">奖惩管理</span></a>
-        <a href="/statistics" class="menu-item {% if active_page == 'statistics' %}active{% endif %}"><span class="menu-text">统计报表</span></a>
+        <a href="/classrooms" class="menu-item {% if active_page == 'classrooms' %}active{% endif %}"><span class="menu-text">教室管理</span></a>
+        <a href="/teaching" class="menu-item {% if active_page == 'teaching' %}active{% endif %}"><span class="menu-text">授课管理</span></a>
+        <a href="/semesters" class="menu-item {% if active_page == 'semesters' %}active{% endif %}"><span class="menu-text">学期管理</span></a>
+        <a href="/enrollments" class="menu-item {% if active_page == 'enrollments' %}active{% endif %}"><span class="menu-text">选课管理</span></a>
+        <a href="/grades" class="menu-item {% if active_page == 'grades' %}active{% endif %}"><span class="menu-text">成绩管理</span></a>
 
-        <div class="menu-divider admin-only"></div>
-        <div class="menu-section admin-only">系统</div>
+        <div class="menu-divider"></div>
+        <div class="menu-section">学生服务</div>
+        <a href="/payments" class="menu-item {% if active_page == 'payments' %}active{% endif %}"><span class="menu-text">缴费管理</span></a>
+        <a href="/dorm_rooms" class="menu-item {% if active_page in ['dorm', 'dorm_rooms'] %}active{% endif %}"><span class="menu-text">宿舍房间</span></a>
+        <a href="/dorm_assignments" class="menu-item {% if active_page == 'dorm_assignments' %}active{% endif %}"><span class="menu-text">住宿分配</span></a>
+        <a href="/rewards" class="menu-item {% if active_page == 'rewards' %}active{% endif %}"><span class="menu-text">奖惩管理</span></a>
+
+        <div class="menu-divider"></div>
+        <div class="menu-section">数据与系统</div>
+        <a href="/statistics" class="menu-item {% if active_page == 'statistics' %}active{% endif %}"><span class="menu-text">统计报表</span></a>
+        <a href="/query" class="menu-item {% if active_page == 'query' %}active{% endif %}"><span class="menu-text">综合查询</span></a>
         <a href="/user_management" class="menu-item admin-only {% if active_page in ['user_management', 'permission'] %}active{% endif %}"><span class="menu-text">用户管理</span></a>
         <a href="/settings" class="menu-item admin-only {% if active_page == 'settings' %}active{% endif %}"><span class="menu-text">系统设置</span></a>
         {% endif %}

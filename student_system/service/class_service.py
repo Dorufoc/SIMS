@@ -29,7 +29,7 @@ class ClassService:
         if not cls:
             return None
         for k, v in filtered_data.items():
-            if hasattr(cls, k):
+            if v is not None and v != '' and hasattr(cls, k):
                 setattr(cls, k, v)
         self.repo.db.commit()
         return cls
